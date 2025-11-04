@@ -1,0 +1,35 @@
+{
+  "name": "edvin/pillar",
+  "description": "A lightweight DDD and Event Sourcing foundation for PHP applications",
+  "type": "library",
+  "license": "MIT",
+  "require": {
+    "php": "^8.4",
+    "illuminate/support": "^12.0",
+    "illuminate/events": "^12.0",
+    "illuminate/contracts": "^12.0",
+    "illuminate/container": "^12.0",
+    "illuminate/database": "^12.0"
+  },
+  "require-dev": {
+    "illuminate/console": "^12.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Pillar\\": "src/"
+    }
+  },
+  "authors": [
+    {
+      "name": "Edvin Syse",
+      "email": "edvin@syse.priv.no"
+    }
+  ],
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Pillar\\Provider\\PillarServiceProvider"
+      ]
+    }
+  }
+}
