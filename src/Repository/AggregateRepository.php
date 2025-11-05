@@ -7,7 +7,7 @@ use Pillar\Aggregate\AggregateRootId;
 
 interface AggregateRepository
 {
-    public function find(AggregateRootId $id): ?AggregateRoot;
+    public function find(AggregateRootId $id): ?LoadedAggregate;
 
-    public function save(AggregateRoot $aggregate): void;
+    public function save(AggregateRoot $aggregate, ?int $expectedVersion = null): void;
 }

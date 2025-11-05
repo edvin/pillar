@@ -31,7 +31,13 @@ abstract class AbstractDatabaseFetchStrategy
     protected function baseQuery(?AggregateRootId $id): Builder
     {
         $table = $this->streamResolver->resolve($id);
-        return DB::table($table)->orderBy('sequence');
+        $qb = DB::table($table);
+
+        // Per-aggregate reads should use the contiguous per-aggregate version
+        // Cross-aggregate reads should keep the global ordering
+        return $id !== null
+            ? $qb->orderBy('aggregate_sequence')
+            : $qb->orderBy('sequence');
     }
 
     /**
@@ -57,11 +63,12 @@ abstract class AbstractDatabaseFetchStrategy
 
             yield new StoredEvent(
                 event: $event,
-                sequence: $row->sequence,
+                sequence: (int) $row->sequence,
+                aggregateSequence: (int) $row->aggregate_sequence,
                 aggregateId: $row->aggregate_id,
                 eventType: $row->event_type,
                 eventVersion: $fromVersion,
-                occurredAt: Carbon::parse($row->occurred_at),
+                occurredAt: (string) $row->occurred_at,
                 correlationId: $row->correlation_id
             );
         }

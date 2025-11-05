@@ -2,35 +2,42 @@
 
 namespace Pillar\Repository;
 
+use Illuminate\Container\Attributes\Config;
+use Illuminate\Support\Facades\DB;
 use Pillar\Aggregate\AggregateRoot;
-use Pillar\Event\EphemeralEvent;
 use Pillar\Aggregate\AggregateRootId;
+use Pillar\Event\EphemeralEvent;
 use Pillar\Event\EventStore;
 use Pillar\Snapshot\SnapshotStore;
-use Illuminate\Support\Facades\DB;
 use Throwable;
 
 final class EventStoreRepository implements AggregateRepository
 {
     public function __construct(
         private readonly SnapshotStore $snapshots,
-        private readonly EventStore    $eventStore
+        private readonly EventStore    $eventStore,
+        #[Config('pillar.event_store.options.optimistic_locking', false)]
+        private readonly bool          $optimisticLocking,
     )
     {
     }
 
     /** @throws Throwable */
-    public function save(AggregateRoot $aggregate): void
+    public function save(AggregateRoot $aggregate, ?int $expectedVersion = null): void
     {
-        DB::transaction(function () use ($aggregate) {
+        DB::transaction(function () use ($aggregate, $expectedVersion) {
             $lastSeq = null;
+            $expected = $this->optimisticLocking ? $expectedVersion : null;
 
             foreach ($aggregate->recordedEvents() as $event) {
                 if ($event instanceof EphemeralEvent) {
                     continue;
                 }
 
-                $lastSeq = $this->eventStore->append($aggregate->id(), $event);
+                $lastSeq = $this->eventStore->append($aggregate->id(), $event, $expected);
+                if ($expected !== null) {
+                    $expected = $lastSeq;
+                }
             }
 
             if ($lastSeq !== null) {
@@ -39,7 +46,7 @@ final class EventStoreRepository implements AggregateRepository
         });
     }
 
-    public function find(AggregateRootId $id): ?AggregateRoot
+    public function find(AggregateRootId $id): ?LoadedAggregate
     {
         $aggregateClass = $id->aggregateClass();
         $snapshot = $this->snapshots->load($aggregateClass, $id);
@@ -66,7 +73,7 @@ final class EventStoreRepository implements AggregateRepository
         foreach ($events as $storedEvent) {
             $hadEvents = true;
             $aggregate->apply($storedEvent->event);
-            $lastSeq = $storedEvent->sequence;
+            $lastSeq = $storedEvent->aggregateSequence;
         }
 
         $aggregate->markAsNotReconstituting();
@@ -76,10 +83,13 @@ final class EventStoreRepository implements AggregateRepository
             return null;
         }
 
+        // Set the aggregate's persisted version (prefer events applied; otherwise snapshot version)
+        $persistedVersion = (int) ($lastSeq ?? $after);
+
         if ($hadEvents && $lastSeq !== null) {
             $this->snapshots->save($aggregate, $lastSeq);
         }
 
-        return $aggregate;
+        return new LoadedAggregate($aggregate, $persistedVersion);
     }
 }

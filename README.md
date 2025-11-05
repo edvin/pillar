@@ -19,7 +19,7 @@ can focus on your domain, without being constrained by rigid conventions or fram
 - 🧩 **Command and Query Buses** with Laravel facade support
 - 🧠 **Aggregate sessions** act as a Unit of Work, tracking loaded aggregates and automatically persisting their changes
   and emitted events.
-- 🗃️ **Event store abstraction** with database-backed default implementations
+- 🗃️ **Event store abstraction** with optimistic concurrency locking
 - 🔁 **Event replay** command for rebuilding projections
 - 🧬 **Event Upcasters** for schema evolution and backward compatibility
 - 💾 **Snapshotting** with configurable store
@@ -43,11 +43,12 @@ Run the installer to set up migrations and configuration:
 php artisan pillar:install
 ```
 
-This is an interactive installer that asks whether to publish the events migration and config file.
+This is an interactive installer that asks whether to publish the migrations and config file.
 
 You’ll be prompted to:
 
 - Publish the **events table migration** (for event sourcing)
+- Publish the **aggregate_versions table migration** (for per-aggregate versioning)
 - Publish the **configuration file** (`config/pillar.php`)
 
 Once published, run:
@@ -56,16 +57,17 @@ Once published, run:
 php artisan migrate
 ```
 
-to create the `events` table in your database.
+to create the `events` and `aggregate_versions` tables in your database.
 
 ---
 
 ### 📁 Published files
 
-| File                                                            | Description                                                                     |
-|-----------------------------------------------------------------|---------------------------------------------------------------------------------|
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_events_table.php` | The table used to store domain events                                           |
-| `config/pillar.php`                                             | Global configuration for repositories, event store, serializer and snapshotting |
+| File                                                                        | Description                                                                                   |
+|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_events_table.php`             | The table used to store domain events                                                         |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_aggregate_versions_table.php` | Counter table tracking the last per-aggregate version for optimistic concurrency & sequencing |
+| `config/pillar.php`                                                         | Global configuration for repositories, event store, serializer and snapshotting               |
 
 ---
 
@@ -111,10 +113,15 @@ with any other backend such as Kafka, DynamoDB, or S3.
 ```php
 interface EventStore
 {
-    public function append(AggregateRootId $id, object $event): int;
+    /**
+     * Append an event and return the assigned per-aggregate version (aggregate_sequence).
+     * If $expectedSequence is provided, the append only succeeds when the current
+     * per-aggregate version matches; otherwise a ConcurrencyException is thrown.
+     */
+    public function append(AggregateRootId $id, object $event, ?int $expectedSequence = null): int;
 
     /** @return Generator<StoredEvent> */
-    public function load(AggregateRootId $id, int $afterSequence = 0): Generator;
+    public function load(AggregateRootId $id, int $afterAggregateSequence = 0): Generator;
 
     /** @return Generator<StoredEvent> */
     public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator;
@@ -123,6 +130,8 @@ interface EventStore
 
 Instead of returning arrays, `load()` and `all()` now yield `StoredEvent` instances as generators — allowing **true
 streaming** of large event streams with minimal memory usage.
+
+**Optimistic concurrency:** This is handled for you by the AggregateSession. Can be disabled with the config setting `pillar.event_store.options.optimistic_locking` (default: true). Implementors: EventStore::append() accepts an optional `$expectedSequence`; if the per-aggregate version has advanced, it must throw a ConcurrencyException.
 
 ---
 
@@ -148,10 +157,10 @@ interface EventFetchStrategy
      * Load events for a specific aggregate root.
      *
      * @param AggregateRootId $id
-     * @param int $afterSequence
+     * @param int $afterAggregateSequence
      * @return Generator<StoredEvent>
      */
-    public function load(AggregateRootId $id, int $afterSequence = 0): Generator;
+    public function load(AggregateRootId $id, int $afterAggregateSequence = 0): Generator;
 
     /**
      * Load all events across all aggregates, optionally filtered.
@@ -224,7 +233,7 @@ A **Stream Resolver** is responsible for mapping an aggregate root ID (or other 
 which the event store then uses to read or append events. This enables custom strategies for segmenting event data
 beyond the default one-table-per-application model.
 
-#### Built-in: `DatabaseStreamResolver`
+#### `DatabaseStreamResolver`
 
 The default resolver supports simple to advanced routing without custom code:
 
@@ -736,7 +745,7 @@ Aggregate IDs uniquely identify instances of aggregates within your domain. Pill
 classes to ensure type safety and clarity.
 
 An aggregate ID is typically a value object implementing or extending `AggregateRootId`. These IDs are used to load,
-save, and track aggregates within the event store and repositories through the `aggegateClass()` method.`
+save, and track aggregates within the event store and repositories through the `aggregateClass()` method.
 
 Example of a simple aggregate ID class:
 
@@ -775,17 +784,26 @@ The default repository type is the `EventStoreRepository`, but you can override 
 ],
 ```
 
-To implement custom persistence for your aggregate (for example database-backed), simply implement the
-`AggregateRepository` interface and register it here.
-
 This makes it trivial to store some aggregates in a database and others via event sourcing.
 
+To implement custom persistence for your aggregate, implement the `AggregateRepository` interface and register it here.
+The repository returns a `LoadedAggregate` DTO containing the aggregate and metadata so the session can enforce
+optimistic concurrency without extra queries.
+
 ```php
+final class LoadedAggregate
+{
+    public function __construct(
+        public readonly AggregateRoot $aggregate,
+        public readonly int $version,
+    ) {}
+}
+
 interface AggregateRepository
 {
-    public function find(AggregateRootId $id): ?AggregateRoot;
+    public function find(AggregateRootId $id): ?LoadedAggregate;
 
-    public function save(AggregateRoot $aggregate): void;
+    public function save(AggregateRoot $aggregate, ?int $expectedVersion = null): void;
 }
 ```
 

@@ -48,10 +48,7 @@ class PillarServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([InstallPillarCommand::class]);
 
-            $this->publishes([
-                __DIR__ . '/../../database/migrations/0000_00_00_000000_create_events_table.php' =>
-                    $this->app->databasePath('migrations/' . date('Y_m_d_His') . '_create_events_table.php'),
-            ], 'migrations');
+            $this->publishMigrations();
 
             $this->publishes([
                 __DIR__ . '/../../config/pillar.php' => $this->app->configPath('pillar.php'),
@@ -60,5 +57,27 @@ class PillarServiceProvider extends ServiceProvider
 
         /** @var ContextLoader $contextLoader */
         $this->app->make(ContextLoader::class)->load();
+    }
+
+    /**
+     * @return void
+     */
+    public function publishMigrations(): void
+    {
+        $timestamp = date('Y_m_d_His');
+
+        $names = [
+            'create_events_table',
+            'create_aggregate_versions_table',
+        ];
+
+        $publish = [];
+        $base = __DIR__ . '/../../database/migrations';
+        foreach ($names as $name) {
+            $src  = "$base/0000_00_00_000000_$name.php";
+            $dest = $this->app->databasePath("migrations/{$timestamp}_$name.php");
+            $publish[$src] = $dest;
+        }
+        $this->publishes($publish, 'migrations');
     }
 }

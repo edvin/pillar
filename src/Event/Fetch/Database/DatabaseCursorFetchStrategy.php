@@ -8,11 +8,11 @@ use Pillar\Event\Fetch\EventFetchStrategy;
 
 class DatabaseCursorFetchStrategy extends AbstractDatabaseFetchStrategy implements EventFetchStrategy
 {
-    public function load(AggregateRootId $id, int $afterSequence = 0): Generator
+    public function load(AggregateRootId $id, int $afterAggregateSequence = 0): Generator
     {
         $query = $this->baseQuery($id)->where('aggregate_id', $id->value());
-        if ($afterSequence > 0) {
-            $query->where('sequence', '>', $afterSequence);
+        if ($afterAggregateSequence > 0) {
+            $query->where('aggregate_sequence', '>', $afterAggregateSequence);
         }
 
         yield from $this->mapToStoredEvents($query->cursor());

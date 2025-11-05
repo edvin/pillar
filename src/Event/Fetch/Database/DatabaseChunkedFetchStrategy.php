@@ -28,17 +28,17 @@ class DatabaseChunkedFetchStrategy extends AbstractDatabaseFetchStrategy impleme
         $this->chunkSize = $chunkSize;
     }
 
-    public function load(AggregateRootId $id, int $afterSequence = 0): Generator
+    public function load(AggregateRootId $id, int $afterAggregateSequence = 0): Generator
     {
         $query = $this->baseQuery($id)->where('aggregate_id', $id->value());
 
-        if ($afterSequence > 0) {
-            $query->where('sequence', '>', $afterSequence);
+        if ($afterAggregateSequence > 0) {
+            $query->where('aggregate_sequence', '>', $afterAggregateSequence);
         }
 
         $page = 1;
         do {
-            $chunk = $query->orderBy('sequence')
+            $chunk = $query
                 ->forPage($page++, $this->chunkSize)
                 ->get();
 
@@ -64,7 +64,7 @@ class DatabaseChunkedFetchStrategy extends AbstractDatabaseFetchStrategy impleme
 
         $page = 1;
         do {
-            $chunk = $query->orderBy('sequence')
+            $chunk = $query
                 ->forPage($page++, $this->chunkSize)
                 ->get();
 

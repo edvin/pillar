@@ -14,7 +14,7 @@ class InstallPillarCommand extends Command
     {
         $this->info('⚙️  Installing Pillar...');
 
-        if ($this->confirm('Would you like to publish the events table migration?', true)) {
+        if ($this->confirm('Would you like to publish the events and aggregate_versions table migrations?', true)) {
             $this->call('vendor:publish', [
                 '--provider' => 'Pillar\\Provider\\PillarServiceProvider',
                 '--tag' => 'migrations',

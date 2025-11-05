@@ -11,6 +11,7 @@ final class StoredEvent
     public function __construct(
         public readonly object  $event,
         public readonly int     $sequence,
+        public readonly int     $aggregateSequence,
         public readonly string  $aggregateId,
         public readonly string  $eventType,
         public readonly int     $eventVersion,

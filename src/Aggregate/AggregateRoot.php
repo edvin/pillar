@@ -7,7 +7,6 @@ use ReflectionClass;
 
 abstract class AggregateRoot implements JsonSerializable
 {
-
     protected bool $reconstituting = false;
 
     public function markAsReconstituting(): void

@@ -8,75 +8,59 @@ use Pillar\Aggregate\AggregateRootId;
 
 class EventFetchStrategyResolver
 {
-    /**
-     * @var array<string, EventFetchStrategy>
-     */
+    /** @var array<string, EventFetchStrategy> */
     private array $strategies = [];
-
 
     /** @var array<string,string> */
     private array $byAggregate = [];
+
     private ?string $defaultStrategyName = null;
-    private Container $container;
+
+    /** @var array<string, array{class: class-string, options?: array}> */
+    private array $available = [];
 
     public function __construct(
         #[Config('pillar.fetch_strategies')]
-        array $config,
-        Container $container
-    ) {
-        $this->container = $container;
-
-        // Cache lookup tables to avoid repeated config traversal in resolve()
+        array             $config,
+        private Container $container
+    )
+    {
         $this->byAggregate = $config['overrides'] ?? [];
         $this->defaultStrategyName = $config['default'] ?? null;
+        $this->available = $config['available'] ?? [];
 
-        // Eagerly instantiate the strategies that are referenced by config.
+        // Eager instantiate referenced strategies…
         $strategyNames = array_unique(array_filter(array_merge(
             array_values($this->byAggregate),
-            $this->defaultStrategyName ? [$this->defaultStrategyName] : []
+            $this->defaultStrategyName ? [$this->defaultStrategyName] : [],
         )));
-
-        foreach ($strategyNames as $strategyName) {
-            $strategyConfig = $config['available'][$strategyName] ?? null;
-            if ($strategyConfig === null) {
-                continue;
-            }
-            $class = $strategyConfig['class'];
-            $options = $strategyConfig['options'] ?? [];
-            $this->strategies[$strategyName] = $this->container->make($class, ['options' => $options]);
+        foreach ($strategyNames as $name) {
+            $this->instantiate($name);
         }
     }
 
     public function resolve(?AggregateRootId $id = null): EventFetchStrategy
     {
         $aggregateClass = $id?->aggregateClass();
-
-        $strategyName = $aggregateClass && isset($this->byAggregate[$aggregateClass])
+        $name = $aggregateClass && isset($this->byAggregate[$aggregateClass])
             ? $this->byAggregate[$aggregateClass]
             : $this->defaultStrategyName;
 
-        if ($strategyName === null) {
-            throw new StrategyNotFoundException(sprintf(
-                'No fetch strategy configured for aggregate "%s" (default: %s)',
-                $aggregateClass ?? '(unknown)',
-                'none'
-            ));
+        if ($name === null) {
+            throw new StrategyNotFoundException('No fetch strategy configured.');
         }
+        return $this->strategies[$name] ?? $this->instantiate($name);
+    }
 
-        if (!isset($this->strategies[$strategyName])) {
-            // Lazy instantiate on first use if it wasn't eagerly created.
-            $strategyConfig = $config['available'][$strategyName] ?? null;
-            if ($strategyConfig === null) {
-                throw new StrategyNotFoundException(sprintf(
-                    'Fetch strategy "%s" not found in available strategies',
-                    $strategyName
-                ));
-            }
-            $class = $strategyConfig['class'];
-            $options = $strategyConfig['options'] ?? [];
-            $this->strategies[$strategyName] = $this->container->make($class, ['options' => $options]);
+    private function instantiate(string $name): EventFetchStrategy
+    {
+        $cfg = $this->available[$name] ?? null;
+        if ($cfg === null) {
+            throw new StrategyNotFoundException("Fetch strategy \"$name\" not found.");
         }
-
-        return $this->strategies[$strategyName];
+        return $this->strategies[$name] = $this->container->make(
+            $cfg['class'],
+            ['options' => $cfg['options'] ?? []],
+        );
     }
 }

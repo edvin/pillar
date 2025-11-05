@@ -40,6 +40,11 @@ return [
         'class' => \Pillar\Event\DatabaseEventStore::class,
         'options' => [
             'default_fetch_strategy' => 'db_chunked',
+
+            // Optimistic concurrency control for appends. When true, repositories
+            // will pass the aggregate's current version as expected_sequence to the
+            // EventStore. When false, no expected check is performed.
+            'optimistic_locking' => true,
         ],
     ],
 

@@ -19,6 +19,8 @@ final class AggregateSession
 {
     /** @var array<int, AggregateRoot> */
     private array $tracked = [];
+    /** @var array<int,int> object-id keyed expected versions */
+    private array $expectedVersions = [];
 
     public function __construct(
         private readonly RepositoryResolver $repositoryResolver,
@@ -40,13 +42,17 @@ final class AggregateSession
         } catch (BindingResolutionException $e) {
             throw new RuntimeException($e->getMessage(), $e->getCode(), $e);
         }
-        $aggregate = $repo->find($id);
 
-        if ($aggregate) {
-            $this->track($aggregate);
+        $found = $repo->find($id);
+
+        if ($found) {
+            $this->track($found->aggregate);
+            // Remember the persisted version seen at load time for optimistic concurrency
+            $this->expectedVersions[spl_object_id($found->aggregate)] = $found->version;
+            return $found->aggregate;
         }
 
-        return $aggregate;
+        return null;
     }
 
     /**
@@ -55,6 +61,8 @@ final class AggregateSession
     public function add(AggregateRoot $aggregate): void
     {
         $this->track($aggregate);
+        // New aggregates start at version 0 (no persisted events)
+        $this->expectedVersions[spl_object_id($aggregate)] = 0;
     }
 
     /**
@@ -66,12 +74,15 @@ final class AggregateSession
         DB::transaction(function () {
             foreach ($this->tracked as $aggregate) {
                 $repo = $this->repositoryResolver->forAggregateClass($aggregate::class);
-                $repo->save($aggregate);
+                $oid = spl_object_id($aggregate);
+                $expected = $this->expectedVersions[$oid] ?? null;
+                $repo->save($aggregate, $expected);
             }
         });
 
         $this->dispatchEvents();
         $this->tracked = [];
+        $this->expectedVersions = [];
     }
 
     private function track(AggregateRoot $aggregate): void
