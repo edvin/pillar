@@ -2,7 +2,7 @@
 
 ### Elegant Domain-Driven Design & Event Sourcing for Laravel
 
-**Pillar** is a modern, opinionated framework for building **rich domain models** and **event-sourced systems** in
+**Pillar** is a modern, pragmatic framework for building **rich domain models** and **event-sourced systems** in
 Laravel — without the complexity.
 
 It brings the power of **Domain-Driven Design (DDD)** and **Event Sourcing** to PHP through expressive abstractions and
@@ -25,7 +25,7 @@ can focus on your domain, without being constrained by rigid conventions or fram
 - 💾 **Snapshotting** with configurable store
 - 🪶 **Serializer abstraction** (default: JSON)
 - 🔧 **Laravel integration** via `PillarServiceProvider`
-- ⚙️ Configurable **repository and event store implementations**
+- ⚙️ Configurable **repository** and **event store** implementations
 
 ---
 
@@ -37,11 +37,7 @@ composer require edvin/pillar
 
 Pillar automatically registers its service provider via Laravel package discovery.
 
----
-
-## ⚙️ Installing Pillar
-
-After requiring the package via Composer, run the installer to set up migrations and configuration:
+Run the installer to set up migrations and configuration:
 
 ```bash
 php artisan pillar:install
@@ -664,14 +660,18 @@ final class SendDocumentCreatedNotification
 }
 ```
 
-To be clear, only listeners implementing the Projector interface are triggered during replay; all others are ignored.
+### ⚠️ Projector Safety & Idempotency
 
-### ⚠️ Idempotency of Projectors
+Projectors must be **pure and idempotent**.  
+They are re-invoked during event replays to rebuild read models, so applying the same event multiple times should never
+produce different results or duplicate data.
 
-Since projectors may be invoked multiple times during replays, they must be idempotent — meaning applying the same event
-multiple times should not produce different results or duplicate data. For example, when updating a database, projectors
-should ensure "insert-or-update" logic rather than blindly inserting new records. This approach guarantees that replays
-can safely rebuild read models without causing data corruption or duplicates.
+For example, when updating a database, projectors should use *insert-or-update* logic instead of blindly inserting new
+records.
+
+⚠️ **Important:** Listeners that perform side effects (such as sending emails, publishing messages, or calling APIs)
+must **not** implement `Projector`, since replays would re-trigger those side effects. Projectors should handle only
+deterministic, replay-safe updates to read models.
 
 ---
 
