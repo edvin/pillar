@@ -2,14 +2,13 @@
 
 namespace Pillar\Event;
 
-use Pillar\Aggregate\AggregateRootId;
-use Illuminate\Container\Attributes\Config;
+use Carbon\Carbon;
+use Generator;
 use Illuminate\Support\Facades\DB;
+use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\Stream\StreamResolver;
 use Pillar\Serialization\ObjectSerializer;
-use Carbon\Carbon;
-use Generator;
 
 class DatabaseEventStore implements EventStore
 {

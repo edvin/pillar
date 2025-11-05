@@ -257,7 +257,7 @@ Example configuration:
 
 #### Roll your own resolver
 
-Implement `Pillar\\Event\\Stream\\StreamResolver` and return your stream name from `resolve()`, then register your
+Implement `Pillar\Event\Stream\StreamResolver` and return your stream name from `resolve()`, then register your
 class in `config/pillar.php` under `'stream_resolver'`. This lets you route by tenant, shard, metadata, or anything else
 with a few lines of code.
 
