@@ -20,7 +20,7 @@ class DatabaseChunkedFetchStrategy extends AbstractDatabaseFetchStrategy impleme
         UpcasterRegistry   $upcasters,
         #[Config('pillar.event_store.options.table')]
         string             $table,
-        #[Config('pillar.fetch_strategies.db.chunked.options.chunk_size', 500)]
+        #[Config('pillar.fetch_strategies.db_chunked.options.chunk_size', 500)]
         int                $chunkSize,
     )
     {

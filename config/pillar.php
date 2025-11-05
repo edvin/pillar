@@ -65,24 +65,24 @@ return [
     |
     */
     'fetch_strategies' => [
-        'default' => 'db.chunked',
+        'default' => 'db_chunked',
 
         'overrides' => [
             // Aggregate-specific overrides go here.
         ],
 
         'available' => [
-            'db.load_all' => [
+            'db_load_all' => [
                 'class' => \Pillar\Event\Fetch\Database\DatabaseLoadAllStrategy::class,
                 'options' => [],
             ],
-            'db.chunked' => [
+            'db_chunked' => [
                 'class' => \Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy::class,
                 'options' => [
                     'chunk_size' => 1000,
                 ],
             ],
-            'db.streaming' => [
+            'db_streaming' => [
                 'class' => \Pillar\Event\Fetch\Database\DatabaseCursorFetchStrategy::class,
                 'options' => [],
             ],

@@ -4,6 +4,7 @@ namespace Pillar\Event\Fetch\Database;
 
 use Carbon\Carbon;
 use Generator;
+use Illuminate\Container\Attributes\Config;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Pillar\Event\EventAliasRegistry;
@@ -17,6 +18,7 @@ abstract class AbstractDatabaseFetchStrategy
         protected ObjectSerializer   $serializer,
         protected EventAliasRegistry $aliases,
         protected UpcasterRegistry   $upcasters,
+        #[Config('pillar.event_store.options.table')]
         protected string             $table
     ) {}
 
