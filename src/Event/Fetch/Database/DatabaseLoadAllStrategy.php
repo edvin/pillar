@@ -10,7 +10,7 @@ class DatabaseLoadAllStrategy extends AbstractDatabaseFetchStrategy implements E
 {
     public function load(AggregateRootId $id, int $afterSequence = 0): Generator
     {
-        $query = $this->baseQuery()->where('aggregate_id', $id->value());
+        $query = $this->baseQuery($id)->where('aggregate_id', $id->value());
         if ($afterSequence > 0) {
             $query->where('sequence', '>', $afterSequence);
         }
@@ -20,7 +20,7 @@ class DatabaseLoadAllStrategy extends AbstractDatabaseFetchStrategy implements E
 
     public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator
     {
-        $query = $this->baseQuery();
+        $query = $this->baseQuery($aggregateId);
 
         if ($aggregateId) {
             $query->where('aggregate_id', $aggregateId->value());

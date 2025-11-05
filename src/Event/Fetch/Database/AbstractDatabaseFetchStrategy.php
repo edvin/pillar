@@ -7,8 +7,10 @@ use Generator;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
+use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\StoredEvent;
+use Pillar\Event\Stream\StreamResolver;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Serialization\ObjectSerializer;
 
@@ -18,16 +20,18 @@ abstract class AbstractDatabaseFetchStrategy
         protected ObjectSerializer   $serializer,
         protected EventAliasRegistry $aliases,
         protected UpcasterRegistry   $upcasters,
-        #[Config('pillar.event_store.options.table')]
-        protected string             $table
-    ) {}
+        protected StreamResolver     $streamResolver,
+    )
+    {
+    }
 
     /**
      * Helper to create the base query for a given aggregate.
      */
-    protected function baseQuery(): Builder
+    protected function baseQuery(?AggregateRootId $id): Builder
     {
-        return DB::table($this->table)->orderBy('sequence');
+        $table = $this->streamResolver->resolve($id);
+        return DB::table($table)->orderBy('sequence');
     }
 
     /**

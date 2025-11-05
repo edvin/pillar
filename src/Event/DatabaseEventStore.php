@@ -6,6 +6,7 @@ use Pillar\Aggregate\AggregateRootId;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\DB;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
+use Pillar\Event\Stream\StreamResolver;
 use Pillar\Serialization\ObjectSerializer;
 use Carbon\Carbon;
 use Generator;
@@ -14,17 +15,16 @@ class DatabaseEventStore implements EventStore
 {
 
     public function __construct(
+        private StreamResolver             $streamResolver,
         private ObjectSerializer           $serializer,
         private EventAliasRegistry         $aliases,
-        #[Config('pillar.event_store.options.table')]
-        private string                     $table,
         private EventFetchStrategyResolver $strategyResolver)
     {
     }
 
     public function append(AggregateRootId $id, object $event): int
     {
-        return DB::table($this->table)->insertGetId([
+        return DB::table($this->streamResolver->resolve($id))->insertGetId([
             'aggregate_id' => $id->value(),
             'event_type' => $this->aliases->resolveAlias($event),
             'event_version' => ($event instanceof VersionedEvent) ? $event::version() : 1,

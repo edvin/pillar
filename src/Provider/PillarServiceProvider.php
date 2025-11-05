@@ -12,6 +12,7 @@ use Pillar\Context\ContextLoader;
 use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
+use Pillar\Event\Stream\StreamResolver;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Repository\RepositoryResolver;
@@ -29,6 +30,7 @@ class PillarServiceProvider extends ServiceProvider
         $this->app->singleton(EventStore::class, Config::get('pillar.event_store.class'));
         $this->app->singleton(CommandBusInterface::class, Config::get('pillar.buses.command.class'));
         $this->app->singleton(QueryBusInterface::class, Config::get('pillar.buses.query.class'));
+        $this->app->singleton(StreamResolver::class, Config::get('pillar.stream_resolver.class'));
 
         $this->app->singleton(RepositoryResolver::class);
         $this->app->singleton(EventFetchStrategyResolver::class);

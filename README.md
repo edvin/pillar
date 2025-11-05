@@ -101,8 +101,10 @@ capturing emitted events, maintaining consistency, and persisting all changes in
 
 # 🗃️ Event Store
 
-Pillar’s event store is a **pluggable abstraction** that supports streaming domain events efficiently using PHP generators.  
-The default implementation, `DatabaseEventStore`, persists domain events in a database table — but you can replace it with any other backend such as Kafka, DynamoDB, or S3.
+Pillar’s event store is a **pluggable abstraction** that supports streaming domain events efficiently using PHP
+generators.  
+The default implementation, `DatabaseEventStore`, persists domain events in a database table — but you can replace it
+with any other backend such as Kafka, DynamoDB, or S3.
 
 ## Interface
 
@@ -119,7 +121,8 @@ interface EventStore
 }
 ```
 
-Instead of returning arrays, `load()` and `all()` now yield `StoredEvent` instances as generators — allowing **true streaming** of large event streams with minimal memory usage.
+Instead of returning arrays, `load()` and `all()` now yield `StoredEvent` instances as generators — allowing **true
+streaming** of large event streams with minimal memory usage.
 
 ---
 
@@ -130,11 +133,11 @@ These determine *how* events are read from storage, allowing you to balance perf
 
 Built-in strategies include:
 
-| Strategy | Class | Description |
-|-----------|--------|-------------|
-| `db.load_all` | `DatabaseLoadAllStrategy` | Loads all events into memory — simple but less efficient for large streams. |
-| `db.chunked` | `DatabaseChunkedFetchStrategy` | Loads events in configurable chunks (default: 1000) for balanced performance. |
-| `db.streaming` | `DatabaseCursorFetchStrategy` | Uses a database cursor to stream events continuously without buffering. |
+| Strategy       | Class                          | Description                                                                   |
+|----------------|--------------------------------|-------------------------------------------------------------------------------|
+| `db_load_all`  | `DatabaseLoadAllStrategy`      | Loads all events into memory — simple but less efficient for large streams.   |
+| `db_chunked`   | `DatabaseChunkedFetchStrategy` | Loads events in configurable chunks (default: 1000) for balanced performance. |
+| `db_streaming` | `DatabaseCursorFetchStrategy`  | Uses a database cursor to stream events continuously without buffering.       |
 
 You can create your own fetch strategies by implementing the `EventFetchStrategy` interface:
 
@@ -161,7 +164,8 @@ interface EventFetchStrategy
 }
 ```
 
-These methods are **generator-based**, which means strategies can stream data directly from the backend without buffering all events in memory.
+These methods are **generator-based**, which means strategies can stream data directly from the backend without
+buffering all events in memory.
 
 ---
 
@@ -173,22 +177,22 @@ You can configure defaults and per-aggregate overrides in `config/pillar.php`:
 
 ```php
 'fetch_strategies' => [
-    'default' => 'db.chunked',
+    'default' => 'db_chunked',
 
     'overrides' => [
-        // Context\LargeAggregate\Domain\Aggregate\BigOne::class => 'db.streaming',
+        // Context\LargeAggregate\Domain\Aggregate\BigOne::class => 'db_streaming',
     ],
 
     'available' => [
-        'db.load_all' => [
+        'db_load_all' => [
             'class' => \Pillar\Event\Fetch\Database\DatabaseLoadAllStrategy::class,
             'options' => [],
         ],
-        'db.chunked' => [
+        'db_chunked' => [
             'class' => \Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy::class,
             'options' => ['chunk_size' => 1000],
         ],
-        'db.streaming' => [
+        'db_streaming' => [
             'class' => \Pillar\Event\Fetch\Database\DatabaseCursorFetchStrategy::class,
             'options' => [],
         ],
@@ -196,7 +200,8 @@ You can configure defaults and per-aggregate overrides in `config/pillar.php`:
 ],
 ```
 
-Developers can override the strategy **per aggregate** or even decide dynamically at runtime based on aggregate type, size, or workload.
+Developers can override the strategy **per aggregate** or even decide dynamically at runtime based on aggregate type,
+size, or workload.
 
 ---
 
@@ -206,6 +211,70 @@ Developers can override the strategy **per aggregate** or even decide dynamicall
 - 🧠 **Fine-grained control** over loading behavior per aggregate
 - 🧩 **Composable strategies** — easy to plug in new backends
 - 🔒 **Type-safe & predictable** event iteration via generators
+
+---
+
+### 🧩 Stream Resolvers
+
+Pillar introduces the **Stream Resolver** abstraction to provide fine-grained control over how event streams are
+identified, partitioned, and loaded — especially in advanced scenarios such as multi-tenancy, sharding, or custom stream
+partitioning.
+
+A **Stream Resolver** is responsible for mapping an aggregate root ID (or other context) to a logical event stream,
+which the event store then uses to read or append events. This enables custom strategies for segmenting event data
+beyond the default one-table-per-application model.
+
+#### Built-in: `DatabaseStreamResolver`
+
+The default resolver supports simple to advanced routing without custom code:
+
+- **Global default**: send everything to a single stream/table (e.g. `events`).
+- **Per aggregate type**: map specific classes to their own stream/table.
+- **Per aggregate instance**: optionally create a unique stream per ID.
+    - Formats:
+        - `default_id` → `{default}_{aggregateId}` (e.g., `events_123`)
+        - `type_id` → `{AggregateClassBaseName}_{aggregateId}` (e.g., `document_123`).
+- **Precedence**: per-type mapping takes priority over per-ID naming.
+- **Null ID**: when no ID is provided, the default stream is used.
+
+Example configuration:
+
+```php
+'stream_resolver' => [
+    'class' => \Pillar\Event\Stream\DatabaseStreamResolver::class,
+    'options' => [
+        'default' => 'events',
+        'per_aggregate_type' => [
+            \Context\Document\Domain\Aggregate\Document::class => 'document_events',
+        ],
+        'per_aggregate_id' => true,
+        'per_aggregate_id_format' => 'type_id', // or 'default_id'
+    ],
+],
+```
+
+> If you use a database-backed store, make sure any custom stream/table names actually exist.
+
+#### Roll your own resolver
+
+Implement `Pillar\\Event\\Stream\\StreamResolver` and return your stream name from `resolve()`, then register your
+class in `config/pillar.php` under `'stream_resolver'`. This lets you route by tenant, shard, metadata, or anything else
+with a few lines of code.
+
+#### Interface
+
+```php
+interface StreamResolver
+{
+    /**
+     * Resolve the stream name/identifier for a given aggregate root ID.
+     * If the ID is null, the default stream should be returned.
+     */
+    public function resolve(?AggregateRootId $id): string;
+}
+```
+
+The aggregate class can be resolved from the AggregateRootId using the `aggregateClass()` method.
 
 ---
 
