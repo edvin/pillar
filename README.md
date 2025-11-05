@@ -17,7 +17,7 @@ can focus on your domain, without being constrained by rigid conventions or fram
 
 - ⚙️ **Aggregate roots and repositories** for event-sourced and non-event-sourced aggregates
 - 🧩 **Command and Query Buses** with Laravel facade support
-  🧠 **Aggregate sessions** act as a Unit of Work, tracking loaded aggregates and automatically persisting their changes
+- 🧠 **Aggregate sessions** act as a Unit of Work, tracking loaded aggregates and automatically persisting their changes
   and emitted events.
 - 🗃️ **Event store abstraction** with database-backed default implementation
 - 🔁 **Event replay** command for rebuilding projections
@@ -388,9 +388,12 @@ upcaster for documentation clarity.
 
 ## 🧩 Aggregate Roots
 
-Aggregates are the **core building blocks** of your domain model — they encapsulate state and enforce invariants through event-driven or state-driven updates.
+Aggregates are the **core building blocks** of your domain model — they encapsulate state and enforce invariants through
+event-driven or state-driven updates.
 
-In Pillar, all aggregates extend the abstract base class `AggregateRoot`, which provides a consistent pattern for **recording and applying domain events**, while still allowing simpler state-backed persistence when full event sourcing isn’t needed.
+In Pillar, all aggregates extend the abstract base class `AggregateRoot`, which provides a consistent pattern for *
+*recording and applying domain events**, while still allowing simpler state-backed persistence when full event sourcing
+isn’t needed.
 
 ---
 
@@ -449,9 +452,11 @@ final class Document extends AggregateRoot
 }
 ```
 
-This is the **event-sourced** approach — every state change is expressed as a **domain event**, persisted to the event store, and used to rebuild the aggregate’s state later.
+This is the **event-sourced** approach — every state change is expressed as a **domain event**, persisted to the event
+store, and used to rebuild the aggregate’s state later.
 
 This model gives you:
+
 - 🔍 **Full auditability** of all domain changes over time
 - 🕰️ **Reproducibility** and replay capability
 - ⚙️ **Resilience** against schema evolution with versioned events and upcasters
@@ -461,7 +466,8 @@ This model gives you:
 ### Example (State-Based Aggregate)
 
 For simpler domains, you can skip event sourcing entirely.
-In that case, your repository can directly persist and retrieve aggregates from a storage backend (like Eloquent or a document store).
+In that case, your repository can directly persist and retrieve aggregates from a storage backend (like Eloquent or a
+document store).
 You don’t record or apply events — you just mutate the state directly.
 
 ```php
@@ -493,11 +499,13 @@ final class Document extends AggregateRoot
 ```
 
 This **state-based** model is ideal for:
+
 - 🧾 Aggregates that don’t require **audit trails** or **historical replay**
 - ⚡ Domains that favor **direct persistence** over event sourcing
 - 🧰 Use cases where you want the same aggregate behavior API but backed by a simpler repository
 
-Both models work seamlessly with Pillar’s repository and session abstractions — you can mix and match them in the same application.
+Both models work seamlessly with Pillar’s repository and session abstractions — you can mix and match them in the same
+application.
 
 ---
 
