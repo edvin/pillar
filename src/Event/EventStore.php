@@ -2,6 +2,7 @@
 
 namespace Pillar\Event;
 
+use Generator;
 use Pillar\Aggregate\AggregateRootId;
 
 /**
@@ -21,26 +22,24 @@ interface EventStore
     /**
      * Loads the events for the given aggregate root, optionally after a specific sequence number.
      *
-     * @param AggregateRootId $id The identifier of the aggregate root.
-     * @param int $afterSequence The sequence number after which to load events (default is 0).
-     * @return list<StoredEvent> An array of domain events.
-     */
-    public function load(AggregateRootId $id, int $afterSequence = 0): array;
-
-    /**
-     * Checks if any events exist for the given aggregate root.
+     * This method yields StoredEvent objects as a generator, allowing streaming of events from the store.
+     * This supports backends using in-memory, chunked, or cursor-based strategies to balance performance and memory usage.
      *
      * @param AggregateRootId $id The identifier of the aggregate root.
-     * @return bool True if events exist, false otherwise.
+     * @param int $afterSequence The sequence number after which to load events (default is 0).
+     * @return Generator<StoredEvent> A generator yielding stored events.
      */
-    public function exists(AggregateRootId $id): bool;
+    public function load(AggregateRootId $id, int $afterSequence = 0): Generator;
 
     /**
      * Returns all stored events, optionally filtered by aggregate ID or event type.
      *
+     * This method yields StoredEvent objects as a generator, allowing streaming of events from the store.
+     * This supports backends using in-memory, chunked, or cursor-based strategies to balance performance and memory usage.
+     *
      * @param AggregateRootId|null $aggregateId
      * @param string|null $eventType
-     * @return list<StoredEvent>
+     * @return Generator<StoredEvent> A generator yielding stored events.
      */
-    public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): array;
+    public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator;
 }

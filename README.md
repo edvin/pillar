@@ -19,7 +19,7 @@ can focus on your domain, without being constrained by rigid conventions or fram
 - 🧩 **Command and Query Buses** with Laravel facade support
 - 🧠 **Aggregate sessions** act as a Unit of Work, tracking loaded aggregates and automatically persisting their changes
   and emitted events.
-- 🗃️ **Event store abstraction** with database-backed default implementation
+- 🗃️ **Event store abstraction** with database-backed default implementations
 - 🔁 **Event replay** command for rebuilding projections
 - 🧬 **Event Upcasters** for schema evolution and backward compatibility
 - 💾 **Snapshotting** with configurable store
@@ -99,19 +99,115 @@ capturing emitted events, maintaining consistency, and persisting all changes in
 
 ---
 
-## 🗃️ Event Store
+# 🗃️ Event Store
 
-The event store is pluggable. The default `DatabaseEventStore` persists domain events in a database table.
-Custom stores (e.g. Kafka, DynamoDB, etc.) can be registered by implementing the `EventStore` interface.
+Pillar’s event store is a **pluggable abstraction** that supports streaming domain events efficiently using PHP generators.  
+The default implementation, `DatabaseEventStore`, persists domain events in a database table — but you can replace it with any other backend such as Kafka, DynamoDB, or S3.
+
+## Interface
 
 ```php
 interface EventStore
 {
     public function append(AggregateRootId $id, object $event): int;
-    public function load(AggregateRootId $id, int $afterSequence = 0): array;
-    public function exists(AggregateRootId $id): bool;
+
+    /** @return Generator<StoredEvent> */
+    public function load(AggregateRootId $id, int $afterSequence = 0): Generator;
+
+    /** @return Generator<StoredEvent> */
+    public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator;
 }
 ```
+
+Instead of returning arrays, `load()` and `all()` now yield `StoredEvent` instances as generators — allowing **true streaming** of large event streams with minimal memory usage.
+
+---
+
+### ⚙️ Fetch Strategies
+
+To handle different data access patterns, Pillar introduces **Event Fetch Strategies**.  
+These determine *how* events are read from storage, allowing you to balance performance, memory use, and scalability.
+
+Built-in strategies include:
+
+| Strategy | Class | Description |
+|-----------|--------|-------------|
+| `db.load_all` | `DatabaseLoadAllStrategy` | Loads all events into memory — simple but less efficient for large streams. |
+| `db.chunked` | `DatabaseChunkedFetchStrategy` | Loads events in configurable chunks (default: 1000) for balanced performance. |
+| `db.streaming` | `DatabaseCursorFetchStrategy` | Uses a database cursor to stream events continuously without buffering. |
+
+You can create your own fetch strategies by implementing the `EventFetchStrategy` interface:
+
+```php
+interface EventFetchStrategy
+{
+    /**
+     * Load events for a specific aggregate root.
+     *
+     * @param AggregateRootId $id
+     * @param int $afterSequence
+     * @return Generator<StoredEvent>
+     */
+    public function load(AggregateRootId $id, int $afterSequence = 0): Generator;
+
+    /**
+     * Load all events across all aggregates, optionally filtered.
+     *
+     * @param AggregateRootId|null $aggregateId
+     * @param string|null $eventType
+     * @return Generator<StoredEvent>
+     */
+    public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator;
+}
+```
+
+These methods are **generator-based**, which means strategies can stream data directly from the backend without buffering all events in memory.
+
+---
+
+### 🧩 Strategy Resolution
+
+Pillar uses the `EventFetchStrategyResolver` to determine which fetch strategy to use at runtime.
+
+You can configure defaults and per-aggregate overrides in `config/pillar.php`:
+
+```php
+'fetch_strategies' => [
+    'default' => 'db.chunked',
+
+    'overrides' => [
+        // Context\LargeAggregate\Domain\Aggregate\BigOne::class => 'db.streaming',
+    ],
+
+    'available' => [
+        'db.load_all' => [
+            'class' => \Pillar\Event\Fetch\Database\DatabaseLoadAllStrategy::class,
+            'options' => [],
+        ],
+        'db.chunked' => [
+            'class' => \Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy::class,
+            'options' => ['chunk_size' => 1000],
+        ],
+        'db.streaming' => [
+            'class' => \Pillar\Event\Fetch\Database\DatabaseCursorFetchStrategy::class,
+            'options' => [],
+        ],
+    ],
+],
+```
+
+Developers can override the strategy **per aggregate** or even decide dynamically at runtime based on aggregate type, size, or workload.
+
+---
+
+### ✅ Benefits
+
+- ⚡ **Stream large aggregates** without blowing up memory
+- 🧠 **Fine-grained control** over loading behavior per aggregate
+- 🧩 **Composable strategies** — easy to plug in new backends
+- 🔒 **Type-safe & predictable** event iteration via generators
+
+---
 
 ## ⚡ Ephemeral Events
 
@@ -621,8 +717,6 @@ interface AggregateRepository
     public function find(AggregateRootId $id): ?AggregateRoot;
 
     public function save(AggregateRoot $aggregate): void;
-
-    public function exists(AggregateRootId $id): bool;
 }
 ```
 

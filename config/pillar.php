@@ -15,7 +15,7 @@ return [
     | Pillar\Domain\Repository\AggregateRepository
     |
     | Example:
-    |   \Context\Document\Domain\Aggregate\Document::class => \App\Infrastructure\Repositories\MyAggregateDatabaseRepository::class,
+    |   \Context\Document\Domain\Aggregate\Document::class => \App\Repositories\DocumentDatabaseRepository::class,
     |
     */
     'repositories' => [
@@ -33,11 +33,59 @@ return [
     |
     | Example alternative: KafkaEventStore, DynamoDbEventStore, etc.
     |
+    | The default fetch strategy is 'db.chunked'.
+    |
     */
     'event_store' => [
         'class' => \Pillar\Event\DatabaseEventStore::class,
         'options' => [
-            'table' => 'events', // The table name used by DatabaseEventStore
+            'table' => 'events',
+            'default_fetch_strategy' => 'db.chunked',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🔍 Fetch Strategies
+    |--------------------------------------------------------------------------
+    |
+    | Define different strategies for fetching events from the event store.
+    | You can select a strategy globally (via 'default') or override it per
+    | aggregate class in the 'overrides' section.
+    |
+    | Example override:
+    |   'overrides' => [
+    |       \Context\Document\Domain\Aggregate\Document::class => 'db.streaming',
+    |   ],
+    |
+    | Each available strategy is listed under 'available' and may define
+    | its own options, such as chunk size or cursor configuration.
+    |
+    | Additional backends (e.g. Kafka, S3) can be added in the future.
+    |
+    */
+    'fetch_strategies' => [
+        'default' => 'db.chunked',
+
+        'overrides' => [
+            // Aggregate-specific overrides go here.
+        ],
+
+        'available' => [
+            'db.load_all' => [
+                'class' => \Pillar\Event\Fetch\Database\DatabaseLoadAllStrategy::class,
+                'options' => [],
+            ],
+            'db.chunked' => [
+                'class' => \Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy::class,
+                'options' => [
+                    'chunk_size' => 1000,
+                ],
+            ],
+            'db.streaming' => [
+                'class' => \Pillar\Event\Fetch\Database\DatabaseCursorFetchStrategy::class,
+                'options' => [],
+            ],
         ],
     ],
 
@@ -53,7 +101,9 @@ return [
     |
     */
     'snapshot' => [
-        'store' => \Pillar\Snapshot\CacheSnapshotStore::class,
+        'store' => [
+            'class' => \Pillar\Snapshot\CacheSnapshotStore::class,
+        ],
         'ttl' => null, // Time-to-live in seconds (null = indefinitely)
     ],
 
@@ -82,8 +132,12 @@ return [
     |
     */
     'buses' => [
-        'command' => \Pillar\Bus\LaravelCommandBus::class,
-        'query' => \Pillar\Bus\InMemoryQueryBus::class,
+        'command' => [
+            'class' => \Pillar\Bus\LaravelCommandBus::class
+        ],
+        'query' => [
+            'class' => \Pillar\Bus\InMemoryQueryBus::class
+        ],
     ],
 
     /*

@@ -54,10 +54,6 @@ final class EventStoreRepository implements AggregateRepository
 
         $events = $this->eventStore->load($id, $after);
 
-        if (!$snapshot && empty($events)) {
-            return null;
-        }
-
         if (!$aggregate) {
             /** @var AggregateRoot $aggregate */
             $aggregate = new $aggregateClass();
@@ -65,23 +61,25 @@ final class EventStoreRepository implements AggregateRepository
 
         $aggregate->markAsReconstituting();
 
+        $hadEvents = false;
+        $lastSeq = null;
         foreach ($events as $storedEvent) {
+            $hadEvents = true;
             $aggregate->apply($storedEvent->event);
+            $lastSeq = $storedEvent->sequence;
         }
 
         $aggregate->markAsNotReconstituting();
 
-        if (!empty($events)) {
-            $lastSeq = end($events)->sequence;
+        if (!$snapshot && !$hadEvents) {
+            // No snapshot and no events to rebuild from
+            return null;
+        }
+
+        if ($hadEvents && $lastSeq !== null) {
             $this->snapshots->save($aggregate, $lastSeq);
         }
 
         return $aggregate;
     }
-
-    public function exists(AggregateRootId $id): bool
-    {
-        return $this->eventStore->exists($id);
-    }
-
 }

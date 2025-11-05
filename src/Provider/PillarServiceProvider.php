@@ -2,22 +2,21 @@
 
 namespace Pillar\Provider;
 
-use Pillar\Bus\CommandBusInterface;
-use Pillar\Bus\QueryBusInterface;
-use Pillar\Context\ContextLoader;
-use Pillar\Event\EventAliasRegistry;
-use Pillar\Event\UpcasterRegistry;
-use Pillar\Console\InstallPillarCommand;
-use Pillar\Event\EventStore;
-use Pillar\Repository\RepositoryResolver;
-use Pillar\Repository\EventStoreRepository;
-use Pillar\Serialization\JsonObjectSerializer;
-use Pillar\Serialization\ObjectSerializer;
-use Pillar\Snapshot\CacheSnapshotStore;
-use Pillar\Snapshot\SnapshotStore;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
+use Pillar\Bus\CommandBusInterface;
+use Pillar\Bus\QueryBusInterface;
+use Pillar\Console\InstallPillarCommand;
+use Pillar\Context\ContextLoader;
+use Pillar\Event\EventAliasRegistry;
+use Pillar\Event\EventStore;
+use Pillar\Event\Fetch\EventFetchStrategyResolver;
+use Pillar\Event\UpcasterRegistry;
+use Pillar\Repository\EventStoreRepository;
+use Pillar\Repository\RepositoryResolver;
+use Pillar\Serialization\ObjectSerializer;
+use Pillar\Snapshot\SnapshotStore;
 
 class PillarServiceProvider extends ServiceProvider
 {
@@ -25,31 +24,14 @@ class PillarServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../../config/pillar.php', 'pillar');
 
-        $this->app->singleton(ObjectSerializer::class, function ($app) {
-            $serializerClass = Config::get('pillar.serializer.class', JsonObjectSerializer::class);
-            return $app->make($serializerClass);
-        });
-
-        $this->app->singleton(SnapshotStore::class, function ($app) {
-            $storeClass = Config::get('pillar.snapshot.store', CacheSnapshotStore::class);
-            return $app->make($storeClass);
-        });
-
-        $storeClass = Config::get('pillar.event_store.class');
-        $this->app->singleton(EventStore::class, $storeClass);;
+        $this->app->singleton(ObjectSerializer::class, Config::get('pillar.serializer.class'));
+        $this->app->singleton(SnapshotStore::class, Config::get('pillar.snapshot.store.class'));
+        $this->app->singleton(EventStore::class, Config::get('pillar.event_store.class'));
+        $this->app->singleton(CommandBusInterface::class, Config::get('pillar.buses.command.class'));
+        $this->app->singleton(QueryBusInterface::class, Config::get('pillar.buses.query.class'));
 
         $this->app->singleton(RepositoryResolver::class);
-
-        $this->app->singleton(CommandBusInterface::class, function ($app) {
-            $class = Config::get('pillar.buses.command');
-            return $app->make($class);
-        });
-
-        $this->app->singleton(QueryBusInterface::class, function ($app) {
-            $class = Config::get('pillar.buses.query');
-            return $app->make($class);
-        });
-
+        $this->app->singleton(EventFetchStrategyResolver::class);
         $this->app->singleton(EventStoreRepository::class);
         $this->app->singleton(EventAliasRegistry::class);
         $this->app->singleton(UpcasterRegistry::class);
