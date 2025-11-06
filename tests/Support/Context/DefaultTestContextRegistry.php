@@ -5,6 +5,8 @@ namespace Tests\Support\Context;
 use Pillar\Context\ContextRegistry;
 use Pillar\Context\EventMapBuilder;
 use Tests\Fixtures\Document\DocumentCreated;
+use Tests\Fixtures\Document\DocumentRenamed;
+use Tests\Fixtures\Projectors\TitleListProjector;
 
 final class DefaultTestContextRegistry implements ContextRegistry
 {
@@ -27,6 +29,8 @@ final class DefaultTestContextRegistry implements ContextRegistry
     {
         return EventMapBuilder::create()
             ->event(DocumentCreated::class)
-            ->listeners([]);
+            ->listeners([TitleListProjector::class])
+            ->event(DocumentRenamed::class)
+            ->listeners([TitleListProjector::class]);
     }
 }

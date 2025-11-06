@@ -17,9 +17,22 @@ final class Document extends AggregateRoot implements JsonSerializable
         return $self;
     }
 
+    public function rename(string $newTitle): void
+    {
+        if ($this->title === $newTitle) {
+            return;
+        }
+        $this->record(new DocumentRenamed($this->id, $newTitle));
+    }
+
     protected function applyDocumentCreated(DocumentCreated $event): void
     {
         $this->id = $event->id;
+        $this->title = $event->title;
+    }
+
+    protected function applyDocumentRenamed(DocumentRenamed $event): void
+    {
         $this->title = $event->title;
     }
 
@@ -39,13 +52,6 @@ final class Document extends AggregateRoot implements JsonSerializable
         ];
     }
 
-    public function id(): DocumentId
-    {
-        return $this->id;
-    }
-
-    public function title(): string
-    {
-        return $this->title;
-    }
+    public function id(): DocumentId { return $this->id; }
+    public function title(): string   { return $this->title; }
 }

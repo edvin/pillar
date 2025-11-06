@@ -28,7 +28,7 @@ abstract class TestCase extends BaseTestCase
 
         $config->set('cache.default', 'array');
 
-        $config->set('pillar.contexts', [
+        $config->set('pillar.context_registries', [
             DefaultTestContextRegistry::class,
         ]);
 

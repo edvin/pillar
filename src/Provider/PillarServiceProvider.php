@@ -8,8 +8,10 @@ use Illuminate\Support\ServiceProvider;
 use Pillar\Bus\CommandBusInterface;
 use Pillar\Bus\QueryBusInterface;
 use Pillar\Console\InstallPillarCommand;
+use Pillar\Console\ReplayEventsCommand;
 use Pillar\Context\ContextLoader;
 use Pillar\Event\EventAliasRegistry;
+use Pillar\Event\EventReplayer;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\Stream\StreamResolver;
@@ -39,6 +41,7 @@ class PillarServiceProvider extends ServiceProvider
         $this->app->singleton(EventStoreRepository::class);
         $this->app->singleton(EventAliasRegistry::class);
         $this->app->singleton(UpcasterRegistry::class);
+        $this->app->singleton(EventReplayer::class);
         $this->app->singleton(ContextLoader::class);
     }
 
@@ -48,7 +51,10 @@ class PillarServiceProvider extends ServiceProvider
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([InstallPillarCommand::class]);
+            $this->commands([
+                InstallPillarCommand::class,
+                ReplayEventsCommand::class,
+            ]);
 
             $this->publishMigrations();
 

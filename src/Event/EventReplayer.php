@@ -16,18 +16,31 @@ use InvalidArgumentException;
  *
  * Supports filtering by aggregate, event type, global sequence window, and/or occurred_at date window (UTC).
  * Sequence and date bounds are inclusive.
+ * Listener map is maintained as projectors-only; ContextLoader populates it via registerProjector().
  */
 final class EventReplayer
 {
     /**
      * @param EventStore $eventStore        The event store to stream events from.
-     * @param array<class-string, array<class-string>> $eventListeners Mapping of event FQCN → list of listener class names (must implement Projector and be invokable).
+     * @param array<class-string, array<class-string>> $projectors Mapping of event FQCN → list of projector class names (must implement Projector).
      */
     public function __construct(
         private readonly EventStore $eventStore,
-        private readonly array      $eventListeners
+        private array $projectors = []
     )
     {
+    }
+
+    /**
+     * Register a projector for a given event class.
+     */
+    public function registerProjector(string $eventClass, string $projectorClass): void
+    {
+        $list = $this->projectors[$eventClass] ?? [];
+        if (!in_array($projectorClass, $list, true)) {
+            $list[] = $projectorClass;
+            $this->projectors[$eventClass] = $list;
+        }
     }
 
     /**
@@ -54,7 +67,53 @@ final class EventReplayer
         ?string          $toDate = null
     ): void
     {
-        // Validate ranges early
+        $this->validateRanges($fromSequence, $toSequence, $fromDate, $toDate);
+
+        $events = $this->eventStore->all($aggregateId, $eventType);
+        $filtered = $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
+        $count = $this->replayEvents($filtered);
+
+        if ($count === 0) {
+            throw new RuntimeException('No events found for replay.');
+        }
+    }
+
+    /**
+     * Stream events matching optional filters. Bounds are inclusive; dates are parsed as UTC.
+     *
+     * @param AggregateRootId|null $aggregateId Restrict to a single aggregate (or null for all).
+     * @param string|null          $eventType    Restrict to a single event class (FQCN), or null for all.
+     * @param int|null             $fromSequence Lower bound on global sequence (inclusive).
+     * @param int|null             $toSequence   Upper bound on global sequence (inclusive).
+     * @param string|null          $fromDate     Lower bound on occurred_at (inclusive), UTC ISO-8601 or Carbon-parseable.
+     * @param string|null          $toDate       Upper bound on occurred_at (inclusive), UTC ISO-8601 or Carbon-parseable.
+     *
+     * @return Generator<StoredEvent>
+     */
+    public function stream(
+        ?AggregateRootId $aggregateId = null,
+        ?string          $eventType = null,
+        ?int             $fromSequence = null,
+        ?int             $toSequence = null,
+        ?string          $fromDate = null,
+        ?string          $toDate = null
+    ): Generator {
+        $this->validateRanges($fromSequence, $toSequence, $fromDate, $toDate);
+        $events = $this->eventStore->all($aggregateId, $eventType);
+        return $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
+    }
+
+    /**
+     * Validate sequence and date ranges.
+     *
+     * @throws InvalidArgumentException
+     */
+    private function validateRanges(
+        ?int $fromSequence,
+        ?int $toSequence,
+        ?string $fromDate,
+        ?string $toDate
+    ): void {
         if ($fromSequence !== null && $toSequence !== null && $fromSequence > $toSequence) {
             throw new InvalidArgumentException('fromSequence must be less than or equal to toSequence');
         }
@@ -64,14 +123,6 @@ final class EventReplayer
             if ($fromTs->gt($toTs)) {
                 throw new InvalidArgumentException('fromDate must be earlier than or equal to toDate');
             }
-        }
-
-        $events = $this->eventStore->all($aggregateId, $eventType);
-        $filtered = $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
-        $count = $this->replayEvents($filtered);
-
-        if ($count === 0) {
-            throw new RuntimeException('No events found for replay.');
         }
     }
 
@@ -134,13 +185,11 @@ final class EventReplayer
 
             EventContext::initialize($storedEvent->occurredAt, $storedEvent->correlationId);
 
-            $listeners = $this->eventListeners[$storedEvent->eventType] ?? [];
+            $eventClass = $storedEvent->event::class;
+            $listeners = $this->projectors[$eventClass] ?? [];
 
             foreach ($listeners as $listenerClass) {
                 $listener = App::make($listenerClass);
-                if (!is_subclass_of($listener, Projector::class)) {
-                    continue;
-                }
                 Log::info("🎬 Replaying $storedEvent->eventType → $listenerClass");
                 $listener($storedEvent->event);
             }

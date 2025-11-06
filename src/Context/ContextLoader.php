@@ -9,15 +9,17 @@ use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Events\Dispatcher;
 use Pillar\Event\EventAliasRegistry;
+use Pillar\Event\EventReplayer;
+use Pillar\Event\Projector;
 use Pillar\Event\UpcasterRegistry;
 
 /**
  * Loads and wires up a set of ContextRegistry classes:
  *
- *  - maps commands and queries
- *  - registers event listeners
- *  - registers event aliases
- *  - registers upcasters
+ *  - Maps commands and queries
+ *  - Registers event listeners
+ *  - Registers event aliases
+ *  - Registers upcasters
  */
 final class ContextLoader
 {
@@ -28,8 +30,9 @@ final class ContextLoader
         private readonly EventAliasRegistry  $aliases,
         private readonly UpcasterRegistry    $upcasters,
         private readonly Dispatcher          $events,
+        private readonly EventReplayer       $replayer,
         #[Config('pillar.context_registries')]
-        private readonly array $registryClasses = []
+        private readonly array               $registryClasses = []
     )
     {
     }
@@ -79,7 +82,7 @@ final class ContextLoader
         // Register aliases
         foreach ($aliases as $eventClass => $alias) {
             if ($alias !== null && $alias !== '') {
-                $this->aliases->register($eventClass, $alias);
+                $this->aliases->register($alias, $eventClass);
             }
         }
 
@@ -88,9 +91,13 @@ final class ContextLoader
             foreach ($listenerClasses as $listenerClass) {
                 $listener = $this->app->make($listenerClass);
                 $this->events->listen($eventClass, [$listener, '__invoke']);
+                // If the listener is a Projector, register it for EventReplayer
+                if (is_string($listenerClass) && is_subclass_of($listenerClass, Projector::class)) {
+                    $this->replayer->registerProjector($eventClass, $listenerClass);
+                }
             }
         }
-        
+
         // Register upcasters
         foreach ($upcasters as $eventClass => $classes) {
             foreach ($classes as $uc) {

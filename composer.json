@@ -28,7 +28,8 @@
     }
   },
   "scripts": {
-    "test": "pest"
+    "test": "pest",
+    "test:coverage": "XDEBUG_MODE=coverage pest --coverage"
   },
   "authors": [
     {

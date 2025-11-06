@@ -2,12 +2,13 @@
 
 namespace Pillar\Facade;
 
-use Pillar\Bus\QueryBusInterface;
 use Illuminate\Support\Facades\Facade;
+use Pillar\Bus\QueryBusInterface;
 
 /**
- * @method static ask(object $param)
- * @method void map(array $array)
+ * @method static mixed ask(object $query)
+ * @method static void map(array $map)
+ * @mixin QueryBusInterface
  * @see QueryBusInterface
  */
 class QueryBus extends Facade
