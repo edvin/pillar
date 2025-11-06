@@ -65,7 +65,7 @@ class DatabaseEventStore implements EventStore
                 $nextAggregateSequence = (int) DB::getPdo()->lastInsertId();
 
             } elseif ($driver === 'pgsql' || $driver === 'sqlite') {
-                // PostgreSQL & SQLite (>= 3.35): UPDATE ... RETURNING last_sequence
+                // PostgresSQL & SQLite
                 $sql = 'UPDATE aggregate_versions SET last_sequence = last_sequence + 1 WHERE aggregate_id = ?';
                 $params = [$aggregateId];
                 if ($expectedSequence !== null) {
