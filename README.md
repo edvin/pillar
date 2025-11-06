@@ -397,10 +397,10 @@ final class DocumentContextRegistry implements ContextRegistry
 
 🧰 Registering Context Registries
 
-Each ContextRegistry must be registered in your application’s `config/pillar.php` file under the contexts key:
+Each ContextRegistry must be registered in your application’s `config/pillar.php` file under the Each ContextRegistry must be registered in your application’s `config/pillar.php` file under the `context_registries` key:
 
 ```php
-'contexts' => [
+'context_registries' => [
     \Context\DocumentHandling\Application\DocumentContextRegistry::class,
     \Context\UserManagement\Application\UserContextRegistry::class,
 ],

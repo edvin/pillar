@@ -13,7 +13,8 @@ abstract readonly class AggregateRootId implements Stringable, JsonSerializable
 
     public function __construct(
         protected string $value
-    ) {
+    )
+    {
         if (!Str::isUuid($value)) {
             throw new InvalidArgumentException("Invalid UUID: $value");
         }
@@ -51,7 +52,7 @@ abstract readonly class AggregateRootId implements Stringable, JsonSerializable
 
     public function equals(self $other): bool
     {
-        return $this->value === $other->value;
+        return $other::class === static::class && $this->value === $other->value;
     }
 
     public function value(): string
