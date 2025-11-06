@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Facade;
 /**
  * @method static void dispatch(object $command)
  * @method void map(array $array)
+ * @see CommandBusInterface
  */
 class CommandBus extends Facade
 {

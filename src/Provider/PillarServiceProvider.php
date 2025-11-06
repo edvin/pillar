@@ -18,6 +18,7 @@ use Pillar\Repository\EventStoreRepository;
 use Pillar\Repository\RepositoryResolver;
 use Pillar\Serialization\ObjectSerializer;
 use Pillar\Snapshot\SnapshotStore;
+use Pillar\Support\PillarManager;
 
 class PillarServiceProvider extends ServiceProvider
 {
@@ -32,6 +33,7 @@ class PillarServiceProvider extends ServiceProvider
         $this->app->singleton(QueryBusInterface::class, Config::get('pillar.buses.query.class'));
         $this->app->singleton(StreamResolver::class, Config::get('pillar.stream_resolver.class'));
 
+        $this->app->singleton(PillarManager::class);
         $this->app->singleton(RepositoryResolver::class);
         $this->app->singleton(EventFetchStrategyResolver::class);
         $this->app->singleton(EventStoreRepository::class);
@@ -74,7 +76,7 @@ class PillarServiceProvider extends ServiceProvider
         $publish = [];
         $base = __DIR__ . '/../../database/migrations';
         foreach ($names as $name) {
-            $src  = "$base/0000_00_00_000000_$name.php";
+            $src = "$base/0000_00_00_000000_$name.php";
             $dest = $this->app->databasePath("migrations/{$timestamp}_$name.php");
             $publish[$src] = $dest;
         }

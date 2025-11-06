@@ -17,8 +17,8 @@ can focus on your domain, without being constrained by rigid conventions or fram
 
 - ⚙️ **Aggregate roots and repositories** for event-sourced and non-event-sourced aggregates
 - 🧩 **Command and Query Buses** with Laravel facade support
-- 🧠 **Aggregate sessions** act as a Unit of Work, tracking loaded aggregates and automatically persisting their changes
-  and emitted events.
+- 🧠 **Aggregate sessions** act as a Unit of Work, tracking loaded aggregates and automatically persisting their changes and emitted events.
+- 🧰 **Pillar facade** for quick access to **session** / **command dispatch** / **query dispatch** etc
 - 🗃️ **Event store abstraction** with optimistic concurrency locking
 - 🔁 **Event replay** command for rebuilding projections
 - 🧬 **Event Upcasters** for schema evolution and backward compatibility
@@ -97,7 +97,30 @@ final class RenameDocumentHandler
 ```
 
 This pattern ensures that all domain changes occur within a controlled *unit of work* —
-capturing emitted events, maintaining consistency, and persisting all changes in a single transaction.
+ capturing emitted events, maintaining consistency, and persisting all changes in a single transaction.
+
+## 🧰 Pillar Facade
+
+Prefer dependency injection for core domain code, but the `Pillar` facade is a handy convenience in application code,
+console commands, and tests.
+
+**Methods**
+- `Pillar::session(): AggregateSession` — get a fresh unit-of-work session
+- `Pillar::dispatch(object $command): void` — forward to the Command Bus
+- `Pillar::ask(object $query): mixed` — forward to the Query Bus
+
+**Example**
+```php
+use Pillar\Facade\Pillar;
+
+$session = Pillar::session();
+
+// Dispatch a command
+Pillar::dispatch(new CreateDocumentCommand($id, $title, $authorId));
+
+// Ask a query
+$document = Pillar::ask(new FindDocumentQuery($id));
+```
 
 ---
 
