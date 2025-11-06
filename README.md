@@ -1,5 +1,7 @@
 # 🧠 Pillar
 
+[![Coverage](https://codecov.io/gh/edvin/pillar/branch/main/graph/badge.svg)](https://app.codecov.io/gh/edvin/pillar)
+
 ### Elegant Domain-Driven Design & Event Sourcing for Laravel
 
 **Pillar** is a modern, pragmatic framework for building **rich domain models** and **event-sourced systems** in
