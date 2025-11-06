@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Str;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
@@ -10,7 +9,7 @@ use Tests\Fixtures\Projectors\TitleListProjector;
 it('pillar:replay-events replays into projectors', function () {
     TitleListProjector::reset();
 
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id = DocumentId::new();
 
     // produce events
     $s0 = Pillar::session();

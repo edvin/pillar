@@ -12,9 +12,9 @@ class EventFetchStrategyResolver
     private array $strategies = [];
 
     /** @var array<string,string> */
-    private array $byAggregate = [];
+    private array $byAggregate;
 
-    private ?string $defaultStrategyName = null;
+    private ?string $defaultStrategyName;
 
     /** @var array<string, array{class: class-string, options?: array}> */
     private array $available = [];

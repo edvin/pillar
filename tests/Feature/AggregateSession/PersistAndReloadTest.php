@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Str;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
@@ -8,7 +7,7 @@ use Tests\Fixtures\Document\DocumentId;
 it('persists and reloads an event-sourced aggregate', function () {
     $session = Pillar::session();
 
-    $id = DocumentId::from(Str::uuid()->toString());
+    $id = DocumentId::new();
     $doc = Document::create($id, 'First Title');
 
     $session->add($doc);

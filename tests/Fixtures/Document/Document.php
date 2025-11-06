@@ -25,6 +25,12 @@ final class Document extends AggregateRoot implements JsonSerializable
         $this->record(new DocumentRenamed($this->id, $newTitle));
     }
 
+    public function preview(string $title): void
+    {
+        // Emit an ephemeral domain event — should NOT be persisted or dispatched
+        $this->record(new DocumentPreviewed($title));
+    }
+
     protected function applyDocumentCreated(DocumentCreated $event): void
     {
         $this->id = $event->id;

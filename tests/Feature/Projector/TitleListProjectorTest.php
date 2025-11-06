@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Str;
 use Pillar\Event\EventReplayer;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
@@ -10,7 +9,7 @@ use Tests\Fixtures\Projectors\TitleListProjector;
 it('runs the TitleListProjector on live commits', function () {
     TitleListProjector::reset();
 
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id  = DocumentId::new();
 
     // create
     $s0 = Pillar::session();
@@ -34,7 +33,7 @@ it('runs the TitleListProjector on live commits', function () {
 
 it('replays into the TitleListProjector after clearing it', function () {
     // produce live events
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id  = DocumentId::new();
 
     $s0 = Pillar::session();
     $s0->add(Document::create($id, 'v0'));

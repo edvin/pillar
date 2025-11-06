@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Str;
 use Pillar\Facade\Pillar;
 use Pillar\Snapshot\SnapshotStore;
 use Tests\Fixtures\Document\Document;
@@ -45,7 +44,7 @@ it('does not save a snapshot when committing with no new events', function () {
 
     app()->instance(SnapshotStore::class, $fake);
 
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id  = DocumentId::new();
 
     // First commit creates aggregate → snapshot once at 1
     $s0 = Pillar::session();

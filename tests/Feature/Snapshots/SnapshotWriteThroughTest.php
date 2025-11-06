@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Str;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Facade\Pillar;
 use Pillar\Snapshot\SnapshotStore;
@@ -58,7 +57,7 @@ it('saves a snapshot with the last aggregate version after commit', function () 
     // Swap our fake into the container
     app()->instance(SnapshotStore::class, $fake);
 
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id  = DocumentId::new();
     $doc = Document::create($id, 'v0');
 
     $s = Pillar::session();

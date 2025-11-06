@@ -19,7 +19,7 @@ it('resolves to the default table when no overrides and per-aggregate disabled',
     expect($resolver->resolve(null))->toBe('events');
 
     // any aggregate → still default
-    $id = DocumentId::from(Str::uuid()->toString());
+    $id = DocumentId::new();
     $resolver = app(DatabaseStreamResolver::class);
     expect($resolver->resolve($id))->toBe('events');
 });
@@ -36,7 +36,7 @@ it('respects per-type overrides', function () {
 
     $resolver = app(DatabaseStreamResolver::class);
 
-    $id = DocumentId::from(Str::uuid()->toString());
+    $id = DocumentId::new();
     expect($resolver->resolve($id))->toBe('doc_events');
 });
 
@@ -51,10 +51,9 @@ it('builds per-aggregate table names in default_id format', function () {
 
     $resolver = app(DatabaseStreamResolver::class);
 
-    $uuid = Str::uuid()->toString();
-    $id   = DocumentId::from($uuid);
+    $id = DocumentId::new();
 
-    expect($resolver->resolve($id))->toBe('events_' . $uuid);
+    expect($resolver->resolve($id))->toBe('events_' . $id->value());
 });
 
 it('builds per-aggregate table names in type_id format (lowercased type)', function () {
@@ -69,7 +68,7 @@ it('builds per-aggregate table names in type_id format (lowercased type)', funct
     $resolver = app(DatabaseStreamResolver::class);
 
     $uuid = Str::uuid()->toString();
-    $id   = DocumentId::from($uuid);
+    $id = DocumentId::from($uuid);
 
     // class_basename(Document::class) === 'Document' → lowercased 'document'
     expect($resolver->resolve($id))->toBe('document_' . $uuid);

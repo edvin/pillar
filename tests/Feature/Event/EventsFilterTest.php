@@ -1,7 +1,6 @@
 <?php
 
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Str;
 use Pillar\Event\EventReplayer;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
@@ -17,7 +16,7 @@ it('filters events by sequence and date bounds', function () {
 
     // Create @ t1
     Carbon\Carbon::setTestNow($t1);
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id = DocumentId::new();
     $doc = Document::create($id, 'v0');
     $s0 = Pillar::session();
     $s0->add($doc);
@@ -56,7 +55,7 @@ it('filters events by sequence and date bounds', function () {
 
 it('it replays only the specified event type (DocumentRenamed)', function () {
     // produce events: v0, v1, v2
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id = DocumentId::new();
 
     $s0 = Pillar::session();
     $s0->add(Document::create($id, 'v0'));

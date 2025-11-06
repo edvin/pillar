@@ -1,12 +1,11 @@
 <?php
 
-use Illuminate\Support\Str;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
 
 it('commits multiple events in order with contiguous aggregate versions', function () {
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id = DocumentId::new();
     $doc = Document::create($id, 'v0');
 
     $s = Pillar::session();

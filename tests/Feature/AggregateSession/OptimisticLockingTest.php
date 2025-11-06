@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Str;
 use Pillar\Event\ConcurrencyException;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
@@ -8,7 +7,7 @@ use Tests\Fixtures\Document\DocumentId;
 
 it('throws on concurrent commits when optimistic locking is enabled', function () {
     // Create
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id = DocumentId::new();
     $doc = Document::create($id, 'v0');
 
     $s0 = Pillar::session();
@@ -39,7 +38,7 @@ it('allows last write wins when optimistic locking is disabled', function () {
     config()->set('pillar.event_store.options.optimistic_locking', false);
 
     // Create
-    $id  = DocumentId::from(Str::uuid()->toString());
+    $id  = DocumentId::new();
     $doc = Document::create($id, 'v0');
 
     $s0 = Pillar::session();
