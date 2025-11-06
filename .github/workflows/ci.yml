@@ -32,3 +32,4 @@ jobs:
           files: build/logs/clover.xml
           flags: php
           fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
