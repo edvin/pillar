@@ -12,12 +12,23 @@
     "illuminate/database": "^12.0"
   },
   "require-dev": {
-    "illuminate/console": "^12.0"
+    "illuminate/console": "^12.0",
+    "pestphp/pest": "^4.1",
+    "pestphp/pest-plugin-laravel": "^4.0",
+    "orchestra/testbench": "^10.6"
   },
   "autoload": {
     "psr-4": {
       "Pillar\\": "src/"
     }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "pest"
   },
   "authors": [
     {
@@ -30,6 +41,11 @@
       "providers": [
         "Pillar\\Provider\\PillarServiceProvider"
       ]
+    }
+  },
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
     }
   }
 }

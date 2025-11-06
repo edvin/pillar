@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Facade;
 /**
  * @method static ask(object $param)
  * @method void map(array $array)
+ * @see QueryBusInterface
  */
 class QueryBus extends Facade
 {
