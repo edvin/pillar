@@ -1,5 +1,5 @@
 <?php
-
+// @codeCoverageIgnoreStart
 namespace Pillar\Facade;
 
 use Pillar\Bus\CommandBusInterface;
@@ -18,3 +18,4 @@ class CommandBus extends Facade
         return CommandBusInterface::class;
     }
 }
+// @codeCoverageIgnoreEnd

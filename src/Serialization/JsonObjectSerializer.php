@@ -31,21 +31,25 @@ final class JsonObjectSerializer implements ObjectSerializer
         }
 
         if (!class_exists($class)) {
-            throw new RuntimeException("Unknown class: $class");
+            throw SerializationException::failed('deserialize', $class, new RuntimeException("Unknown class: $class"));
         }
 
-        if (!isset(self::$reflectionCache[$class])) {
-            self::$reflectionCache[$class] = ConstructorMetadata::fromClass($class);
+        try {
+            if (!isset(self::$reflectionCache[$class])) {
+                self::$reflectionCache[$class] = ConstructorMetadata::fromClass($class);
+            }
+
+            $meta = self::$reflectionCache[$class];
+            $args = [];
+
+            foreach ($meta->parameters as $param) {
+                $args[] = $param->resolveValue($data);
+            }
+
+            return $meta->newInstance($args, $class);
+        } catch (Throwable $e) {
+            throw SerializationException::failed('deserialize', $class, $e);
         }
-
-        $meta = self::$reflectionCache[$class];
-        $args = [];
-
-        foreach ($meta->parameters as $param) {
-            $args[] = $param->resolveValue($data);
-        }
-
-        return $meta->newInstance($args, $class);
     }
 
     public function toArray(string $payload): array

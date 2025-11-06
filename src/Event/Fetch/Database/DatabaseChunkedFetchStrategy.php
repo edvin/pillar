@@ -20,7 +20,7 @@ class DatabaseChunkedFetchStrategy extends AbstractDatabaseFetchStrategy impleme
         EventAliasRegistry       $aliases,
         UpcasterRegistry         $upcasters,
         protected StreamResolver $streamResolver,
-        #[Config('pillar.fetch_strategies.db_chunked.options.chunk_size', 1000)]
+        #[Config('pillar.fetch_strategies.available.db_chunked.options.chunk_size', 1000)]
         int                      $chunkSize,
     )
     {
@@ -30,49 +30,83 @@ class DatabaseChunkedFetchStrategy extends AbstractDatabaseFetchStrategy impleme
 
     public function load(AggregateRootId $id, int $afterAggregateSequence = 0): Generator
     {
-        $query = $this->baseQuery($id)->where('aggregate_id', $id->value());
+        // Page forward using the per-aggregate version as the cursor, ascending
+        $cursor = max(0, (int) $afterAggregateSequence);
 
-        if ($afterAggregateSequence > 0) {
-            $query->where('aggregate_sequence', '>', $afterAggregateSequence);
-        }
+        while (true) {
+            $query = $this->baseQuery($id)
+                ->where('aggregate_id', $id->value());
 
-        $page = 1;
-        do {
-            $chunk = $query
-                ->forPage($page++, $this->chunkSize)
+            if ($cursor > 0) {
+                $query->where('aggregate_sequence', '>', $cursor);
+            }
+
+            $rows = $query
+                ->reorder()
+                ->orderBy('aggregate_sequence', 'asc')
+                ->limit($this->chunkSize)
                 ->get();
 
-            if ($chunk->isEmpty()) {
+            if ($rows->isEmpty()) {
                 break;
             }
 
-            yield from $this->mapToStoredEvents($chunk);
-        } while ($chunk->count() === $this->chunkSize);
+            foreach ($this->mapToStoredEvents($rows) as $e) {
+                yield $e;
+            }
+
+            // Advance cursor to last row's per-aggregate sequence
+            $last = $rows->last();
+            $cursor = (int) ($last->aggregate_sequence ?? $cursor);
+
+            if ($rows->count() < $this->chunkSize) {
+                break; // final page
+            }
+        }
     }
 
     public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator
     {
-        $query = $this->baseQuery($aggregateId);
+        // Use keyset pagination to guarantee stable, forward-only ordering.
+        // For a specific aggregate, page by per-aggregate sequence; otherwise by global sequence.
+        $cursor = 0;
+        $orderColumn = $aggregateId ? 'aggregate_sequence' : 'sequence';
 
-        if ($aggregateId) {
-            $query->where('aggregate_id', $aggregateId->value());
-        }
+        while (true) {
+            $query = $this->baseQuery($aggregateId);
 
-        if ($eventType) {
-            $query->where('event_type', $eventType);
-        }
+            if ($aggregateId) {
+                $query->where('aggregate_id', $aggregateId->value());
+            }
 
-        $page = 1;
-        do {
-            $chunk = $query
-                ->forPage($page++, $this->chunkSize)
+            if ($eventType) {
+                $query->where('event_type', $eventType);
+            }
+
+            if ($cursor > 0) {
+                $query->where($orderColumn, '>', $cursor);
+            }
+
+            $rows = $query
+                ->reorder($orderColumn)
+                ->limit($this->chunkSize)
                 ->get();
 
-            if ($chunk->isEmpty()) {
+            if ($rows->isEmpty()) {
                 break;
             }
 
-            yield from $this->mapToStoredEvents($chunk);
-        } while ($chunk->count() === $this->chunkSize);
+            foreach ($this->mapToStoredEvents($rows) as $e) {
+                yield $e;
+            }
+
+            // Advance the cursor using the last row of this page.
+            $last = $rows->last();
+            $cursor = (int)($last->{$orderColumn} ?? 0);
+
+            if ($rows->count() < $this->chunkSize) {
+                break; // final, short page
+            }
+        }
     }
 }

@@ -1,5 +1,5 @@
 <?php
-
+// @codeCoverageIgnoreStart
 namespace Pillar\Console;
 
 
@@ -37,3 +37,4 @@ class InstallPillarCommand extends Command
         return self::SUCCESS;
     }
 }
+// @codeCoverageIgnoreEnd

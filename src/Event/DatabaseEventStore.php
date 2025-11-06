@@ -131,7 +131,7 @@ class DatabaseEventStore implements EventStore
 
     public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator
     {
-        return $this->strategyResolver->resolve()->all($aggregateId, $eventType);
+        return $this->strategyResolver->resolve($aggregateId)->all($aggregateId, $eventType);
     }
 
 }

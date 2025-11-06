@@ -1,5 +1,5 @@
 <?php
-
+// @codeCoverageIgnoreStart
 namespace Pillar\Facade;
 
 use Illuminate\Support\Facades\Facade;
@@ -18,3 +18,4 @@ class QueryBus extends Facade
         return QueryBusInterface::class;
     }
 }
+// @codeCoverageIgnoreEnd
