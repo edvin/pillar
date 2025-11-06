@@ -2,9 +2,12 @@
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use Pillar\Event\EventReplayer;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
+use Tests\Fixtures\Document\DocumentRenamed;
+use Tests\Fixtures\Projectors\TitleListProjector;
 
 it('filters events by sequence and date bounds', function () {
     // Timestamps (UTC)
@@ -50,3 +53,31 @@ it('filters events by sequence and date bounds', function () {
     $dateWindow = iterator_to_array(Pillar::events($id, null, null, null, null, $t2->toIso8601String()));
     expect($dateWindow)->toHaveCount(2);
 });
+
+it('it replays only the specified event type (DocumentRenamed)', function () {
+    // produce events: v0, v1, v2
+    $id  = DocumentId::from(Str::uuid()->toString());
+
+    $s0 = Pillar::session();
+    $s0->add(Document::create($id, 'v0'));
+    $s0->commit();
+
+    $s1 = Pillar::session();
+    $a1 = $s1->find($id);
+    $a1->rename('v1');
+    $s1->commit();
+
+    $s2 = Pillar::session();
+    $a2 = $s2->find($id);
+    $a2->rename('v2');
+    $s2->commit();
+
+    // simulate rebuild: clear projector
+    TitleListProjector::reset();
+
+    // replay only renames
+    app(EventReplayer::class)->replay($id, DocumentRenamed::class);
+
+    expect(TitleListProjector::$seen)->toBe(['v1', 'v2']); // no 'v0'
+});
+

@@ -5,38 +5,25 @@ namespace Pillar\Event\Stream;
 use Illuminate\Container\Attributes\Config;
 use Pillar\Aggregate\AggregateRootId;
 
-/**
- * Resolves a database table name for the given aggregate root.
- *
- * This resolver supports flexible database event stream partitioning strategies:
- *  - default table ('events')
- *  - per aggregate type (mapped in config)
- *  - per aggregate ID (creates a unique table name per aggregate instance)
- *
- * These strategies can be used for multi-tenancy, event stream scaling, or operational isolation.
- *
- * The per-aggregate ID mode supports different naming formats controlled by the
- * `per_aggregate_id_format` configuration option:
- *  - 'default_id': table name is "{defaultTable}_{aggregateId}"
- *  - 'type_id': table name is "{defaultTable}_{aggregateType}_{aggregateId}"
- */
-class DatabaseStreamResolver implements StreamResolver
+final class DatabaseStreamResolver implements StreamResolver
 {
     public function __construct(
+        // Global fallback stream/table
         #[Config('pillar.stream_resolver.options.default', 'events')]
-        private string $defaultTable,
+        private readonly string $defaultTable = 'events',
 
+        // Explicit per-type mapping: [ FQCN => stream_name ]
         #[Config('pillar.stream_resolver.options.per_aggregate_type', [])]
-        private array  $aggregateOverrides,
+        private readonly array $aggregateOverrides = [],
 
+        // Whether to build a per-instance stream name when no per-type override applies
         #[Config('pillar.stream_resolver.options.per_aggregate_id', false)]
-        private bool   $perAggregateId,
+        private readonly bool $perAggregateId = false,
 
+        // Format for per-aggregate streams: 'default_id' | 'type_id'
         #[Config('pillar.stream_resolver.options.per_aggregate_id_format', 'default_id')]
-        private string $perAggregateIdFormat,
-    )
-    {
-    }
+        private readonly string $perAggregateIdFormat = 'default_id',
+    ) {}
 
     public function resolve(?AggregateRootId $aggregateId): string
     {
@@ -46,24 +33,22 @@ class DatabaseStreamResolver implements StreamResolver
 
         $aggregateClass = $aggregateId->aggregateClass();
 
-        // Explicit per-type table
+        // 1) Explicit per-type table
         if (isset($this->aggregateOverrides[$aggregateClass])) {
             return $this->aggregateOverrides[$aggregateClass];
         }
 
-        // Optional per-instance table
+        // 2) Optional per-instance table
         if ($this->perAggregateId) {
-            return match ($this->perAggregateIdFormat) {
-                'type_id' => sprintf(
-                    '%s_%s',
-                    strtolower(class_basename($aggregateClass)),
-                    $aggregateId
-                ),
-                default => sprintf('%s_%s', $this->defaultTable, $aggregateId),
-            };
+            if ($this->perAggregateIdFormat === 'type_id') {
+                // lowercased base name, e.g. "document_<uuid>"
+                return sprintf('%s_%s', strtolower(class_basename($aggregateClass)), $aggregateId->value());
+            }
+            // default_id → "events_<uuid>"
+            return sprintf('%s_%s', $this->defaultTable, $aggregateId->value());
         }
 
-        // Fallback to global default
+        // 3) Fallback to global default
         return $this->defaultTable;
     }
 }

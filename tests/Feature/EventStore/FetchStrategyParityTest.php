@@ -38,3 +38,35 @@ it('db_chunked and db_load_all return identical events', function () {
     expect($chunked)->toEqual($all)
         ->and(count($all))->toBeGreaterThan(2);
 });
+
+it('db_cursor and db_load_all return identical events', function () {
+    // build a modest stream
+    $id = DocumentId::from(Str::uuid()->toString());
+    $s = Pillar::session();
+    $s->add(Document::create($id, 'v0'));
+    $s->commit();
+
+    foreach (['v1', 'v2', 'v3', 'v4'] as $t) {
+        $sx = Pillar::session();
+        $a = $sx->find($id);
+        $a->rename($t);
+        $sx->commit();
+    }
+
+    // cursor strategy
+    config()->set('pillar.event_store.fetch.strategy', 'db_cursor');
+    $cursor = array_map(
+        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
+        iterator_to_array(Pillar::events($id))
+    );
+
+    // load_all strategy
+    config()->set('pillar.event_store.fetch.strategy', 'db_load_all');
+    $all = array_map(
+        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
+        iterator_to_array(Pillar::events($id))
+    );
+
+    expect($cursor)->toEqual($all)
+        ->and(count($all))->toBeGreaterThan(2);
+});

@@ -32,9 +32,9 @@ final class PillarManager
     /**
      * Dispatch a command through the Command Bus.
      */
-    public function dispatch(object $command): void
+    public function dispatch(object $command): mixed
     {
-        $this->commands->dispatch($command);
+        return $this->commands->dispatch($command);
     }
 
     /**

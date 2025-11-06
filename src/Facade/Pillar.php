@@ -18,7 +18,7 @@ use Pillar\Support\PillarManager;
  * - events(...): lazily stream StoredEvent (Generator) with inclusive bounds; dates are UTC
  *
  * @method static AggregateSession session()
- * @method static void dispatch(object $command)
+ * @method static mixed dispatch(object $command)
  * @method static mixed ask(object $query)
  * @method static \Generator<int, StoredEvent> events(?AggregateRootId $aggregateId = null, ?string $eventType = null, ?int $fromSequence = null, ?int $toSequence = null, ?string $fromDate = null, ?string $toDate = null)
  * @see PillarManager
