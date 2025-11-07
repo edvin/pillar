@@ -204,8 +204,8 @@ Route::get('/demo', function () {
     $id = DocumentId::new();
     $doc = Document::create($id, 'Hello Pillar');
     Pillar::session()->attach($doc)->commit();
-    Pillar::dispatch(new RenameDocumentCommand((string)$id, 'New Title'));
-    return 'OK: ' . (string)$id;
+    Pillar::dispatch(new RenameDocumentCommand($id, 'New Title'));
+    return $id;
 });
 ```
 
