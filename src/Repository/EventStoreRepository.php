@@ -8,16 +8,18 @@ use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\EphemeralEvent;
 use Pillar\Event\EventStore;
+use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Throwable;
 
 final readonly class EventStoreRepository implements AggregateRepository
 {
     public function __construct(
-        private SnapshotStore $snapshots,
-        private EventStore    $eventStore,
+        private SnapshotPolicy $snapshotPolicy,
+        private SnapshotStore  $snapshots,
+        private EventStore     $eventStore,
         #[Config('pillar.event_store.options.optimistic_locking', false)]
-        private bool          $optimisticLocking,
+        private bool           $optimisticLocking,
     )
     {
     }
@@ -27,6 +29,7 @@ final readonly class EventStoreRepository implements AggregateRepository
     {
         DB::transaction(function () use ($aggregate, $expectedVersion) {
             $lastSeq = null;
+            $delta = 0;
             $expected = $this->optimisticLocking ? $expectedVersion : null;
 
             foreach ($aggregate->recordedEvents() as $event) {
@@ -35,13 +38,20 @@ final readonly class EventStoreRepository implements AggregateRepository
                 }
 
                 $lastSeq = $this->eventStore->append($aggregate->id(), $event, $expected);
+                $delta++;
                 if ($expected !== null) {
                     $expected = $lastSeq;
                 }
             }
 
             if ($lastSeq !== null) {
-                $this->snapshots->save($aggregate, $lastSeq);
+                $prevSeq = ($this->optimisticLocking && $expectedVersion !== null)
+                    ? $expectedVersion
+                    : max(0, $lastSeq - $delta);
+
+                if ($this->snapshotPolicy->shouldSnapshot($aggregate, $lastSeq, $prevSeq, $delta)) {
+                    $this->snapshots->save($aggregate, $lastSeq);
+                }
             }
         });
     }
@@ -83,10 +93,16 @@ final readonly class EventStoreRepository implements AggregateRepository
         }
 
         // Set the aggregate's persisted version (prefer events applied; otherwise snapshot version)
-        $persistedVersion = (int) ($lastSeq ?? $after);
+        $persistedVersion = (int)($lastSeq ?? $after);
 
         if ($hadEvents && $lastSeq !== null) {
-            $this->snapshots->save($aggregate, $lastSeq);
+            $prevSeq = (int)$after;                 // version at snapshot time (0 if none)
+            $newSeq = (int)$lastSeq;               // version after replaying new events
+            $delta = max(0, $newSeq - $prevSeq);   // number of applied events
+
+            if ($this->snapshotPolicy->shouldSnapshot($aggregate, $newSeq, $prevSeq, $delta)) {
+                $this->snapshots->save($aggregate, $newSeq);
+            }
         }
 
         return new LoadedAggregate($aggregate, $persistedVersion);

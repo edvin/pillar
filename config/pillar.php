@@ -166,6 +166,20 @@ return [
             'class' => \Pillar\Snapshot\CacheSnapshotStore::class,
         ],
         'ttl' => null, // Time-to-live in seconds (null = indefinitely)
+
+        // Global default policy
+        'policy' => [
+            'class' => \Pillar\Snapshot\AlwaysSnapshotPolicy::class,
+            'options' => [],
+        ],
+
+        // Per-aggregate overrides
+        'overrides' => [
+            // \App\Domain\Foo\FooAggregate::class => [
+            //     'class' => \Pillar\Snapshot\EveryNEvents::class,
+            //     'options' => ['threshold' => 50],
+            // ],
+        ],
     ],
 
     /*

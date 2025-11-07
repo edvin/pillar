@@ -24,7 +24,7 @@ can focus on your domain, without being constrained by rigid conventions or fram
 - 🗃️ **Event store abstraction** with optimistic concurrency locking
 - 🔁 **Event replay** command for rebuilding projections
 - 🧬 **Event Upcasters** for schema evolution and backward compatibility
-- 💾 **Snapshotting** with configurable store
+- 💾 **Snapshotting** (opt‑in via `Snapshottable`) with configurable store & pluggable policies
 - 🪶 **Serializer abstraction** (default: JSON)
 - 🔧 **Laravel integration** via `PillarServiceProvider`
 - ⚙️ Configurable **repository** and **event store** implementations
@@ -99,7 +99,7 @@ final class RenameDocumentHandler
 ```
 
 This pattern ensures that all domain changes occur within a controlled *unit of work* —
- capturing emitted events, maintaining consistency, and persisting all changes in a single transaction.
+capturing emitted events, maintaining consistency, and persisting all changes in a single transaction.
 
 ## 🧰 Pillar Facade
 
@@ -596,11 +596,12 @@ isn’t needed.
 
 ```php
 use Pillar\Aggregate\AggregateRoot;
+use Pillar\Snapshot\Snapshottable;
 use Context\Document\Domain\Event\DocumentCreated;
 use Context\Document\Domain\Event\DocumentRenamed;
 use Context\Document\Domain\Identifier\DocumentId;
 
-final class Document extends AggregateRoot
+final class Document extends AggregateRoot implements Snapshottable
 {
     private DocumentId $id;
     private string $title;
@@ -632,7 +633,16 @@ final class Document extends AggregateRoot
         $this->title = $event->newTitle;
     }
 
-    public static function fromSnapshot(array $data): self
+    // Snapshottable
+    public function toSnapshot(): array
+    {
+        return [
+            'id' => (string) $this->id,
+            'title' => $this->title,
+        ];
+    }
+
+    public static function fromSnapshot(array $data): static
     {
         $self = new self();
         $self->id = DocumentId::from($data['id']);
@@ -668,8 +678,9 @@ You don’t record or apply events — you just mutate the state directly.
 ```php
 use Context\Document\Domain\Identifier\DocumentId;
 use Pillar\Aggregate\AggregateRoot;
+use Pillar\Snapshot\Snapshottable;
 
-final class Document extends AggregateRoot
+final class Document extends AggregateRoot implements Snapshottable
 {
     public function __construct(
         private DocumentId $id,
@@ -681,7 +692,16 @@ final class Document extends AggregateRoot
         $this->title = $newTitle;
     }
 
-    public static function fromSnapshot(array $data): self
+    // Snapshottable
+    public function toSnapshot(): array
+    {
+        return [
+            'id' => (string) $this->id,
+            'title' => $this->title,
+        ];
+    }
+
+    public static function fromSnapshot(array $data): static
     {
         return new self(DocumentId::from($data['id']), $data['title']);
     }
@@ -735,32 +755,111 @@ sequenceDiagram
 
 ## 💾 Snapshotting
 
-Snapshotting allows you to periodically save the current state of an aggregate to optimize loading performance by
-reducing the number of events that need to be replayed.
+Snapshotting lets you periodically capture an aggregate’s current state to avoid replaying a long event history on load.
 
-Pillar supports snapshotting with a configurable snapshot store. You can enable and configure snapshotting in the
-`config/pillar.php` file under the `snapshotting` key.
+### Opt-in with `Snapshottable`
 
-Default configuration:
+Aggregates **opt in** to snapshotting by implementing the `Snapshottable` interface and providing two methods:
+
+```php
+interface Snapshottable
+{
+    /** Return a serializable array representing the current state. */
+    public function toSnapshot(): array;
+
+    /** Rebuild an aggregate from a previously stored snapshot. */
+    public static function fromSnapshot(array $data): static;
+}
+```
+
+> Aggregates that do **not** implement `Snapshottable` are ignored by the snapshot store.
+
+### Configuration
+
+Configure snapshotting in `config/pillar.php`:
 
 ```php
 'snapshot' => [
-    'store' => \Pillar\Snapshot\CacheSnapshotStore::class,
+    'store' => [
+        'class' => \Pillar\Snapshot\CacheSnapshotStore::class,
+    ],
     'ttl' => null, // Time-to-live in seconds (null = indefinitely)
+
+    // Delegating policy selects which policy to use per aggregate
+    'policy' => [
+        'default' => [
+            'class' => \Pillar\Snapshot\AlwaysSnapshotPolicy::class,
+        ],
+        'overrides' => [
+            // \App\Aggregates\BigAggregate::class => [
+            //     'class' => \Pillar\Snapshot\CadenceSnapshotPolicy::class,
+            //     'options' => ['threshold' => 500, 'offset' => 0],
+            // ],
+            // \App\Aggregates\Report::class => [
+            //     'class' => \Pillar\Snapshot\OnDemandSnapshotPolicy::class,
+            // ],
+        ],
+    ],
 ],
 ```
 
-Specifies the snapshot store implementation. By default, Pillar provides a Laravel Cache backed snapshot store which
-creates a snapshot whenever new events are added, but you can implement your own by adhering to the `SnapshotStore`
-interface. For the best performance, consider configuring Laravel to use a fast cache like Redis.
+Pillar binds `SnapshotPolicy` to a **delegating policy** that reads this config, instantiates the chosen policy, and applies any per-aggregate overrides.
 
-To implement custom snapshotting behavior, create a class implementing the `SnapshotStore` interface and register it
-here.
+### Built-in policies
 
-Snapshotting helps improve aggregate loading times especially for aggregates with long event histories.
+| Policy | Class | Behavior | Options |
+|---|---|---|---|
+| **Always** | `AlwaysSnapshotPolicy` | Snapshot automatically whenever the commit persisted one or more events. | _None_ |
+| **Cadence** | `CadenceSnapshotPolicy` | Snapshot on a cadence: when `(newSeq - offset) % threshold === 0`. | `threshold` (int, default 100), `offset` (int, default 0) |
+| **On-Demand** | `OnDemandSnapshotPolicy` | Never auto-snapshot; call the snapshot store yourself when you decide. | _None_ |
 
-Note that the default **EventStoreRepository** will automatically save a new snapshot whenever the aggregate is
-saved. This will be configurable in the future, but works well for most use cases.
+**Parameters passed to policies**
+
+- `$newSeq` — last persisted aggregate version *after* the commit
+- `$prevSeq` — aggregate version at load time (0 if new)
+- `$delta` — number of events persisted in this commit (`$newSeq - $prevSeq`)
+
+### Manual snapshots (On-Demand)
+
+When using `OnDemandSnapshotPolicy`, Pillar won’t auto-snapshot. If you want to force a snapshot from your own code:
+
+```php
+use Pillar\Snapshot\SnapshotStore;
+
+// after a successful commit, when you know the current version
+app(SnapshotStore::class)->save($aggregate, $currentVersion);
+```
+
+### Storage
+
+The default `CacheSnapshotStore` uses Laravel’s cache. Set `ttl` for automatic expiry (seconds), or leave `null` to keep snapshots indefinitely. For best performance in production, point your cache to Redis or another fast store.
+
+### Custom dynamic policy
+
+You can implement domain-specific logic by writing your own policy:
+
+```php
+use Pillar\Snapshot\SnapshotPolicy;
+use Pillar\Aggregate\AggregateRoot;
+
+final class BigAggregatePolicy implements SnapshotPolicy
+{
+    public function __construct(private int $maxDelta = 250) {}
+
+    public function shouldSnapshot(AggregateRoot $aggregate, int $newSeq, int $prevSeq, int $delta): bool
+    {
+        // Example: snapshot big aggregates frequently, small ones rarely
+        if ($aggregate instanceof \App\Aggregates\BigAggregate) {
+            return $delta > 0 && $delta >= $this->maxDelta;
+        }
+
+        // Fallback cadence every 100 events
+        return $delta > 0 && ($newSeq % 100) === 0;
+    }
+}
+```
+
+Register it as the default or as an override in `snapshot.policy`.
 
 ---
 
