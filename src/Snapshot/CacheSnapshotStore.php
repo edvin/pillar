@@ -7,20 +7,20 @@ use Pillar\Aggregate\AggregateRootId;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
-use RuntimeException;
+use InvalidArgumentException;
 
 class CacheSnapshotStore implements SnapshotStore
 {
-    public function load(string $aggregateClass, AggregateRootId $id): ?array
+    public function load(AggregateRootId $id): ?array
     {
+        /** @var class-string $aggregateClass */
+        $aggregateClass = $id->aggregateClass();
+        $this->assertAggregateType($aggregateClass);;
+
         $payload = Cache::get($this->cacheKey($aggregateClass, $id));
 
         if (!$payload) {
             return null;
-        }
-
-        if (!method_exists($aggregateClass, 'fromSnapshot')) {
-            throw new RuntimeException("Aggregate $aggregateClass does not have a fromSnapshot method.");
         }
 
         $aggregate = $aggregateClass::fromSnapshot($payload['data']);
@@ -48,9 +48,25 @@ class CacheSnapshotStore implements SnapshotStore
         );
     }
 
-    public function delete(string $aggregateClass, AggregateRootId $id): void
+    public function delete(AggregateRootId $id): void
     {
-        Cache::forget($this->cacheKey($aggregateClass, $id));
+        Cache::forget($this->cacheKey($id->aggregateClass(), $id));
+    }
+
+    /**
+     * Ensure the provided class is a valid Aggregate type for snapshots.
+     *
+     * We require it to extend AggregateRoot (which declares the static fromSnapshot contract)
+     * and to actually implement a static fromSnapshot(array): self.
+     *
+     * @param class-string $aggregateClass
+     * @throws InvalidArgumentException
+     */
+    private function assertAggregateType(string $aggregateClass): void
+    {
+        if (!is_subclass_of($aggregateClass, AggregateRoot::class)) {
+            throw new InvalidArgumentException("Expected aggregate class extending " . AggregateRoot::class . ", got {$aggregateClass}.");
+        }
     }
 
     private function cacheKey(string $aggregateClass, AggregateRootId $id): string

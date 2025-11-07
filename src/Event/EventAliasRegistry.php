@@ -40,16 +40,6 @@ final class EventAliasRegistry
     }
 
     /**
-     * Returns all registered aliases mapped to their event class names.
-     *
-     * @return array<string, string> An associative array of alias => class name mappings.
-     */
-    public function all(): array
-    {
-        return $this->map;
-    }
-
-    /**
      * Resolves an event instance or class name to its registered alias.
      *
      * If the event's class is not registered, returns the class name itself.

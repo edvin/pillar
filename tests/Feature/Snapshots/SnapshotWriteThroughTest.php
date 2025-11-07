@@ -1,5 +1,6 @@
 <?php
 
+use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Facade\Pillar;
 use Pillar\Snapshot\SnapshotStore;
@@ -17,39 +18,21 @@ it('saves a snapshot with the last aggregate version after commit', function () 
         /** @var int[] versions we recorded for assertions */
         public array $saved = [];
 
-        public function load(string $aggregateClass, object $id): ?array
+        public function load(AggregateRootId $id): ?array
         {
-            $key = $this->key($aggregateClass, $id);
-            return $this->store[$key] ?? null;
+            return $this->store[$id->value()] ?? null;
         }
 
-        public function save(object $aggregate, int $sequence): void
+        public function save(AggregateRoot $aggregate, int $sequence): void
         {
-            $aggregateClass = get_class($aggregate);
-
-            // This assumes your aggregates expose ->id()->value()
-            $id = method_exists($aggregate, 'id') ? $aggregate->id() : null;
-            $key = $this->key($aggregateClass, $id);
-
-            $this->store[$key] = [
+            $this->store[$aggregate->id()->value()] = [
                 'aggregate' => $aggregate,
                 'snapshot_version' => $sequence,
             ];
             $this->saved[] = $sequence;
         }
 
-        public function clear(string $aggregateClass, object $id): void
-        {
-            unset($this->store[$this->key($aggregateClass, $id)]);
-        }
-
-        private function key(string $aggregateClass, ?object $id): string
-        {
-            $idVal = method_exists($id, 'value') ? $id->value() : (string) spl_object_id($id);
-            return $aggregateClass . '|' . $idVal;
-        }
-
-        public function delete(string $aggregateClass, AggregateRootId $id): void
+        public function delete(AggregateRootId $id): void
         {
         }
     };
@@ -57,7 +40,7 @@ it('saves a snapshot with the last aggregate version after commit', function () 
     // Swap our fake into the container
     app()->instance(SnapshotStore::class, $fake);
 
-    $id  = DocumentId::new();
+    $id = DocumentId::new();
     $doc = Document::create($id, 'v0');
 
     $s = Pillar::session();

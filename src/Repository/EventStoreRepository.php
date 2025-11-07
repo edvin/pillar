@@ -11,13 +11,13 @@ use Pillar\Event\EventStore;
 use Pillar\Snapshot\SnapshotStore;
 use Throwable;
 
-final class EventStoreRepository implements AggregateRepository
+final readonly class EventStoreRepository implements AggregateRepository
 {
     public function __construct(
-        private readonly SnapshotStore $snapshots,
-        private readonly EventStore    $eventStore,
+        private SnapshotStore $snapshots,
+        private EventStore    $eventStore,
         #[Config('pillar.event_store.options.optimistic_locking', false)]
-        private readonly bool          $optimisticLocking,
+        private bool          $optimisticLocking,
     )
     {
     }
@@ -48,8 +48,7 @@ final class EventStoreRepository implements AggregateRepository
 
     public function find(AggregateRootId $id): ?LoadedAggregate
     {
-        $aggregateClass = $id->aggregateClass();
-        $snapshot = $this->snapshots->load($aggregateClass, $id);
+        $snapshot = $this->snapshots->load($id);
 
         $aggregate = null;
         $after = 0;
@@ -63,7 +62,7 @@ final class EventStoreRepository implements AggregateRepository
 
         if (!$aggregate) {
             /** @var AggregateRoot $aggregate */
-            $aggregate = new $aggregateClass();
+            $aggregate = new ($id->aggregateClass());
         }
 
         $aggregate->markAsReconstituting();

@@ -30,7 +30,7 @@
   },
   "scripts": {
     "test": "pest",
-    "test:coverage": "XDEBUG_MODE=coverage pest --coverage"
+    "test:coverage": "vendor/bin/pest --coverage"
   },
   "authors": [
     {

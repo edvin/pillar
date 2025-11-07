@@ -2,6 +2,7 @@
 
 use Pillar\Serialization\ObjectSerializer;
 use Pillar\Serialization\SerializationException;
+use Tests\Fixtures\Document\DocumentCreated;
 use Tests\Fixtures\Serialization\PingEvent;
 use Tests\Fixtures\Serialization\BadEvent;
 use Tests\Fixtures\Serialization\RecursiveEvent;
@@ -55,5 +56,14 @@ it('wraps JSON encoding failures in SerializationException', function () {
     $evt = new RecursiveEvent($meta);
 
     expect(fn() => $ser->serialize($evt))
+        ->toThrow(SerializationException::class);
+});
+
+it('wraps invalid JSON payload errors in SerializationException (deserialize)', function () {
+    /** @var ObjectSerializer $ser */
+    $ser = app(ObjectSerializer::class);
+
+    // Bad JSON → json_decode throws → caught and rethrown as SerializationException
+    expect(fn() => $ser->deserialize(DocumentCreated::class, '{not: "json"'))
         ->toThrow(SerializationException::class);
 });

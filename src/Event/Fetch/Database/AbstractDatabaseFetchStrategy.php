@@ -2,9 +2,7 @@
 
 namespace Pillar\Event\Fetch\Database;
 
-use Carbon\Carbon;
 use Generator;
-use Illuminate\Container\Attributes\Config;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Pillar\Aggregate\AggregateRootId;
@@ -52,23 +50,23 @@ abstract class AbstractDatabaseFetchStrategy
             $eventClass = $this->aliases->resolveClass($row->event_type);
             $fromVersion = $row->event_version ?? 1;
 
-            if (!$this->upcasters->has($eventClass)) {
-                $event = $this->serializer->deserialize($eventClass, $row->event_data);
-            } else {
+            if ($this->upcasters->has($eventClass)) {
                 $data = $this->serializer->toArray($row->event_data);
                 $data = $this->upcasters->upcast($eventClass, $fromVersion, $data);
                 $data = $this->serializer->fromArray($data);
                 $event = $this->serializer->deserialize($eventClass, $data);
+            } else {
+                $event = $this->serializer->deserialize($eventClass, $row->event_data);
             }
 
             yield new StoredEvent(
                 event: $event,
-                sequence: (int) $row->sequence,
-                aggregateSequence: (int) $row->aggregate_sequence,
+                sequence: (int)$row->sequence,
+                aggregateSequence: (int)$row->aggregate_sequence,
                 aggregateId: $row->aggregate_id,
                 eventType: $row->event_type,
                 eventVersion: $fromVersion,
-                occurredAt: (string) $row->occurred_at,
+                occurredAt: (string)$row->occurred_at,
                 correlationId: $row->correlation_id
             );
         }

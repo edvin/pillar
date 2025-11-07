@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Database\MySqlConnection;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
