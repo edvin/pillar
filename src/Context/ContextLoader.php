@@ -80,7 +80,7 @@ final class ContextLoader
         $upcasters = $events->getUpcasters();
 
         // Register aliases
-        foreach ($aliases as $eventClass => $alias) {
+        foreach ($aliases as $alias => $eventClass) {
             if ($alias !== null && $alias !== '') {
                 $this->aliases->register($alias, $eventClass);
             }
@@ -91,6 +91,7 @@ final class ContextLoader
             foreach ($listenerClasses as $listenerClass) {
                 $listener = $this->app->make($listenerClass);
                 $this->events->listen($eventClass, [$listener, '__invoke']);
+
                 // If the listener is a Projector, register it for EventReplayer
                 if (is_string($listenerClass) && is_subclass_of($listenerClass, Projector::class)) {
                     $this->replayer->registerProjector($eventClass, $listenerClass);

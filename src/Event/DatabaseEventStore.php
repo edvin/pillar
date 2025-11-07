@@ -35,7 +35,7 @@ class DatabaseEventStore implements EventStore
                 'last_sequence' => 0,
             ]);
 
-            $driver = DB::connection()->getDriverName();
+            $driver = $this->driver();
 
             // Atomically advance the per-aggregate version and get the value assigned to this transaction
             if ($driver === 'mysql') {
@@ -83,9 +83,11 @@ class DatabaseEventStore implements EventStore
                 }
 
                 // For the no-expected case, we still expect exactly one row
+                // @codeCoverageIgnoreStart
                 if (empty($rows)) {
                     throw new RuntimeException('Failed to advance aggregate version');
                 }
+                // @codeCoverageIgnoreEnd
 
                 // DB::select returns an array of stdClass
                 $nextAggregateSequence = (int) ($rows[0]->last_sequence ?? 0);
@@ -132,6 +134,11 @@ class DatabaseEventStore implements EventStore
     public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator
     {
         return $this->strategyResolver->resolve($aggregateId)->all($aggregateId, $eventType);
+    }
+
+    protected function driver(): string
+    {
+        return DB::connection()->getDriverName();
     }
 
 }

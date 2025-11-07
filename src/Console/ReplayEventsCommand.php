@@ -5,6 +5,7 @@ namespace Pillar\Console;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\EventReplayer;
 use Throwable;
@@ -69,12 +70,13 @@ class ReplayEventsCommand extends Command
         $aggregateId = null;
         if ($aggregateArg !== null && strtolower((string) $aggregateArg) !== 'null') {
             $uuid = (string) $aggregateArg;
-            if (!Str::isUuid($uuid)) {
-                $this->error("Invalid aggregate_id: $aggregateArg. Must be a UUID.");
+
+            try {
+                $aggregateId = new GenericAggregateId($uuid);
+            } catch (InvalidArgumentException $invalidUuid) {
+                $this->error($invalidUuid->getMessage());
                 return self::FAILURE;
             }
-
-            $aggregateId = new GenericAggregateId($uuid);
         }
 
         $fromSeq = $this->option('from-seq') !== null ? (int)$this->option('from-seq') : null;
