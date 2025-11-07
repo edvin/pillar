@@ -8,6 +8,29 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_DATABASE: pillar_test
+          MYSQL_ROOT_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -psecret"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=30
+
+    env:
+      TEST_WITH_MYSQL: "1"
+      MYSQL_HOST: "127.0.0.1"
+      MYSQL_PORT: "3306"
+      MYSQL_DATABASE: "pillar_test"
+      MYSQL_USERNAME: "root"
+      MYSQL_PASSWORD: "secret"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -16,7 +39,7 @@ jobs:
         with:
           php-version: '8.4'
           coverage: pcov
-          extensions: sqlite3, pdo_sqlite
+          extensions: sqlite3, pdo_sqlite, pdo_mysql
 
       - name: Install deps
         run: composer install --no-interaction --no-progress --prefer-dist

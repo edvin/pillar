@@ -9,7 +9,8 @@
     "illuminate/events": "^12.0",
     "illuminate/contracts": "^12.0",
     "illuminate/container": "^12.0",
-    "illuminate/database": "^12.0"
+    "illuminate/database": "^12.0",
+    "ext-pdo": "*"
   },
   "require-dev": {
     "illuminate/console": "^12.0",
