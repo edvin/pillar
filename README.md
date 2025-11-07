@@ -19,7 +19,8 @@ can focus on your domain, without being constrained by rigid conventions or fram
 
 - ⚙️ **Aggregate roots and repositories** for event-sourced and non-event-sourced aggregates
 - 🧩 **Command and Query Buses** with Laravel facade support
-- 🧠 **Aggregate sessions** act as a Unit of Work, tracking loaded aggregates and automatically persisting their changes and emitted events.
+- 🧠 **Aggregate sessions** act as a Unit of Work, tracking loaded aggregates and automatically persisting their changes
+  and emitted events.
 - 🧰 **Pillar facade** for quick access to **session** / **command dispatch** / **query dispatch** etc
 - 🗃️ **Event store abstraction** with optimistic concurrency locking
 - 🔁 **Event replay** command for rebuilding projections
@@ -107,11 +108,13 @@ Prefer dependency injection for core domain code, but the `Pillar` facade is a h
 console commands, and tests.
 
 **Methods**
+
 - `Pillar::session(): AggregateSession` — get a fresh unit-of-work session
 - `Pillar::dispatch(object $command): void` — forward to the Command Bus
 - `Pillar::ask(object $query): mixed` — forward to the Query Bus
 
 **Example**
+
 ```php
 use Pillar\Facade\Pillar;
 
@@ -156,7 +159,9 @@ interface EventStore
 Instead of returning arrays, `load()` and `all()` now yield `StoredEvent` instances as generators — allowing **true
 streaming** of large event streams with minimal memory usage.
 
-**Optimistic concurrency:** This is handled for you by the AggregateSession. Can be disabled with the config setting `pillar.event_store.options.optimistic_locking` (default: true). Implementors: EventStore::append() accepts an optional `$expectedSequence`; if the per-aggregate version has advanced, it must throw a ConcurrencyException.
+**Optimistic concurrency:** This is handled for you by the AggregateSession. Can be disabled with the config setting
+`pillar.event_store.options.optimistic_locking` (default: true). Implementors: EventStore::append() accepts an optional
+`$expectedSequence`; if the per-aggregate version has advanced, it must throw a ConcurrencyException.
 
 ---
 
@@ -397,7 +402,8 @@ final class DocumentContextRegistry implements ContextRegistry
 
 🧰 Registering Context Registries
 
-Each ContextRegistry must be registered in your application’s `config/pillar.php` file under the Each ContextRegistry must be registered in your application’s `config/pillar.php` file under the `context_registries` key:
+Each ContextRegistry must be registered in your application’s `config/pillar.php` file under the Each ContextRegistry
+must be registered in your application’s `config/pillar.php` file under the `context_registries` key:
 
 ```php
 'context_registries' => [
@@ -803,15 +809,16 @@ Configure snapshotting in `config/pillar.php`:
 ],
 ```
 
-Pillar binds `SnapshotPolicy` to a **delegating policy** that reads this config, instantiates the chosen policy, and applies any per-aggregate overrides.
+Pillar binds `SnapshotPolicy` to a **delegating policy** that reads this config, instantiates the chosen policy, and
+applies any per-aggregate overrides.
 
 ### Built-in policies
 
-| Policy | Class | Behavior | Options |
-|---|---|---|---|
-| **Always** | `AlwaysSnapshotPolicy` | Snapshot automatically whenever the commit persisted one or more events. | _None_ |
-| **Cadence** | `CadenceSnapshotPolicy` | Snapshot on a cadence: when `(newSeq - offset) % threshold === 0`. | `threshold` (int, default 100), `offset` (int, default 0) |
-| **On-Demand** | `OnDemandSnapshotPolicy` | Never auto-snapshot; call the snapshot store yourself when you decide. | _None_ |
+| Policy        | Class                    | Behavior                                                                 | Options                                                   |
+|---------------|--------------------------|--------------------------------------------------------------------------|-----------------------------------------------------------|
+| **Always**    | `AlwaysSnapshotPolicy`   | Snapshot automatically whenever the commit persisted one or more events. | _None_                                                    |
+| **Cadence**   | `CadenceSnapshotPolicy`  | Snapshot on a cadence: when `(newSeq - offset) % threshold === 0`.       | `threshold` (int, default 100), `offset` (int, default 0) |
+| **On-Demand** | `OnDemandSnapshotPolicy` | Never auto-snapshot; call the snapshot store yourself when you decide.   | _None_                                                    |
 
 **Parameters passed to policies**
 
@@ -821,18 +828,26 @@ Pillar binds `SnapshotPolicy` to a **delegating policy** that reads this config,
 
 ### Manual snapshots (On-Demand)
 
-When using `OnDemandSnapshotPolicy`, Pillar won’t auto-snapshot. If you want to force a snapshot from your own code:
+When using `OnDemandSnapshotPolicy`, Pillar won't auto-snapshot.
+
+**Tip:** You can take a snapshot at any **arbitrary point**, regardless of which `SnapshotPolicy` is configured —
+calling `SnapshotStore::save(...)` bypasses the policy (the store will still no‑op for aggregates that don’t implement
+`Snapshottable`). If you need the current persisted version, load the aggregate via its repository:
 
 ```php
+use Pillar\Repository\RepositoryResolver;
 use Pillar\Snapshot\SnapshotStore;
 
-// after a successful commit, when you know the current version
-app(SnapshotStore::class)->save($aggregate, $currentVersion);
+$loaded = app(RepositoryResolver::class)->forId($id)->find($id);
+if ($loaded) {
+    app(SnapshotStore::class)->save($loaded->aggregate, $loaded->version);
+}
 ```
 
 ### Storage
 
-The default `CacheSnapshotStore` uses Laravel’s cache. Set `ttl` for automatic expiry (seconds), or leave `null` to keep snapshots indefinitely. For best performance in production, point your cache to Redis or another fast store.
+The default `CacheSnapshotStore` uses Laravel’s cache. Set `ttl` for automatic expiry (seconds), or leave `null` to keep
+snapshots indefinitely. For best performance in production, point your cache to Redis or another fast store.
 
 ### Custom dynamic policy
 
@@ -982,7 +997,8 @@ deterministic, replay-safe updates to read models.
 
 ## 🔁 Event Replay Command
 
-Replays stored domain events to rebuild projections. Only listeners implementing `Projector` are invoked during replay (no side‑effects).
+Replays stored domain events to rebuild projections. Only listeners implementing `Projector` are invoked during replay (
+no side‑effects).
 
 ### Usage
 
@@ -1011,6 +1027,7 @@ php artisan pillar:replay-events 3f2ca9d8-4e0b-4d1b-a1d5-4c1b9f0f1f2e \
 ```
 
 **Notes**
+
 - Bounds are **inclusive**.
 - Dates are parsed and compared in **UTC** against each event’s `occurred_at`.
 - The `--to-seq` upper bound short‑circuits early since the `all()` stream is ordered by global `sequence`.
