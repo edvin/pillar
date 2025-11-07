@@ -14,7 +14,6 @@ use Pillar\Serialization\ObjectSerializer;
 use Tests\Fixtures\Document\DocumentCreated;
 use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Document\DocumentRenamed;
-use Vimeo\MysqlEngine\FakePdo;
 
 it('append() advances last_sequence when expectedSequence matches (portable path)', function () {
     /** @var EventStore $store */
