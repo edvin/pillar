@@ -6,7 +6,7 @@ use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 
 /**
- * @template T of \Pillar\Aggregate\AggregateRoot
+ * @template T of AggregateRoot
  */
 interface SnapshotStore
 {

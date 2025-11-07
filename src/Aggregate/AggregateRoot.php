@@ -5,7 +5,7 @@ namespace Pillar\Aggregate;
 use JsonSerializable;
 use ReflectionClass;
 
-abstract class AggregateRoot implements JsonSerializable
+abstract class AggregateRoot
 {
     protected bool $reconstituting = false;
 
@@ -23,8 +23,6 @@ abstract class AggregateRoot implements JsonSerializable
     {
         return $this->reconstituting;
     }
-
-    public abstract static function fromSnapshot(array $data): self;
 
     public abstract function id(): AggregateRootId;
 

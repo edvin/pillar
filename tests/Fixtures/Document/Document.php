@@ -4,8 +4,9 @@ namespace Tests\Fixtures\Document;
 
 use JsonSerializable;
 use Pillar\Aggregate\AggregateRoot;
+use Pillar\Snapshot\Snapshottable;
 
-final class Document extends AggregateRoot implements JsonSerializable
+final class Document extends AggregateRoot implements Snapshottable
 {
     private DocumentId $id;
     private string $title;
@@ -42,22 +43,29 @@ final class Document extends AggregateRoot implements JsonSerializable
         $this->title = $event->title;
     }
 
-    public static function fromSnapshot(array $data): self
+    public function id(): DocumentId
     {
-        $self = new self();
+        return $this->id;
+    }
+
+    public function title(): string
+    {
+        return $this->title;
+    }
+
+    public static function fromSnapshot(array $data): static
+    {
+        $self = new Document();
         $self->id = DocumentId::from($data['id']);
         $self->title = $data['title'];
         return $self;
     }
 
-    public function jsonSerialize(): mixed
+    public function toSnapshot(): array
     {
         return [
             'id' => $this->id->value(),
             'title' => $this->title,
         ];
     }
-
-    public function id(): DocumentId { return $this->id; }
-    public function title(): string   { return $this->title; }
 }

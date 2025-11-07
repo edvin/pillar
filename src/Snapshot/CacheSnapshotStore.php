@@ -8,6 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use InvalidArgumentException;
+use Pillar\Snapshot\Snapshottable;
 
 class CacheSnapshotStore implements SnapshotStore
 {
@@ -15,7 +16,7 @@ class CacheSnapshotStore implements SnapshotStore
     {
         /** @var class-string $aggregateClass */
         $aggregateClass = $id->aggregateClass();
-        $this->assertAggregateType($aggregateClass);;
+        $this->assertSnapshottable($aggregateClass);
 
         $payload = Cache::get($this->cacheKey($aggregateClass, $id));
 
@@ -33,8 +34,13 @@ class CacheSnapshotStore implements SnapshotStore
 
     public function save(AggregateRoot $aggregate, int $sequence): void
     {
+        if (!$aggregate instanceof Snapshottable) {
+            // Aggregate does not opt in to snapshotting; do nothing.
+            return;
+        }
+
         $payload = [
-            'data' => $aggregate->jsonSerialize(),
+            'data' => $aggregate->toSnapshot(),
             'snapshot_version' => $sequence,
             'snapshot_created_at' => Carbon::now('UTC')->format('Y-m-d H:i:s'),
         ];
@@ -62,10 +68,12 @@ class CacheSnapshotStore implements SnapshotStore
      * @param class-string $aggregateClass
      * @throws InvalidArgumentException
      */
-    private function assertAggregateType(string $aggregateClass): void
+    private function assertSnapshottable(string $aggregateClass): void
     {
-        if (!is_subclass_of($aggregateClass, AggregateRoot::class)) {
-            throw new InvalidArgumentException("Expected aggregate class extending " . AggregateRoot::class . ", got {$aggregateClass}.");
+        if (!is_subclass_of($aggregateClass, Snapshottable::class)) {
+            throw new InvalidArgumentException(
+                "Aggregate class $aggregateClass must implement " . Snapshottable::class . " to use snapshots."
+            );
         }
     }
 
