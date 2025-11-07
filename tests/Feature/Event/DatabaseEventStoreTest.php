@@ -223,3 +223,72 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
         [2, DocumentRenamed::class],
     ]);
 });
+
+it('throws ConcurrencyException in MySQL branch when expectedSequence mismatches', function () {
+    // Only run when explicitly enabled (avoids dev machines needing MySQL)
+    if (!env('TEST_WITH_MYSQL')) {
+        test()->markTestSkipped('Set TEST_WITH_MYSQL=1 to run this integration test.');
+    }
+
+    if (!extension_loaded('pdo_mysql')) {
+        test()->markTestSkipped('pdo_mysql extension not loaded.');
+    }
+
+    // Point the default connection to a real MySQL (CI service or local)
+    config()->set('database.connections.it_mysql', [
+        'driver'   => 'mysql',
+        'host'     => env('MYSQL_HOST', '127.0.0.1'),
+        'port'     => env('MYSQL_PORT', '3306'),
+        'database' => env('MYSQL_DATABASE', 'pillar_test'),
+        'username' => env('MYSQL_USERNAME', 'root'),
+        'password' => env('MYSQL_PASSWORD', 'secret'),
+        'charset'  => 'utf8mb4',
+        'collation'=> 'utf8mb4_unicode_ci',
+        'prefix'   => '',
+        'strict'   => false,
+    ]);
+    config()->set('database.default', 'it_mysql');
+
+    DB::purge('it_mysql');
+    DB::reconnect('it_mysql');
+
+    // Minimal schema (fresh each run)
+    Schema::connection('it_mysql')->dropIfExists('events');
+    Schema::connection('it_mysql')->dropIfExists('aggregate_versions');
+
+    Schema::connection('it_mysql')->create('aggregate_versions', function (Blueprint $t) {
+        $t->string('aggregate_id')->primary();
+        $t->unsignedBigInteger('last_sequence')->default(0);
+    });
+
+    Schema::connection('it_mysql')->create('events', function (Blueprint $t) {
+        $t->bigIncrements('sequence');
+        $t->string('aggregate_id');
+        $t->unsignedBigInteger('aggregate_sequence');
+        $t->string('event_type');
+        $t->unsignedInteger('event_version')->default(1);
+        $t->string('correlation_id')->nullable();
+        $t->longText('event_data');
+        $t->dateTime('occurred_at');
+        $t->index(['aggregate_id', 'aggregate_sequence']);
+    });
+
+    /** @var EventStore $store */
+    $store = app(EventStore::class);
+
+    $id = DocumentId::new();
+
+    // Seed one event → aggregate last_sequence becomes 1
+    $store->append($id, new DocumentCreated($id, 'first'));
+
+    // Now provide a wrong expectedSequence so the MySQL path's guarded UPDATE affects 0 rows
+    expect(fn () => $store->append($id, new DocumentRenamed($id, 'second'), 999))
+        ->toThrow(ConcurrencyException::class);
+
+    // Sanity: only the first event persisted, and last_sequence stayed at 1
+    $count = (int) DB::table('events')->where('aggregate_id', $id->value())->count();
+    $last  = (int) DB::table('aggregate_versions')->where('aggregate_id', $id->value())->value('last_sequence');
+
+    expect($count)->toBe(1)
+        ->and($last)->toBe(1);
+});
