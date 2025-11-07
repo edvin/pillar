@@ -36,7 +36,7 @@ it('does not save a snapshot when committing with no new events', function () {
 
     // First commit creates aggregate → snapshot once at 1
     $s0 = Pillar::session();
-    $s0->add(Document::create($id, 'v0'));
+    $s0->attach(Document::create($id, 'v0'));
     $s0->commit();
 
     expect($fake->saved)->toBe([1]);

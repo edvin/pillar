@@ -13,7 +13,7 @@ it('runs the TitleListProjector on live commits', function () {
 
     // create
     $s0 = Pillar::session();
-    $s0->add(Document::create($id, 'v0'));
+    $s0->attach(Document::create($id, 'v0'));
     $s0->commit();
 
     // rename -> v1
@@ -36,7 +36,7 @@ it('replays into the TitleListProjector after clearing it', function () {
     $id  = DocumentId::new();
 
     $s0 = Pillar::session();
-    $s0->add(Document::create($id, 'v0'));
+    $s0->attach(Document::create($id, 'v0'));
     $s0->commit();
 
     $s1 = Pillar::session();

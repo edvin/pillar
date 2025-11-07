@@ -34,7 +34,7 @@ it('uses the per-aggregate override for Document instead of the default policy',
         $snap->delete($id1);
 
         $s1 = Pillar::session();
-        $s1->add(Document::create($id1, 'v0'));
+        $s1->attach(Document::create($id1, 'v0'));
         $s1->commit();
 
         expect($snap->load($id1))->toBeNull(); // no snapshot under OnDemand
@@ -60,7 +60,7 @@ it('uses the per-aggregate override for Document instead of the default policy',
         $snap->delete($id2);
 
         $s2 = Pillar::session();
-        $s2->add(Document::create($id2, 'v0'));
+        $s2->attach(Document::create($id2, 'v0'));
         $s2->commit();
 
         $loaded = $snap->load($id2);

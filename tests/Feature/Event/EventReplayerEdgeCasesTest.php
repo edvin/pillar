@@ -23,7 +23,7 @@ it('stream skips earlier events when fromSequence is set', function () {
 
     // Build a three-event stream: created(1), rename(2), rename(3)
     $s = Pillar::session();
-    $s->add(Document::create($id, 'v0'));
+    $s->attach(Document::create($id, 'v0'));
     $s->commit();
 
     $s = Pillar::session();
@@ -53,7 +53,7 @@ it('stream skips earlier events when fromDate is set', function () {
     // Control timestamps via Carbon's test clock (DatabaseEventStore uses Illuminate\Support\Carbon::now)
     Carbon::setTestNow(Carbon::create(2025, 1, 1, 0, 0, 0, 'UTC'));
     $s = Pillar::session();
-    $s->add(Document::create($id, 'v0'));
+    $s->attach(Document::create($id, 'v0'));
     $s->commit();
 
     Carbon::setTestNow(Carbon::create(2025, 1, 1, 0, 0, 10, 'UTC'));

@@ -15,7 +15,7 @@ it('sets correlation id and timestamp in EventContext during replay', function (
 
     // Commit #1
     $s0 = Pillar::session();
-    $s0->add(Document::create($id, 'v0'));
+    $s0->attach(Document::create($id, 'v0'));
     // set a correlation id for this commit (EventStore uses EventContext::correlationId() on append)
     EventContext::initialize(null, 'C-1');
     $s0->commit();

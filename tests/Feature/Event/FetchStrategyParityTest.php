@@ -13,7 +13,7 @@ use Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy;
 it('db_chunked and db_load_all return identical events', function () {
     $id  = DocumentId::new();
     $s   = Pillar::session();
-    $s->add(Document::create($id, 'v0'));
+    $s->attach(Document::create($id, 'v0'));
     $s->commit();
 
     foreach (['v1', 'v2', 'v3', 'v4', 'v5'] as $t) {
@@ -62,7 +62,7 @@ it('db_cursor and db_load_all return identical events', function () {
     // Build a modest stream
     $id  = DocumentId::new();
     $s   = Pillar::session();
-    $s->add(Document::create($id, 'v0'));
+    $s->attach(Document::create($id, 'v0'));
     $s->commit();
 
     foreach (['v1', 'v2', 'v3', 'v4'] as $t) {
@@ -116,7 +116,7 @@ it('db_cursor and db_load_all return identical events', function () {
 it('db_chunked load() and all() produce identical sequences', function () {
     $id  = DocumentId::new();
     $s   = Pillar::session();
-    $s->add(Document::create($id, 'v0'));
+    $s->attach(Document::create($id, 'v0'));
     $s->commit();
 
     foreach (['v1','v2','v3','v4'] as $t) {
@@ -173,7 +173,7 @@ it('db_chunked load() and all() produce identical sequences', function () {
 it('db_load_all load() and all() produce identical sequences', function () {
     $id  = DocumentId::new();
     $s   = Pillar::session();
-    $s->add(Document::create($id, 'v0'));
+    $s->attach(Document::create($id, 'v0'));
     $s->commit();
 
     foreach (['v1','v2','v3'] as $t) {
@@ -210,7 +210,7 @@ it('db_load_all load() and all() produce identical sequences', function () {
 it('db_streaming load() and all() produce identical sequences', function () {
     $id  = DocumentId::new();
     $s   = Pillar::session();
-    $s->add(Document::create($id, 'v0'));
+    $s->attach(Document::create($id, 'v0'));
     $s->commit();
 
     foreach (['v1','v2','v3','v4','v5'] as $t) {

@@ -44,7 +44,7 @@ it('saves a snapshot with the last aggregate version after commit', function () 
     $doc = Document::create($id, 'v0');
 
     $s = Pillar::session();
-    $s->add($doc);
+    $s->attach($doc);
 
     // two events in a single commit: created and rename
     $doc->rename('v1');

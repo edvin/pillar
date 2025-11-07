@@ -21,7 +21,7 @@ it('rebuilds from events when snapshot is missing, then re-saves a snapshot', fu
 
     // Produce a small stream: created (1) + rename(2) + rename(3)
     $s = Pillar::session();
-    $s->add(Document::create($id, 'v0'));
+    $s->attach(Document::create($id, 'v0'));
     $s->commit();
 
     foreach (['v1', 'v2'] as $t) {

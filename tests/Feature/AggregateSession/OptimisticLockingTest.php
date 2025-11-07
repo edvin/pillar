@@ -11,7 +11,7 @@ it('throws on concurrent commits when optimistic locking is enabled', function (
     $doc = Document::create($id, 'v0');
 
     $s0 = Pillar::session();
-    $s0->add($doc);
+    $s0->attach($doc);
     $s0->commit();
 
     // Two sessions load the same version
@@ -42,7 +42,7 @@ it('allows last write wins when optimistic locking is disabled', function () {
     $doc = Document::create($id, 'v0');
 
     $s0 = Pillar::session();
-    $s0->add($doc);
+    $s0->attach($doc);
     $s0->commit();
 
     // Two sessions load the same version

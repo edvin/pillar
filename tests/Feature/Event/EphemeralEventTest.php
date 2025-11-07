@@ -18,7 +18,7 @@ it('dispatches but does not persist EphemeralEvent on commit', function () {
     // Create aggregate and commit
     $id = DocumentId::new();
     $s0  = Pillar::session();
-    $s0->add(Document::create($id, 'v0'));
+    $s0->attach(Document::create($id, 'v0'));
     $s0->commit();
 
     // Baseline: 1 persisted event
@@ -46,7 +46,7 @@ it('does not trigger unrelated projectors for an ephemeral event', function () {
     // Create aggregate and commit — projector captures initial title
     $id = DocumentId::new();
     $s0  = Pillar::session();
-    $s0->add(Document::create($id, 'v0'));
+    $s0->attach(Document::create($id, 'v0'));
     $s0->commit();
 
     expect(TitleListProjector::$seen)->toBe(['v0']);

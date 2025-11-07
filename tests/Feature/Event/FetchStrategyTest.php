@@ -20,7 +20,7 @@ it('load() applies afterAggregateSequence filter', function (string $default, st
     // Build stream with aggregate_sequence 1..4
     $id  = DocumentId::new();
     $s   = Pillar::session();
-    $s->add(Document::create($id, 'v0')); // seq 1
+    $s->attach(Document::create($id, 'v0')); // seq 1
     $s->commit();
 
     foreach (['v1', 'v2', 'v3'] as $t) {
@@ -52,7 +52,7 @@ it('all() applies eventType filter', function (string $default, string $expected
     // Create mixed event types: 1x created, 3x renamed
     $id  = DocumentId::new();
     $s   = Pillar::session();
-    $s->add(Document::create($id, 'v0')); // DocumentCreated
+    $s->attach(Document::create($id, 'v0')); // DocumentCreated
     $s->commit();
 
     foreach (['v1', 'v2', 'v3'] as $t) {

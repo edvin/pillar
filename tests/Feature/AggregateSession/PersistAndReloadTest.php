@@ -10,7 +10,7 @@ it('persists and reloads an event-sourced aggregate', function () {
     $id = DocumentId::new();
     $doc = Document::create($id, 'First Title');
 
-    $session->add($doc);
+    $session->attach($doc);
     $session->commit();
 
     $session2 = Pillar::session();

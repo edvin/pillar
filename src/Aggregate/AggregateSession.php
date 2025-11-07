@@ -56,13 +56,16 @@ final class AggregateSession
     }
 
     /**
-     * Adds a new aggregate instance to the session for tracking.
+     * Attach a new aggregate instance to the session for tracking (fluent).
+     *
+     * Returns $this for chaining, e.g. `$session->attach($a)->attach($b)->commit();`.
      */
-    public function add(AggregateRoot $aggregate): void
+    public function attach(AggregateRoot $aggregate): self
     {
         $this->track($aggregate);
         // New aggregates start at version 0 (no persisted events)
         $this->expectedVersions[spl_object_id($aggregate)] = 0;
+        return $this;
     }
 
     /**

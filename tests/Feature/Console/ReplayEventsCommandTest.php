@@ -18,7 +18,7 @@ it('pillar:replay-events replays into projectors', function () {
 
     // produce events
     $s0 = Pillar::session();
-    $s0->add(Document::create($id, 'v0'));
+    $s0->attach(Document::create($id, 'v0'));
     $s0->commit();
 
     $s1 = Pillar::session();
@@ -51,7 +51,7 @@ it('parses --from-date/--to-date options and succeeds', function () {
     // Seed one event so replay has something to do
     $id = DocumentId::new();
     $s = Pillar::session();
-    $s->add(Document::create($id, 'hello'));
+    $s->attach(Document::create($id, 'hello'));
     $s->commit();
 
     $this->artisan('pillar:replay-events', [
@@ -108,7 +108,7 @@ it('prints scope when both aggregate and event type are provided', function () {
     // Seed events for a specific aggregate and event type (DocumentRenamed)
     $id = DocumentId::new();
     $s  = Pillar::session();
-    $s->add(Document::create($id, 'v0'));
+    $s->attach(Document::create($id, 'v0'));
     $s->commit();
 
     $s2 = Pillar::session();

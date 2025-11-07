@@ -9,7 +9,7 @@ it('commits multiple events in order with contiguous aggregate versions', functi
     $doc = Document::create($id, 'v0');
 
     $s = Pillar::session();
-    $s->add($doc);
+    $s->attach($doc);
 
     // Record two domain events before a single commit
     $doc->rename('v1');

@@ -19,7 +19,7 @@ it('filters events by sequence and date bounds', function () {
     $id = DocumentId::new();
     $doc = Document::create($id, 'v0');
     $s0 = Pillar::session();
-    $s0->add($doc);
+    $s0->attach($doc);
     $s0->commit();
 
     // Rename @ t2
@@ -58,7 +58,7 @@ it('it replays only the specified event type (DocumentRenamed)', function () {
     $id = DocumentId::new();
 
     $s0 = Pillar::session();
-    $s0->add(Document::create($id, 'v0'));
+    $s0->attach(Document::create($id, 'v0'));
     $s0->commit();
 
     $s1 = Pillar::session();
