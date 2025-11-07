@@ -60,4 +60,5 @@ jobs:
       - name: Sync packagist
         uses: hotaruma/packagist-sync@v1.0.1
         with:
+          packagist-username: edvin
           api-token: ${{ secrets.PACKAGIST_TOKEN }}
