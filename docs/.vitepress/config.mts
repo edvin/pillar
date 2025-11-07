@@ -4,14 +4,12 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid(defineConfig({
   title: 'Pillar',
   description: 'Elegant DDD & Event Sourcing for Laravel',
-  base: '/pillar/',
+  base: '/',
   lastUpdated: true,
   themeConfig: {
     nav: [
       { text: 'Getting started', link: '/getting-started/' },
       { text: 'Tutorial', link: '/tutorials/build-a-document-service' },
-      { text: 'Concepts', link: '/concepts/aggregate-sessions' },
-      { text: 'Reference', link: '/reference/cli-replay' }
     ],
     sidebar: [
       { text: 'Getting started', items: [{ text: 'Overview', link: '/getting-started/' }] },

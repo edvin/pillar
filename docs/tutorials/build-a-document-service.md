@@ -26,9 +26,7 @@ Create the events:
 
 ```php
 // app/Context/Document/Domain/Event/DocumentCreated.php
-use Pillar\Event\VersionedEvent;
-
-final class DocumentCreated implements VersionedEvent
+final class DocumentCreated
 {
     public static function version(): int { return 1; }
 
@@ -106,7 +104,7 @@ final class Document extends AggregateRoot implements Snapshottable
     public function id(): DocumentId { return $this->id; }
 
     // Snapshots
-    public function toSnapshot(): array { return ['id'=>(string)$this->id,'title'=>$this->title]; }
+    public function toSnapshot(): array { return ['id'=>$this->id,'title'=>$this->title]; }
     public static function fromSnapshot(array $d): static
     {
         $self = new self();

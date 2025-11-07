@@ -7,6 +7,8 @@ This guide takes you from install to your first aggregate, handler, and a safe e
 ## 🧩 Installation
 
 ```bash
+composer create-project laravel/laravel myproject
+cd myproject
 composer require pillar/pillar
 ```
 
