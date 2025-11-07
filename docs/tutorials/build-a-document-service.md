@@ -18,35 +18,9 @@ php artisan pillar:install
 php artisan migrate
 ```
 
-Confirm `config/pillar.php` exists and migrations created `events` and `aggregate_versions`.
+You now have `config/pillar.php` and migrations for the `events` and `aggregate_versions` tables should be run.
 
-## 2) Create the aggregate & events
-
-Create the events:
-
-```php
-// app/Context/Document/Domain/Event/DocumentCreated.php
-final class DocumentCreated
-{
-    public static function version(): int { return 1; }
-
-    public function __construct(
-        public string $id,
-        public string $title,
-    ) {}
-}
-```
-
-```php
-// app/Context/Document/Domain/Event/DocumentRenamed.php
-final class DocumentRenamed
-{
-    public function __construct(
-        public string $id,
-        public string $newTitle,
-    ) {}
-}
-```
+## 2) Create the aggregate and events
 
 Create the ID and aggregate:
 
@@ -71,7 +45,7 @@ use Pillar\Snapshot\Snapshottable;
 use App\Context\Document\Domain\Event\{DocumentCreated, DocumentRenamed};
 use App\Context\Document\Domain\Identifier\DocumentId;
 
-final class Document extends AggregateRoot implements Snapshottable
+final class Document extends AggregateRoot
 {
     private DocumentId $id;
     private string $title;
@@ -102,26 +76,39 @@ final class Document extends AggregateRoot implements Snapshottable
     }
 
     public function id(): DocumentId { return $this->id; }
+}
+```
+Create the events:
 
-    // Snapshots
-    public function toSnapshot(): array { return ['id'=>$this->id,'title'=>$this->title]; }
-    public static function fromSnapshot(array $d): static
-    {
-        $self = new self();
-        $self->id = DocumentId::from($d['id']);
-        $self->title = $d['title'];
-        return $self;
-    }
+```php
+// app/Context/Document/Domain/Event/DocumentCreated.php
+final class DocumentCreated
+{
+    public function __construct(
+        public DocumentId $id,
+        public string $title,
+    ) {}
 }
 ```
 
-## 3) Commands & handler
+```php
+// app/Context/Document/Domain/Event/DocumentRenamed.php
+final class DocumentRenamed
+{
+    public function __construct(
+        public Documentid $id,
+        public string $newTitle,
+    ) {}
+}
+```
+
+## 3) Commands and handler
 
 ```php
 // app/Context/Document/Application/Command/CreateDocumentCommand.php
 final class CreateDocumentCommand
 {
-    public function __construct(public string $id, public string $title) {}
+    public function __construct(public DocumentId $id, public string $title) {}
 }
 ```
 
@@ -129,7 +116,7 @@ final class CreateDocumentCommand
 // app/Context/Document/Application/Command/RenameDocumentCommand.php
 final class RenameDocumentCommand
 {
-    public function __construct(public string $id, public string $newTitle) {}
+    public function __construct(public DocumentId $id, public string $newTitle) {}
 }
 ```
 
@@ -144,7 +131,7 @@ final class RenameDocumentHandler
 
     public function __invoke(RenameDocumentCommand $cmd): void
     {
-        $doc = $this->session->find(DocumentId::from($cmd->id));
+        $doc = $this->session->find($cmd->id);
         $doc->rename($cmd->newTitle);
         $this->session->commit();
     }
@@ -206,14 +193,6 @@ Route::get('/demo', function () {
     return $id;
 });
 ```
-
-Now replay safely:
-
-```bash
-php artisan pillar:replay-events
-```
-
-Only projectors run during replay, not side-effect listeners.
 
 ::: tip
 See also: [Snapshotting](/concepts/snapshotting), [Event Store](/event-store/), and [Aliases](/concepts/event-aliases).

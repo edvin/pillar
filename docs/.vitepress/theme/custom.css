@@ -18,3 +18,46 @@ pre code { font-variant-ligatures: none; }
     --vp-c-brand-3: #3b82f6; /* blue-500 (active) */
     --vp-c-brand-soft: rgba(96, 165, 250, 0.18);
 }
+
+/* Wider content, tighter layout */
+
+/* 1) Increase overall site max width on desktop */
+@media (min-width: 1280px) {
+    :root { --vp-layout-max-width: 1680px; }
+}
+
+/* 2) Desktop layout tweaks */
+@media (min-width: 960px) {
+    /* Narrow the right outline */
+    .VPDoc .aside { width: 300px; } /* was ~300px */
+
+    /* Reduce gap between sidebar / content / aside */
+    .VPDoc .container { column-gap: 12px; } /* was ~32px */
+
+    /* Let the content column grow and remove the inner hard cap */
+    .VPDoc .content,
+    .VPDoc.has-aside .content { max-width: none !important; }
+
+    /* KEY: expand the article itself (default is ~720–780px) */
+    .VPDoc .content .vp-doc { max-width: 1150px !important; } /* <-- bump this to taste */
+
+    /* Trim inner article padding */
+    .VPDoc .content .content-container {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        max-width: none !important; /* avoid re-capping */
+    }
+}
+
+/* 3) Optional: on smaller laptops, hide the aside to maximize content */
+@media (min-width: 960px) and (max-width: 1200px) {
+    .VPDoc .aside { display: none; }
+    .VPDoc .content { max-width: 100% !important; }
+}
+
+/* 4) Make code blocks full width within content */
+.vp-doc [class^="language-"],
+.vp-doc [class*=" language-"] {
+    margin-left: 0;
+    margin-right: 0;
+}

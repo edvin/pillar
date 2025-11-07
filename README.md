@@ -15,6 +15,16 @@ can focus on your domain, without being constrained by rigid conventions or fram
 
 ---
 
+<p align="center">
+  <a href="https://docs.pillarphp.dev"><img
+    src="https://img.shields.io/badge/Read%20the%20Docs-https%3A%2F%2Fdocs.pillarphp.dev-2563eb?style=for-the-badge"
+    alt="Pillar documentation"></a>
+  <br/>
+  <sub>Getting started • Concepts • Tutorial • Reference</sub>
+</p>
+
+---
+
 ## ✨ Features
 
 - ⚙️ **Aggregate roots and repositories** for event-sourced and non-event-sourced aggregates

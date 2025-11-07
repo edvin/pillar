@@ -1,7 +1,7 @@
 # Getting started
 
 ::: tip
-This guide takes you from install to your first aggregate, handler, and a safe event replay.
+This guide takes you through install to your first aggregate, events, commands and queries.
 :::
 
 ## 🧩 Installation
