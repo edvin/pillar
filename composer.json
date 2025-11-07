@@ -1,5 +1,5 @@
 {
-  "name": "edvin/pillar",
+  "name": "pillar/pillar",
   "description": "A lightweight DDD and Event Sourcing foundation for PHP applications",
   "type": "library",
   "license": "MIT",
@@ -49,5 +49,10 @@
     "allow-plugins": {
       "pestphp/pest-plugin": true
     }
+  },
+  "homepage": "https://github.com/edvin/pillar",
+  "support": {
+    "issues": "https://github.com/edvin/pillar/issues",
+    "source": "https://github.com/edvin/pillar"
   }
 }

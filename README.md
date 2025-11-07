@@ -34,7 +34,7 @@ can focus on your domain, without being constrained by rigid conventions or fram
 ## 🧩 Installation
 
 ```bash
-composer require edvin/pillar
+composer require pillar/pillar
 ```
 
 Pillar automatically registers its service provider via Laravel package discovery.
