@@ -57,10 +57,7 @@ jobs:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
-      - name: Trigger Packagist update
-        if: ${{ success() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: mnavarrocarter/packagist-update@v1.0.0
+      - name: Sync packagist
+        uses: hotaruma/packagist-sync@v1.0.1
         with:
-          username: edvin
-          package_name: pillar
-          api_token: ${{ secrets.PACKAGIST_TOKEN }}
+          api-token: ${{ secrets.PACKAGIST_TOKEN }}
