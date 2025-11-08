@@ -5,13 +5,7 @@
 **Elegant DDD & Event Sourcing for Laravel.**  
 Build rich domain models and event‑sourced systems — without the complexity.
 
-<p align="center">
-  <a href="https://docs.pillarphp.dev"><img
-    src="https://img.shields.io/badge/Read%20the%20Docs-https%3A%2F%2Fdocs.pillarphp.dev-2563eb?style=for-the-badge"
-    alt="Pillar documentation"></a>
-  <br/>
-  <sub>Getting started • Concepts • Tutorial • Reference</sub>
-</p>
+[![Read the Docs](https://img.shields.io/badge/Read%20the%20Docs-https%3A%2F%2Fdocs.pillarphp.dev-2563eb?style=for-the-badge)](https://docs.pillarphp.dev)
 
 ## Install
 

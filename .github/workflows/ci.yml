@@ -1,12 +1,52 @@
-# .github/workflows/ci.yml
 name: CI
+
 on:
   pull_request:
+    branches: [ main ]
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      docs: ${{ steps.filter.outputs.docs }}
+      php: ${{ steps.filter.outputs.php }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            docs:
+              - 'docs/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/**'
+            php:
+              - '**/*.php'
+              - 'composer.json'
+              - 'composer.lock'
+              - 'phpunit.xml*'
+              - '.github/workflows/**'
+
   tests:
+    name: Tests
+    needs: changes
+    # Run tests on PRs always, and on push when PHP-related files changed
+    if: github.event_name == 'pull_request' || needs.changes.outputs.php == 'true'
     runs-on: ubuntu-latest
 
     services:
@@ -49,16 +89,79 @@ jobs:
           mkdir -p build/logs
           vendor/bin/pest --coverage --coverage-clover build/logs/clover.xml
 
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: build/logs/clover.xml
+          if-no-files-found: error
+
+  coverage:
+    name: Coverage → Codecov
+    needs: tests
+    if: needs.tests.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
-          files: build/logs/clover.xml
+          files: clover.xml
           flags: php
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  packagist:
+    name: Sync Packagist
+    needs: tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.tests.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
       - name: Sync packagist
         uses: hotaruma/packagist-sync@v1.0.1
         with:
           packagist-username: edvin
           api-token: ${{ secrets.PACKAGIST_TOKEN }}
+
+  docs_build:
+    name: Docs build
+    needs: changes
+    if: github.event_name == 'push' && needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      - name: Install deps
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm i; fi
+      - name: Build VitePress
+        run: npm run docs:build
+      - name: Verify dist
+        run: |
+          test -d docs/.vitepress/dist && ls -la docs/.vitepress/dist | head -n 20
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist
+
+  docs_deploy:
+    name: Docs deploy (GitHub Pages)
+    needs: docs_build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

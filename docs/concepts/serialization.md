@@ -62,7 +62,7 @@ Pillar can **wrap the base serializer** with a pluggable cipher. The base serial
 - **Metadata** (ids, alias/type, version, timestamps) remains **plaintext**; only the payload is encrypted.
 - You can mix encrypted and plaintext events over time; reads are seamless when enabled for those classes.
 
-### Swap the cipher (advanced)
+### Swap the cipher
 
 Implement `Pillar\Security\PayloadCipher`:
 
