@@ -29,14 +29,13 @@ final class MakeContextCommand extends Command
         $name = (string) ($this->argument('name') ?? '');
         if ($name === '' || !preg_match('/^[A-Z][A-Za-z0-9]+$/', $name)) {
             $name = text(
-                label: 'Context name (PascalCase)',
-                default: $name !== '' ? $name : 'DocumentHandling',
-                hint: 'Example: DocumentHandling, Billing, Inventory',
+                label: 'Context name',
                 validate: function (string $v) {
                     return preg_match('/^[A-Z][A-Za-z0-9]+$/', $v)
                         ? null
                         : 'Please use PascalCase (e.g. DocumentHandling).';
-                }
+                },
+                hint: 'Example: DocumentHandling, Billing, Inventory'
             );
             if ($name === '') {
                 $this->error('Aborted.');

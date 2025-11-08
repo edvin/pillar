@@ -1,6 +1,6 @@
 # Tutorial — Build a Document service
 
-In ~30–45 minutes you'll:
+In ~10 minutes you'll:
 
 1. Install Pillar and publish migrations/config.
 2. Model a simple `Document` aggregate with `create` and `rename`.
@@ -10,21 +10,71 @@ In ~30–45 minutes you'll:
 
 You can follow along inside an existing Laravel project or a fresh one.
 
+::: info What we’re building
+We’ll model a tiny **Document** domain with two actions: `create` and `rename`. You’ll see how an **aggregate** records
+**domain events**, how a **session** loads/commits changes (with optimistic locking), and how a **ContextRegistry** binds
+aliases and replay‑safe **projectors**. Along the way we’ll use Pillar’s CLI to **replay events** and verify projections.
+:::
+
 ## 1) Install Pillar
 
-The first command installs the package, the second publishes migrations and `config/pillar.php`, and the third applies the tables. The installer is interactive so you can choose what to publish; for this tutorial, publish both migrations and config.
+
+The first command installs the package, the second publishes migrations and `config/pillar.php` and runs the migrations.
+The installer is interactive, so you can choose what to publish; for this tutorial, select yes to all.
 
 ```bash
 composer require pillar/pillar
 php artisan pillar:install
-php artisan migrate
 ```
 
-You now have `config/pillar.php` and migrations for the `events` and `aggregate_versions` tables should be run.
+### (Optional) Scaffold with Artisan
+
+Prefer to start from stubs instead of hand‑writing classes? Use Pillar’s generators. They’re **interactive** — you can
+omit arguments and answer prompts — and they place files under \
+`app/Context/<Name>/...\` by default.
+
+
+```bash
+# Create a bounded context skeleton (folders + empty registry)
+# (name is optional — you’ll be prompted if omitted)
+php artisan pillar:make:context Document
+
+# Generate commands in that context (name is optional; use --context to skip the prompt)
+php artisan pillar:make:command CreateDocument --context=Document
+php artisan pillar:make:command RenameDocument --context=Document
+
+# (Optional) Generate a query in that context
+php artisan pillar:make:query FindDocument --context=Document
+
+# Placement options (optional):
+#   --style= infer|mirrored|split|subcontext|colocate
+#   --subcontext= Writer   (only used when --style=subcontext)
+#   --force                (overwrite if files exist)
+```
+
+**Quick syntax reference:**
+
+```bash
+php artisan pillar:make:command {name?} --context=Document [--style=…] [--subcontext=…] [--force]
+```
+
+The {name} argument is optional; if omitted, the command will prompt for it (as well as for context and placement style).
+
+**Configurable placement:** You can change where the generators put files (namespaces & directories) via `config/pillar.php`. See the [Configuration reference](/reference/configuration.html).
+
+These commands create namespaced classes for the context and application layer. You’ll still:
+- implement aggregate behavior and events (next sections), and
+- register the context registry in `config/pillar.php`.
+
+If you use the generators, you can skip the boilerplate parts in steps **2–4** and just fill in the stubs.
 
 ## 2) Create the aggregate and events
 
-We’ll model a simple `Document` aggregate. Aggregates record domain events to express state changes; Pillar persists those events and replays them to rebuild state. IDs are strongly-typed value objects (extending `AggregateRootId`).
+We’ll model a simple `Document` aggregate. Aggregates record domain events to express state changes; Pillar persists
+those events and replays them to rebuild state. IDs are strongly-typed value objects (extending `AggregateRootId`).
+
+**Why value‑object IDs?** They keep types honest and prevent mixing IDs from different aggregates. Pillar’s serializer
+handles (de)serializing them, so you can put `DocumentId` *directly* in event payloads.
 
 Create the ID and aggregate:
 
@@ -83,7 +133,9 @@ final class Document extends AggregateRoot
     public function id(): DocumentId { return $this->id; }
 }
 ```
-> Note: We keep `DocumentId` in the event payload. Pillar’s serializer reconstructs value objects during deserialization, so you don’t have to downcast to strings.
+
+> Note: We keep `DocumentId` in the event payload. Pillar’s serializer reconstructs value objects during
+> deserialization, so you don’t have to downcast to strings.
 
 ## 3) Create the events:
 
@@ -115,7 +167,9 @@ final class DocumentRenamed
 
 ## 3) Commands and handler
 
-Commands capture intent (`CreateDocument`, `RenameDocument`). Handlers use an `AggregateSession` (a Unit of Work) to load the aggregate, call a method, and `commit()` the recorded events. The session tracks the version and applies optimistic locking for you.
+Commands capture intent (`CreateDocument`, `RenameDocument`). A handler uses an `AggregateSession` (a **Unit of Work**) to
+load the aggregate, call a method, and `commit()` the recorded events. The session tracks the version and enforces
+**optimistic concurrency** (no extra code needed): if someone else committed first, you’ll get a concurrency exception.
 
 ```php
 // app/Context/Document/Application/Command/CreateDocumentCommand.php
@@ -157,7 +211,11 @@ Prefer constructor injection for handlers. You can also use the `Pillar` facade 
 
 ## 4) Context registry, aliases, projector
 
-A `ContextRegistry` groups the commands, queries and events for a bounded context, and lets you declare short, stable event aliases plus replay-safe projectors. Pillar discovers registries from `config/pillar.php` and wires buses and listeners.
+A `ContextRegistry` groups the commands, queries and events for a bounded context, and lets you declare short, stable
+event aliases plus replay-safe projectors. Pillar discovers registries from `config/pillar.php` and wires buses and
+listeners.
+
+**Aliases** are stored instead of FQCNs for stability; **projectors** are the only listeners invoked during **replay**.
 
 ```php
 // app/Context/Document/Application/DocumentContextRegistry.php
@@ -178,7 +236,8 @@ final class DocumentContextRegistry implements ContextRegistry
 }
 ```
 
-Register it in `config/pillar.php` under `context_registries`. Aliases are stored instead of FQCNs; listeners implementing `Projector` will run on replays.
+Register it in `config/pillar.php` under `context_registries`. Aliases are stored instead of FQCNs; listeners
+implementing `Projector` will run on replays.
 
 Create a projector:
 
@@ -197,7 +256,8 @@ final class DocumentCreatedProjector implements Projector
 
 ## 5) Try it out
 
-Wire a quick route (or use Tinker) to exercise the flow end‑to‑end: create a `Document`, attach and commit it, then dispatch a rename command. Check the `events` table to see the two events.
+Wire a quick route (or use Tinker) to exercise the flow end‑to‑end: create a `Document`, attach and commit it, then
+dispatch a rename command. Check the `events` table to see the two events.
 
 ```php
 use Pillar\Facade\Pillar;
@@ -214,6 +274,40 @@ Route::get('/demo', function () {
 });
 ```
 
+Now hit `/demo` in the browser (or via `curl`). You should see a `DocumentId` returned. Check the `events` table — you’ll
+find two rows (created, renamed) for that aggregate. If you use Tinker:
+
+```bash
+php artisan tinker
+>>> DB::table('events')->orderBy('sequence')->take(2)->get();
+```
+
+You can also query by alias, e.g. `document.created`.
+  
 ::: tip
 See also: [Snapshotting](/concepts/snapshotting), [Event Store](/event-store/), and [Aliases](/concepts/event-aliases).
 :::
+
+## 6) Rebuild projections with the CLI
+
+Pillar ships a replay command that re-runs **projectors only** (side-effect listeners are ignored):
+
+```bash
+php artisan pillar:replay-events            # all events
+php artisan pillar:replay-events {aggregate_id}
+php artisan pillar:replay-events null {Event\Class\Name}
+```
+
+Filter by sequence or date (UTC):
+
+```bash
+php artisan pillar:replay-events --from-seq=1000 --to-seq=2000
+php artisan pillar:replay-events --from-date="2025-01-01" --to-date="2025-01-31"
+```
+
+This is handy whenever you change a projector or need to rebuild a read model.
+
+## What’s next
+- Skim the **concepts** in order, starting with **[Aggregates](/concepts/aggregate-roots)**.
+- Read the short **[Philosophy](/about/philosophy)** for why Pillar favors incremental DDD.
+- Dive into **[Event Store](/event-store/)** and **[Snapshotting](/concepts/snapshotting)** when your aggregates grow.

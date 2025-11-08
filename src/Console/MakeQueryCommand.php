@@ -18,7 +18,7 @@ use function Laravel\Prompts\confirm;
 
 final class MakeQueryCommand extends Command
 {
-    protected $signature = 'pillar:make:query {name? : PascalCase action, e.g. FindDocument}
+    protected $signature = 'pillar:make:query {name? : action, e.g. FindDocument}
         {--context= : Context name as returned by ContextRegistry::name()}
         {--subcontext= : Optional subfolder within the bounded context}
         {--style= : infer|mirrored|split|subcontext|colocate}
@@ -36,8 +36,7 @@ final class MakeQueryCommand extends Command
         $name = (string) ($this->argument('name') ?? '');
         if ($name === '' || !preg_match('/^[A-Z][A-Za-z0-9]+$/', $name)) {
             $name = text(
-                label: 'Query name (PascalCase)',
-                default: $name !== '' ? $name : 'FindDocument',
+                label: 'Query name',
                 validate: function (string $v) {
                     return preg_match('/^[A-Z][A-Za-z0-9]+$/', $v)
                         ? null

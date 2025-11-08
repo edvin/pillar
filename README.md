@@ -13,7 +13,6 @@ Build rich domain models and event‑sourced systems — without the complexity.
 ```bash
 composer require pillar/pillar
 php artisan pillar:install
-php artisan migrate
 ```
 
 ## Highlights
@@ -25,7 +24,7 @@ php artisan migrate
 - 💾 **Snapshotting** policies (Always / Cadence / On‑Demand)
 - 🔒 **Payload encryption** — pluggable cipher, per‑event overrides
 - 🎭 **Aliases** for readable event names
-- 🔁 **Safe replays** (only `Projector` listeners run)
+- 🔁 **Safe replays** to rebuild projections
 - 🧰 **Facade + buses** for quick wiring
 - 🛠️ **Pillar Make**: Bounded Context/Command/Query Scaffolding
 
