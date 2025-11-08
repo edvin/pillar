@@ -118,7 +118,6 @@ jobs:
           flags: php
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: true
 
   packagist:
     name: Sync Packagist

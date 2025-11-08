@@ -24,7 +24,7 @@ Common reasons to swap:
 - Strict schema enforcement
 - Custom codecs for interop
 
-## 🔒 Payload encryption (#payload-encryption)
+## 🔒 Payload encryption {#payload-encryption}
 
 Pillar can **wrap the base serializer** with a pluggable cipher. The base serializer still decides the wire format (JSON by default). Encryption happens **after** serialization and **before** storage, producing an opaque string; on read, the wrapper unwraps and feeds plaintext back to the base serializer.
 
