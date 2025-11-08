@@ -1,222 +1,65 @@
-pre code { font-variant-ligatures: none; }
-.mermaid { margin: 1rem 0; }
-
-/* Light theme */
-:root {
-    /* Main link/brand color + hover/focus shades */
-    --vp-c-brand-1: #2563eb; /* blue-600 */
-    --vp-c-brand-2: #1d4ed8; /* blue-700 */
-    --vp-c-brand-3: #1e40af; /* blue-800 */
-    /* Optional softer backgrounds for notes, etc. */
-    --vp-c-brand-soft: rgba(37, 99, 235, 0.12);
-}
-
-/* Dark theme (use lighter tones for contrast on black) */
-.dark {
-    --vp-c-brand-1: #93c5fd; /* blue-300 */
-    --vp-c-brand-2: #60a5fa; /* blue-400 (hover) */
-    --vp-c-brand-3: #3b82f6; /* blue-500 (active) */
-    --vp-c-brand-soft: rgba(96, 165, 250, 0.18);
-}
-
-/* Wider content, tighter layout */
-
-/* 1) Increase overall site max width on desktop */
-@media (min-width: 1280px) {
-    :root { --vp-layout-max-width: 1680px; }
-}
-
-/* 2) Desktop layout tweaks */
-@media (min-width: 960px) {
-    /* Narrow the right outline */
-    .VPDoc .aside { width: 300px; } /* was ~300px */
-
-    /* Reduce gap between sidebar / content / aside */
-    .VPDoc .container { column-gap: 12px; } /* was ~32px */
-
-    /* Let the content column grow and remove the inner hard cap */
-    .VPDoc .content,
-    .VPDoc.has-aside .content { max-width: none !important; }
-
-    /* KEY: expand the article itself (default is ~720–780px) */
-    .VPDoc .content .vp-doc { max-width: 1150px !important; } /* <-- bump this to taste */
-
-    /* Trim inner article padding */
-    .VPDoc .content .content-container {
-        padding-left: 8px !important;
-        padding-right: 8px !important;
-        max-width: none !important; /* avoid re-capping */
-    }
-}
-
-/* 3) On smaller screens, hide the aside to maximize content */
-@media (min-width: 960px) and (max-width: 1200px) {
-    .VPDoc .aside { display: none; }
-    .VPDoc .content { max-width: 100% !important; }
-}
-
-/* Make code blocks full width within content */
-.vp-doc [class^="language-"],
-.vp-doc [class*=" language-"] {
-    margin-left: 0;
-    margin-right: 0;
-}
-
-/* ---------- Home feature cards ---------- */
-
-/* Icon + title inline, top-aligned, larger title */
-.VPHomeFeatures .items .item .box {
-    display: grid;
-    grid-template-columns: 56px 1fr;
-    grid-template-areas:
-    "icon title"
-    "icon details"
-    "icon action";
-    column-gap: 14px;
-    align-items: start;
-}
-
-.VPHomeFeatures .items .item .icon {
-    grid-area: icon;
-    margin: 0;
-    align-self: start;
-    font-size: 1.8rem;
-}
-
-.VPHomeFeatures .items .item .title {
-    grid-area: title;
-    font-size: 1.3rem;
-    line-height: 1.25;
-}
-
-.VPHomeFeatures .items .item .details { grid-area: details; margin-top: 6px; }
-.VPHomeFeatures .items .item .action  { grid-area: action;  margin-top: 10px; }
-
-/* Remove extra outer spacing & keep sensible width */
-.VPHomeFeatures .items { align-items: stretch; }
-.VPHomeFeatures .items .item {
-    margin: 0 !important;
-    min-width: 320px;
-}
-
-/* Two columns on medium screens */
-@media (min-width: 640px) and (max-width: 960px) {
-    .VPHomeFeatures .items {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 5px;
-    }
-}
-
-/* Keep 2 columns on typical laptops/desktops */
-@media (min-width: 960px) and (max-width: 1536px) {
-    .VPHomeFeatures .items {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 5px;
-    }
-}
-
-/* Use 3 columns only on very wide desktops */
-@media (min-width: 1536px) {
-    .VPHomeFeatures .items {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        gap: 5px;
-    }
-}
-
-/* ---------- Hero image tweaks ---------- */
-
-/* Make hero image larger on desktop */
-@media (min-width: 960px) {
-    .VPHome .image .image-src,
-    .VPHome .VPImage.image .image-src,
-    .VPHome .VPImage.image .vp-image,
-    .VPHome .image .vp-image {
-        width: 800px !important;   /* match front-matter width */
-        height: auto !important;
-    }
-}
-
-/* Align hero image vertically with the Pillar title */
-@media (min-width: 960px) {
+/* ---------- Hero: hide code SVG on small screens ---------- */
+@media (max-width: 879.98px) {
     .VPHome .VPHero .image {
-        margin-top: 60px;   /* adjust to push hero-code up or down in the heading */
+        display: none !important;
+    }
+    /* Center hero text when image is hidden */
+    .VPHome .VPHero .container {
+        justify-content: center;
+        text-align: center;
+    }
+    .VPHome .VPHero .main {
+        align-items: center;
     }
 }
 
-/* Keep it sensible on very wide screens */
-@media (min-width: 1280px) {
-    .VPHome .image .image-src,
-    .VPHome .VPImage.image .image-src,
-    .VPHome .VPImage.image .vp-image,
-    .VPHome .image .vp-image {
+/* Keep hero image sensible on desktop (optional) */
+@media (min-width: 960px) {
+    .VPHome .image .vp-image,
+    .VPHome .image .image-src {
+        width: 800px !important;
+        height: auto !important;
         max-width: 860px;
     }
+    .VPHome .VPHero .image {
+        margin-top: 60px;
+    }
 }
 
-/* Make home feature cards use full column width (remove theme max-width & centering) */
-.VPHomeFeatures .items .item .box {
-    width: 100% !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
+/* ---------- Home feature cards (mobile-first, capped at 3 cols) ---------- */
 
-/* Reduce inner padding a touch so cards feel tighter */
-.VPHomeFeatures .items .item .box {
-    padding: 22px 22px !important; /* tweak to taste; default is larger */
-}
-
-/* Final gap tune for all breakpoints (pairs with your grid rules) */
-.VPHomeFeatures .items {
-    gap: 14px !important; /* was 16/24 in earlier rules */
-}
-
-/* ---- Force real grid + neutralize theme widths on home features ---- */
-
-/* Remove container padding that inflates gutters */
+/* Neutralize theme widths so our grid can control layout */
 .VPHomeFeatures .container {
     padding-left: 0 !important;
     padding-right: 0 !important;
 }
 
-/* Use our own grid */
 .VPHomeFeatures .items {
     display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important; /* 3-up; adjust to 2-up below if needed */
-    column-gap: 14px !important;
-    row-gap: 14px !important;
+    grid-template-columns: 1fr !important;      /* 1 column by default */
+    gap: clamp(10px, 2vw, 16px) !important;
     align-items: stretch;
 }
 
-/* On typical laptops/desktops keep 2-up to avoid squish */
-@media (min-width: 960px) and (max-width: 1535.98px) {
+.VPHomeFeatures .items .item,
+.VPHomeFeatures .items .item[class*="grid-"] {
+    width: auto !important;
+    max-width: none !important;
+    flex: 0 0 auto !important;
+    margin: 0 !important;
+    min-width: 0 !important;
+}
+
+/* ≥ 640px → 2 columns */
+@media (min-width: 640px) {
     .VPHomeFeatures .items {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
 }
 
-/* Kill the theme's fixed item widths (grid-4 etc) and flex basis */
-.VPHomeFeatures .items .item {
-    width: auto !important;
-    flex: 0 0 auto !important;
-    margin: 0 !important;
-}
-
-/* Some themes add width rules to specific classes like .grid-4 on the item; null them out */
-.VPHomeFeatures .items .item.grid-4,
-.VPHomeFeatures .items .item[class*="grid-"] {
-    width: auto !important;
-    max-width: none !important;
-}
-
-/* Make the card fill its column (remove max-width + centering) */
-.VPHomeFeatures .items .item .box {
-    width: 100% !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    padding: 22px 22px !important; /* slightly tighter card padding */
+/* ≥ 1024px (or 1280px if you prefer) → 3 columns (max) */
+@media (min-width: 1024px) {
+    .VPHomeFeatures .items {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
 }

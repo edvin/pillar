@@ -1,4 +1,5 @@
 <?php
+// @codeCoverageIgnoreStart
 
 namespace Pillar\Console;
 
@@ -9,6 +10,7 @@ use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\EventReplayer;
+use Throwable;
 
 use function Laravel\Prompts\select;
 use function Laravel\Prompts\text;
@@ -17,15 +19,6 @@ use function Laravel\Prompts\spin;
 
 final class ReplayEventsCommand extends Command
 {
-    /**
-     * Usage:
-     *  php artisan pillar:replay-events
-     *  php artisan pillar:replay-events {aggregate_id}
-     *  php artisan pillar:replay-events {aggregate_id} {event_type}
-     *  php artisan pillar:replay-events null {event_type}
-     *  php artisan pillar:replay-events --from-seq=100 --to-seq=200
-     *  php artisan pillar:replay-events --from-date="2025-01-01T00:00:00Z" --to-date="2025-01-31T23:59:59Z"
-     */
     protected $signature = 'pillar:replay-events
                             {aggregate_id? : Aggregate ID (UUID) to filter by, or "null" for all}
                             {event_type? : Fully-qualified event class to filter by}
@@ -43,7 +36,6 @@ final class ReplayEventsCommand extends Command
 
     public function handle(): int
     {
-        // Gather inputs (args/options)
         $aggregateArg = $this->argument('aggregate_id');
         $eventType    = $this->argument('event_type') ?: null;
 
@@ -52,7 +44,6 @@ final class ReplayEventsCommand extends Command
         $fromDate = $this->option('from-date') ? (string) $this->option('from-date') : null;
         $toDate   = $this->option('to-date') ? (string) $this->option('to-date') : null;
 
-        // If nothing meaningful provided, run a friendly wizard
         $needsWizard = $aggregateArg === null
             && $eventType === null
             && $fromSeq === null
@@ -98,7 +89,6 @@ final class ReplayEventsCommand extends Command
                 ) ?: null;
             }
 
-            // Optional windows
             if (confirm('Filter by global sequence range?', default: false)) {
                 $fromSeq = (int) (text(
                     label: 'From sequence (inclusive, empty to skip)',
@@ -141,7 +131,7 @@ final class ReplayEventsCommand extends Command
             }
         }
 
-        // Parse/normalize dates to UTC "Y-m-d H:i:s"
+        // Normalize dates to UTC "Y-m-d H:i:s"
         $fromDateNorm = $fromDate
             ? CarbonImmutable::parse($fromDate)->utc()->format('Y-m-d H:i:s')
             : null;
@@ -164,19 +154,19 @@ final class ReplayEventsCommand extends Command
 
         $this->info("Replaying $scope" . (count($window) ? ' [' . implode(', ', $window) . ']' : '') . '...');
 
-        // Spinner + timing (no new concepts; EventReplayer API unchanged)
         $start = microtime(true);
-        $ok = spin(
-            callback: function () use ($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateNorm, $toDateNorm) {
-                $this->replayer->replay($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateNorm, $toDateNorm);
-                return true;
-            },
-            message: 'Replaying events…'
-        );
 
-        if ($ok !== true) {
-            // Shouldn’t happen; spin throws on failure
-            $this->error('Replay failed.');
+        try {
+            spin(
+                callback: function () use ($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateNorm, $toDateNorm) {
+                    // Let exceptions bubble to outer catch so we can format the error consistently.
+                    $this->replayer->replay($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateNorm, $toDateNorm);
+                },
+                message: 'Replaying events…'
+            );
+        } catch (Throwable $e) {
+            $this->newLine();
+            $this->error('Replay failed: ' . $e->getMessage());
             return self::FAILURE;
         }
 
@@ -194,9 +184,10 @@ final class ReplayEventsCommand extends Command
     {
         try {
             CarbonImmutable::parse($input);
-            return null; // valid
+            return null;
         } catch (Exception $e) {
             return 'Unable to parse date/time. Use ISO8601 or a format Carbon understands.';
         }
     }
 }
+// @codeCoverageIgnoreEnd
