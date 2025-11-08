@@ -9,6 +9,11 @@
     </filter>
   </defs>
 
+  <!-- force Chromium to preserve spaces in <text>/<tspan> -->
+  <style>
+    .code, .code tspan { white-space: pre; }
+  </style>
+
   <!-- subtle glow -->
   <circle cx="670" cy="70" r="95" fill="#2563eb" opacity="0.25" filter="url(#blur)"/>
   <!-- window -->
@@ -26,7 +31,8 @@
   <rect x="8" y="78" width="784" height="378" rx="14" fill="#0B1324" opacity="0.60"/>
 
   <!-- code with preserved spacing and inline syntax colors -->
-  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
+  <g class="code"
+     font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
      font-size="16" xml:space="preserve">
     <!-- ultra-tight left margin (x=10) -->
     <text x="10" y="120">
