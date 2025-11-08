@@ -78,6 +78,11 @@ features:
     details: "Default JSON serializer; swap or implement your own."
     link: "/concepts/serialization"
 
+  - icon: "🔒"
+    title: "Payload encryption"
+    details: "Pluggable cipher, per‑event overrides."
+    link: "/concepts/serialization#payload-encryption"
+
   - icon: "🏗️"
     title: "Architecture & Config"
     details: "How pieces fit together and how to configure them."

@@ -18,6 +18,7 @@ use Pillar\Event\Stream\StreamResolver;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Repository\RepositoryResolver;
+use Pillar\Security\EncryptingSerializer;
 use Pillar\Serialization\ObjectSerializer;
 use Pillar\Snapshot\DelegatingSnapshotPolicy;
 use Pillar\Snapshot\SnapshotPolicy;
@@ -30,7 +31,7 @@ class PillarServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../../config/pillar.php', 'pillar');
 
-        $this->app->singleton(ObjectSerializer::class, Config::get('pillar.serializer.class'));
+        $this->app->singleton(ObjectSerializer::class, EncryptingSerializer::class);
         $this->app->singleton(SnapshotPolicy::class, DelegatingSnapshotPolicy::class);
         $this->app->singleton(SnapshotStore::class, Config::get('pillar.snapshot.store.class'));
         $this->app->singleton(EventStore::class, Config::get('pillar.event_store.class'));

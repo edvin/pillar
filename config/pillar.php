@@ -187,13 +187,52 @@ return [
     | 🧠 Serializer
     |--------------------------------------------------------------------------
     |
-    | Handles conversion of domain events to and from storable payloads.
-    | The default JSON serializer is simple and human-readable. You can
-    | replace it with a binary serializer like MessagePack or Protobuf.
+    | Base serializer converts domain events to/from a wire string. Pillar will
+    | always resolve this class and then (optionally) wrap it with an encryption
+    | layer based on the policy below.
+    |
+    | Notes
+    | - Encryption affects the *payload* only; event metadata remains plaintext.
+    | - You can swap the base serializer (e.g. MessagePack/Proto) by setting 'class'.
+    | - Enabling encryption does not rewrite old rows; encrypted and plaintext
+    | events can coexist. Reads are seamless.
     |
     */
     'serializer' => [
+        // The base serializer (kept even when encryption is enabled)
         'class' => \Pillar\Serialization\JsonObjectSerializer::class,
+
+        'encryption' => [
+            // Global on/off switch for the encrypting wrapper
+            'enabled' => env('PILLAR_PAYLOAD_ENCRYPTION', false),
+
+            // Policy: if no per-event override exists, use this default.
+            // true  -> encrypt all events by default
+            // false -> encrypt none by default (only those in event_overrides => true)
+            'default' => false,
+
+            // Per-event overrides (class-string => bool). Highest precedence.
+            // Examples:
+            // \Context\Billing\Domain\Event\PaymentFailed::class => true,
+            // \Context\Audit\Domain\Event\Redacted::class       => false,
+            'event_overrides' => [
+                // \Context\Billing\Domain\Event\PaymentFailed::class => true,
+            ],
+
+            // Pluggable cipher (implements Pillar\Security\PayloadCipher)
+            'cipher' => [
+                'class' => Pillar\Security\LaravelPayloadCipher::class,
+
+                // Options for the cipher. For LaravelPayloadCipher:
+                // - kid: key identifier label (useful for key rotation markers)
+                // - alg: tag string; informational
+                // LaravelPayloadCipher uses Laravel’s Encrypter (APP_KEY) under the hood.
+                'options' => [
+                    'kid' => env('PILLAR_PAYLOAD_KID', 'v1'),
+                    'alg' => 'laravel-crypt',
+                ],
+            ],
+        ],
     ],
 
     /*

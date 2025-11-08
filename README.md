@@ -28,6 +28,7 @@ php artisan migrate
 - 🧵 **Fetch strategies** (load‑all / chunked / streaming)
 - 🧬 **Versioned events** & **upcasters**
 - 💾 **Snapshotting** policies (Always / Cadence / On‑Demand)
+- 🔒 **Payload encryption** — pluggable cipher, per‑event overrides
 - 🎭 **Aliases** for readable event names
 - 🔁 **Safe replays** (only `Projector` listeners run)
 - 🧰 **Facade + buses** for quick wiring

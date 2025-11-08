@@ -18,10 +18,62 @@ Implement `Pillar\Serialization\ObjectSerializer` and register it in `config/pil
 ],
 ```
 
+
 Common reasons to swap:
 - Binary/compact formats
-- Encrypted payloads
 - Strict schema enforcement
+- Custom codecs for interop
+
+## 🔒 Payload encryption (#payload-encryption)
+
+Pillar can **wrap the base serializer** with a pluggable cipher. The base serializer still decides the wire format (JSON by default). Encryption happens **after** serialization and **before** storage, producing an opaque string; on read, the wrapper unwraps and feeds plaintext back to the base serializer.
+
+### Configure
+
+```php
+'serializer' => [
+    // Base serializer (used even when encryption is enabled)
+    'class' => \Pillar\Serialization\JsonObjectSerializer::class,
+
+    'encryption' => [
+        'enabled' => env('PILLAR_PAYLOAD_ENCRYPTION', false),
+        'default' => false, // encrypt none by default; override per event below
+        'event_overrides' => [
+            // \Context\Billing\Domain\Event\PaymentFailed::class => true,
+        ],
+
+        // Pluggable cipher
+        'cipher' => [
+            'class' => \Pillar\Security\LaravelPayloadCipher::class,
+            'options' => [
+                'kid' => env('PILLAR_PAYLOAD_KID', 'v1'),
+                'alg' => 'laravel-crypt',
+            ],
+        ],
+    ],
+],
+```
+
+### How it works
+
+- **Write**: `serialize(object)` → base serializer produces a wire string → if policy says encrypt for the event class, the cipher returns an **encrypted wire string**.
+- **Read (objects)**: `deserialize($class, $payload)` only attempts to unwrap when **encryption is enabled** *and* policy says the **class** should be encrypted.
+- **Read (arrays)**: `toArray($payload)` unwraps **only when encryption is enabled**, then normalizes via the base serializer. (This keeps the hot path cheap when disabled.)
+- **Metadata** (ids, alias/type, version, timestamps) remains **plaintext**; only the payload is encrypted.
+- You can mix encrypted and plaintext events over time; reads are seamless when enabled for those classes.
+
+### Swap the cipher (advanced)
+
+Implement `Pillar\Security\PayloadCipher`:
+
+```php
+interface PayloadCipher {
+    public function encryptString(string $wire): string;
+    public function tryDecryptString(string $payload): ?string;
+}
+```
+
+Then set `serializer.encryption.cipher.class` to your implementation. The cipher can choose any envelope/wire format; the serializer is agnostic.
 
 ## Tips
 

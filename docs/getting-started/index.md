@@ -1,7 +1,7 @@
 # Getting started
 
 ::: tip
-This guide takes you through install to your first aggregate, events, commands and queries.
+Fast path: install → migrate → create one tiny aggregate → persist it with a session. No buses, no registries. The full tutorial adds commands, aliases, and projectors.
 :::
 
 ## 🧩 Installation
@@ -12,38 +12,109 @@ cd myproject
 composer require pillar/pillar
 ```
 
-Pillar automatically registers its service provider via Laravel package discovery.
+Pillar registers its service provider via Laravel package discovery.
 
-Run the installer to set up migrations and configuration:
+Publish migrations & config, then migrate:
 
 ```bash
 php artisan pillar:install
-```
-
-This is an interactive installer that asks whether to publish the migrations and config file.
-
-You’ll be prompted to:
-
-- Publish the **events table migration** (for event sourcing)
-- Publish the **aggregate_versions table migration** (for per-aggregate versioning)
-- Publish the **configuration file** (`config/pillar.php`)
-
-Once published, run:
-
-```bash
 php artisan migrate
 ```
 
-to create the `events` and `aggregate_versions` tables in your database.
+You’ll get:
+
+| File                                                                        | Description                                                             |
+|-----------------------------------------------------------------------------|-------------------------------------------------------------------------|
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_events_table.php`             | Stores domain events                                                    |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_aggregate_versions_table.php` | Tracks per‑aggregate versions (for optimistic concurrency & sequencing) |
+| `config/pillar.php`                                                         | Configure repositories, event store, serializer (+ optional encryption) |
 
 ---
 
-### 📁 Published files
+## ✅ Hello Pillar
 
-| File                                                                        | Description                                                                                   |
-|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_events_table.php`             | The table used to store domain events                                                         |
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_aggregate_versions_table.php` | Counter table tracking the last per-aggregate version for optimistic concurrency & sequencing |
-| `config/pillar.php`                                                         | Global configuration for repositories, event store, serializer and snapshotting               |
+We’ll create a minimal **Document** aggregate with a single event and persist it using an **AggregateSession**. This keeps the first run simple; the tutorial adds command/query buses and registries later.
+
+### 1) ID value object
+```php
+// app/Context/Document/Domain/Identifier/DocumentId.php
+use Pillar\Aggregate\AggregateRootId;
+
+final readonly class DocumentId extends AggregateRootId
+{
+    public static function aggregateClass(): string
+    {
+        return Document::class;
+    }
+}
+```
+
+### 2) Event
+```php
+// app/Context/Document/Domain/Event/DocumentCreated.php
+use App\Context\Document\Domain\Identifier\DocumentId;
+
+final class DocumentCreated
+{
+    public function __construct(
+        public DocumentId $id,
+        public string $title,
+    ) {}
+}
+```
+
+### 3) Aggregate
+```php
+// app/Context/Document/Domain/Aggregate/Document.php
+use Pillar\Aggregate\AggregateRoot;
+use App\Context\Document\Domain\Event\DocumentCreated;
+use App\Context\Document\Domain\Identifier\DocumentId;
+
+final class Document extends AggregateRoot
+{
+    private DocumentId $id;
+    private string $title;
+
+    public static function create(DocumentId $id, string $title): self
+    {
+        $self = new self();
+        $self->record(new DocumentCreated($id, $title));
+        return $self;
+    }
+
+    protected function applyDocumentCreated(DocumentCreated $e): void
+    {
+        $this->id = $e->id;
+        $this->title = $e->title;
+    }
+
+    public function id(): DocumentId { return $this->id; }
+}
+```
+
+### 4) Persist once to prove it works
+```php
+// routes/web.php
+use Pillar\Facade\Pillar;
+use App\Context\Document\Domain\Identifier\DocumentId;
+use App\Context\Document\Domain\Aggregate\Document;
+
+Route::get('/pillar-hello', function () {
+    $id = DocumentId::new();
+    $doc = Document::create($id, 'Hello Pillar');
+
+    Pillar::session()->attach($doc)->commit();
+
+    return 'OK: ' . (string) $id;
+});
+```
+Visit `/pillar-hello`, then check the `events` table — you’ll see a `DocumentCreated` row for your aggregate ID.
 
 ---
+
+## Where to next
+
+- Add **commands & handlers**, aliases and projectors → [/tutorials/build-a-document-service](/tutorials/build-a-document-service)
+- Learn the **Aggregate session** lifecycle → [/concepts/aggregate-sessions](/concepts/aggregate-sessions)
+- Configure the **Event store** (fetch strategies, stream resolver) → [/event-store](/event-store/)
+- Optional: enable **payload encryption** → [/concepts/serialization#payload-encryption](/concepts/serialization#payload-encryption)

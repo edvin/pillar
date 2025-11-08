@@ -31,7 +31,6 @@ abstract class TestCase extends BaseTestCase
         $config->set('pillar.context_registries', [
             DefaultTestContextRegistry::class,
         ]);
-
     }
 
     protected function defineDatabaseMigrations(): void
