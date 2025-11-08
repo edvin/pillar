@@ -8,7 +8,7 @@ final class LoadedAggregate
 {
     public function __construct(
         public readonly AggregateRoot $aggregate,
-        public readonly int           $version,
+        public readonly int           $version = 0,
     )
     {
     }

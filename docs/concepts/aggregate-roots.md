@@ -13,12 +13,11 @@ isn’t needed.
 
 ```php
 use Pillar\Aggregate\AggregateRoot;
-use Pillar\Snapshot\Snapshottable;
 use Context\Document\Domain\Event\DocumentCreated;
 use Context\Document\Domain\Event\DocumentRenamed;
 use Context\Document\Domain\Identifier\DocumentId;
 
-final class Document extends AggregateRoot implements Snapshottable
+final class Document extends AggregateRoot
 {
     private DocumentId $id;
     private string $title;
@@ -50,23 +49,6 @@ final class Document extends AggregateRoot implements Snapshottable
         $this->title = $event->newTitle;
     }
 
-    // Snapshottable
-    public function toSnapshot(): array
-    {
-        return [
-            'id' => (string) $this->id,
-            'title' => $this->title,
-        ];
-    }
-
-    public static function fromSnapshot(array $data): static
-    {
-        $self = new self();
-        $self->id = DocumentId::from($data['id']);
-        $self->title = $data['title'];
-        return $self;
-    }
-
     public function id(): DocumentId
     {
         return $this->id;
@@ -95,9 +77,8 @@ You don’t record or apply events — you just mutate the state directly.
 ```php
 use Context\Document\Domain\Identifier\DocumentId;
 use Pillar\Aggregate\AggregateRoot;
-use Pillar\Snapshot\Snapshottable;
 
-final class Document extends AggregateRoot implements Snapshottable
+final class Document extends AggregateRoot
 {
     public function __construct(
         private DocumentId $id,
@@ -109,18 +90,9 @@ final class Document extends AggregateRoot implements Snapshottable
         $this->title = $newTitle;
     }
 
-    // Snapshottable
-    public function toSnapshot(): array
+    public function title(): string
     {
-        return [
-            'id' => (string) $this->id,
-            'title' => $this->title,
-        ];
-    }
-
-    public static function fromSnapshot(array $data): static
-    {
-        return new self(DocumentId::from($data['id']), $data['title']);
+        return $this->title;
     }
 
     public function id(): DocumentId
@@ -143,7 +115,7 @@ application.
 
 #### Wiring a state‑based aggregate with Eloquent
 
-For state‑based aggregates, the repository persists fields directly (no events). Here’s a minimal Eloquent mapping with **optimistic concurrency** via a `version` column:
+For state‑based aggregates, the repository persists fields directly (no events). Here’s a minimal Eloquent mapping:
 
 ```php
 // app/Models/DocumentRecord.php
@@ -155,12 +127,11 @@ class DocumentRecord extends Model
 {
     protected $table = 'documents';
     public $timestamps = false;
-    protected $fillable = ['id', 'title', 'version'];
+    protected $fillable = ['id', 'title'];
 }
 ```
 
-```
-**Migration (documents table)**
+#### Migration (documents table)
 
 ```php
 // database/migrations/XXXX_XX_XX_000000_create_documents_table.php
@@ -173,7 +144,6 @@ return new class extends Migration {
         Schema::create('documents', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('title');
-            $table->unsignedBigInteger('version')->default(0); // optional for optimistic locking
         });
     }
 
@@ -190,6 +160,7 @@ namespace App\Context\Document\Infrastructure;
 use Pillar\Repository\AggregateRepository;
 use Pillar\Repository\LoadedAggregate;
 use Pillar\Aggregate\AggregateRootId;
+use Pillar\Aggregate\AggregateRoot;
 use App\Models\DocumentRecord;
 use Context\Document\Domain\Aggregate\Document;   // your aggregate class
 use Context\Document\Domain\Identifier\DocumentId;
@@ -199,45 +170,40 @@ final class DocumentRepository implements AggregateRepository
     public function find(AggregateRootId $id): ?LoadedAggregate
     {
         $row = DocumentRecord::query()->whereKey((string) $id)->first();
-        if (! $row) {
+        if (!$row) {
             return null;
         }
 
         $aggregate = new Document(DocumentId::from($row->id), $row->title);
-        $version = (int) ($row->version ?? 0);
 
-        return new LoadedAggregate($aggregate, $version);
+        return new LoadedAggregate($aggregate);
     }
 
-    public function save(\Pillar\Aggregate\AggregateRoot $aggregate, ?int $expectedVersion = null): void
+    public function save(AggregateRoot $aggregate, ?int $expectedVersion = null): void
     {
         /** @var Document $aggregate */
         $id = (string) $aggregate->id();
 
-        // Upsert with optimistic locking on "version"
-        $row = DocumentRecord::query()->whereKey($id)->lockForUpdate()->first();
+        // Upsert without optimistic locking
+        $row = DocumentRecord::query()->whereKey($id)->first();
         if ($row) {
-            if ($expectedVersion !== null && (int) $row->version !== $expectedVersion) {
-                throw new \RuntimeException('Concurrency conflict for Document '.$id);
-            }
-
-            $row->title = $aggregate->title;
-            $row->version = (int) ($row->version ?? 0) + 1;
+            $row->title = $aggregate->title();
             $row->save();
         } else {
-            // first write
+            // First write
             DocumentRecord::create([
                 'id' => $id,
-                'title' => $aggregate->title,
-                'version' => 1,
+                'title' => $aggregate->title(),
             ]);
         }
     }
 }
 ```
 
-
-> **Optional:** optimistic locking via a `version` column is **not required**. If you don’t need it, remove the `version` column from the migration, drop `lockForUpdate()` and the `$expectedVersion` check, and stop incrementing `$row->version`. The repository will still work, just without concurrency guarantees.
+> **Optional — optimistic locking:** If you want optimistic concurrency for state‑based aggregates, add a 
+`version` column and fetch the row with 
+`DocumentRecord::query()->whereKey($id)->lockForUpdate()->first()`, verify the current 
+`version` matches the expected value, then bump it on update. This mirrors the event‑store’s concurrency check.
 
 Register the repository for this aggregate in `config/pillar.php`:
 
@@ -286,4 +252,4 @@ sequenceDiagram
 
 *(For state-based aggregates, the “EventStore” step is replaced with a direct database update.)*
 
----
+---</file>
