@@ -139,6 +139,124 @@ This **state-based** model is ideal for:
 Both models work seamlessly with Pillar’s repository and session abstractions — you can mix and match them in the same
 application.
 
+
+
+#### Wiring a state‑based aggregate with Eloquent
+
+For state‑based aggregates, the repository persists fields directly (no events). Here’s a minimal Eloquent mapping with **optimistic concurrency** via a `version` column:
+
+```php
+// app/Models/DocumentRecord.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class DocumentRecord extends Model
+{
+    protected $table = 'documents';
+    public $timestamps = false;
+    protected $fillable = ['id', 'title', 'version'];
+}
+```
+
+```
+**Migration (documents table)**
+
+```php
+// database/migrations/XXXX_XX_XX_000000_create_documents_table.php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration {
+    public function up(): void {
+        Schema::create('documents', function (Blueprint $table) {
+            $table->uuid('id')->primary();
+            $table->string('title');
+            $table->unsignedBigInteger('version')->default(0); // optional for optimistic locking
+        });
+    }
+
+    public function down(): void {
+        Schema::dropIfExists('documents');
+    }
+};
+```
+
+```php
+// app/Context/Document/Infrastructure/DocumentRepository.php
+namespace App\Context\Document\Infrastructure;
+
+use Pillar\Repository\AggregateRepository;
+use Pillar\Repository\LoadedAggregate;
+use Pillar\Aggregate\AggregateRootId;
+use App\Models\DocumentRecord;
+use Context\Document\Domain\Aggregate\Document;   // your aggregate class
+use Context\Document\Domain\Identifier\DocumentId;
+
+final class DocumentRepository implements AggregateRepository
+{
+    public function find(AggregateRootId $id): ?LoadedAggregate
+    {
+        $row = DocumentRecord::query()->whereKey((string) $id)->first();
+        if (! $row) {
+            return null;
+        }
+
+        $aggregate = new Document(DocumentId::from($row->id), $row->title);
+        $version = (int) ($row->version ?? 0);
+
+        return new LoadedAggregate($aggregate, $version);
+    }
+
+    public function save(\Pillar\Aggregate\AggregateRoot $aggregate, ?int $expectedVersion = null): void
+    {
+        /** @var Document $aggregate */
+        $id = (string) $aggregate->id();
+
+        // Upsert with optimistic locking on "version"
+        $row = DocumentRecord::query()->whereKey($id)->lockForUpdate()->first();
+        if ($row) {
+            if ($expectedVersion !== null && (int) $row->version !== $expectedVersion) {
+                throw new \RuntimeException('Concurrency conflict for Document '.$id);
+            }
+
+            $row->title = $aggregate->title;
+            $row->version = (int) ($row->version ?? 0) + 1;
+            $row->save();
+        } else {
+            // first write
+            DocumentRecord::create([
+                'id' => $id,
+                'title' => $aggregate->title,
+                'version' => 1,
+            ]);
+        }
+    }
+}
+```
+
+
+> **Optional:** optimistic locking via a `version` column is **not required**. If you don’t need it, remove the `version` column from the migration, drop `lockForUpdate()` and the `$expectedVersion` check, and stop incrementing `$row->version`. The repository will still work, just without concurrency guarantees.
+
+Register the repository for this aggregate in `config/pillar.php`:
+
+```php
+'repositories' => [
+    'default' => Pillar\Repository\EventStoreRepository::class,
+    Context\Document\Domain\Aggregate\Document::class => App\Context\Document\Infrastructure\DocumentRepository::class,
+],
+```
+
+Now a command handler can load and save via the **AggregateSession** (no event store involved):
+
+```php
+$doc = $session->find(DocumentId::from($id));
+$doc->rename('New Title');
+$session->commit(); // persists through DocumentRepository
+```
+
+
 ---
 
 ### 🧠 Aggregate Lifecycle Overview

@@ -17,6 +17,40 @@ interface Snapshottable
 }
 ```
 
+**Example — aggregate implementing `Snapshottable`:**
+
+```php
+use Pillar\Aggregate\AggregateRoot;
+use Pillar\Snapshot\Snapshottable;
+use Context\Document\Domain\Identifier\DocumentId;
+
+final class Document extends AggregateRoot implements Snapshottable
+{
+    private DocumentId $id;
+    public string $title;
+
+    public function __construct(DocumentId $id, string $title)
+    {
+        $this->id = $id;
+        $this->title = $title;
+    }
+
+    public function id(): DocumentId { return $this->id; }
+
+    // Snapshottable
+    public function toSnapshot(): array
+    {
+        return ['id' => (string) $this->id, 'title' => $this->title];
+    }
+
+    public static function fromSnapshot(array $data): static
+    {
+        return new self(DocumentId::from($data['id']), $data['title']);
+    }
+}
+```
+
+
 > Aggregates that do **not** implement `Snapshottable` are ignored by the snapshot store.
 
 ### Configuration
