@@ -1,0 +1,40 @@
+<?php
+
+namespace {{namespace}};
+
+use Pillar\Context\ContextRegistry;
+use Pillar\Context\EventMapBuilder;
+
+final class {{Name}}ContextRegistry implements ContextRegistry
+{
+    /**
+     * Map of Command => Handler
+     */
+    public function commands(): array
+    {
+        return [
+        ];
+    }
+
+    /**
+     * Map of Query => Handler
+     */
+    public function queries(): array
+    {
+        return [
+        ];
+    }
+
+    /**
+     * Event map (aliases, listeners, upcasters)
+     */
+    public function events(): EventMapBuilder
+    {
+        return EventMapBuilder::create();
+    }
+
+    public function name(): string
+    {
+        return '{{Name}}';
+    }
+}

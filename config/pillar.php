@@ -269,4 +269,114 @@ return [
     'context_registries' => [
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | 🛠️ Make: Scaffolding (pillar:make:command / pillar:make:query)
+    |--------------------------------------------------------------------------
+    |
+    | Configure where the CLI scaffolding places Commands/Queries and their
+    | Handlers, and how it registers them into your Context Registries.
+    |
+    | Defaults (Laravel-friendly):
+    | - We assume each bounded context lives directly under App\<ContextName> in app/.
+    |   e.g. App\DocumentHandling, App\Billing, App\Publishing
+    |
+    | You can tailor placement per ContextRegistry (by FQCN or by its name() string)
+    | without introducing another “contexts” concept—use the 'overrides' section.
+    |
+    | Styles:
+    |   - infer       : (future) infer from existing registrations; falls back to mirrored
+    |   - mirrored    : Application/{Command,Query} + Application/Handler/{Command,Query}
+    |   - split       : Application/{Command,Query} + Application/Handler
+    |   - subcontext  : <Subcontext>/Application/{...} (when you pass --subcontext)
+    |
+    | Example override (by registry FQCN) to use a separate Context\ root:
+    |   \App\Contexts\Documents\DocumentsContextRegistry::class => [
+    |       'base_path'      => base_path('src/Context'),
+    |       'base_namespace' => 'Context',
+    |       'style'          => 'mirrored',   // infer|mirrored|split|subcontext
+    |       'subcontext'     => null,
+    |   ],
+    |
+    */
+    'make' => [
+
+        /*
+        |--------------------------------------------------------------------------
+        | 📁 Default base path for bounded contexts
+        |--------------------------------------------------------------------------
+        |
+        | Where each bounded context lives on disk by default.
+        | With the default settings below, files go under:
+        |   app/<ContextName>/Application/...
+        |
+        */
+        'contexts_base_path' => base_path('app'),
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🧭 Default base namespace for bounded contexts
+        |--------------------------------------------------------------------------
+        |
+        | The root PHP namespace for contexts.
+        | The final namespace becomes:
+        |   contexts_base_namespace . '\\' . ContextRegistry::name()
+        |
+        | With the default, that yields:
+        |   App\<ContextName>\Application\...
+        |
+        */
+        'contexts_base_namespace' => 'App',
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🗂️ Default placement style for generated files
+        |--------------------------------------------------------------------------
+        |
+        | Controls where Handlers are placed relative to their Commands/Queries.
+        | Accepts one of the PathStyle enum values (as strings):
+        |   - 'colocate'   : Handler sits next to its Command/Query
+        |   - 'mirrored'   : Application/Handler/{Command,Query}
+        |   - 'split'      : Application/Handler
+        |   - 'subcontext' : <Subcontext>/Application/{...} (when --subcontext is used)
+        |   - 'infer'      : (future) infer from existing registrations; falls back to 'colocate'
+        |
+        | Tip: keep these as strings in config; code resolves with:
+        |   PathStyle::tryFrom(config('pillar.make.default_style') ?? 'colocate')
+        |
+        */
+        'default_style' => 'colocate',
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🎛️ Per-registry overrides
+        |--------------------------------------------------------------------------
+        |
+        | Fine-tune placement per specific ContextRegistry (FQCN preferred) or by
+        | the registry’s human name() string. Keys below are optional; anything
+        | omitted falls back to the defaults above.
+        |
+        | Examples:
+        |
+        | // Override by ContextRegistry FQCN (recommended)
+        | \App\Contexts\Documents\DocumentsContextRegistry::class => [
+        |     'base_path'      => base_path('src/Context'),
+        |     'base_namespace' => 'Context',
+        |     'style'          => 'colocate',   // infer|mirrored|split|subcontext|colocate
+        |     'subcontext'     => null,
+        | ],
+        |
+        | // Or override by the registry name() string
+        | 'Documents' => [
+        |     'base_path'      => base_path('app'),       // still under app/
+        |     'base_namespace' => 'App',                  // still under App\
+        |     'style'          => 'split',
+        | ],
+        */
+        'overrides' => [
+            // ...
+        ],
+
+    ],
 ];

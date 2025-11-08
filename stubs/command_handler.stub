@@ -1,0 +1,15 @@
+<?php
+
+namespace {{handlerNamespace}};
+
+use Pillar\Aggregate\AggregateSession;
+use {{namespace}}\{{Name}}Command;
+
+final class {{Name}}Handler
+{
+    public function __construct(private AggregateSession $session) {}
+
+    public function __invoke({{Name}}Command $c)
+    {
+    }
+}

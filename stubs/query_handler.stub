@@ -1,0 +1,13 @@
+<?php
+
+namespace {{handlerNamespace}};
+
+use {{namespace}}\{{Name}}Query;
+
+final class {{Name}}Handler
+{
+    public function __invoke({{Name}}Query $q)
+    {
+
+    }
+}

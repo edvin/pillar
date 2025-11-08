@@ -57,6 +57,7 @@ export default withMermaid(defineConfig({
                 text: 'Reference', items: [
                     {text: 'Configuration', link: '/reference/configuration'},
                     {text: 'CLI — Replay events', link: '/reference/cli-replay'},
+                    {text: 'CLI — Make (scaffolding)', link: '/reference/cli-make'},
                 ]
             },
             {

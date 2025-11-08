@@ -27,6 +27,7 @@ php artisan migrate
 - 🎭 **Aliases** for readable event names
 - 🔁 **Safe replays** (only `Projector` listeners run)
 - 🧰 **Facade + buses** for quick wiring
+- 🛠️ **Pillar Make**: Bounded Context/Command/Query Scaffolding
 
 ## Documentation
 

@@ -8,6 +8,9 @@ use Illuminate\Support\ServiceProvider;
 use Pillar\Bus\CommandBusInterface;
 use Pillar\Bus\QueryBusInterface;
 use Pillar\Console\InstallPillarCommand;
+use Pillar\Console\MakeCommandCommand;
+use Pillar\Console\MakeContextCommand;
+use Pillar\Console\MakeQueryCommand;
 use Pillar\Console\ReplayEventsCommand;
 use Pillar\Context\ContextLoader;
 use Pillar\Event\EventAliasRegistry;
@@ -58,6 +61,9 @@ class PillarServiceProvider extends ServiceProvider
             $this->commands([
                 InstallPillarCommand::class,
                 ReplayEventsCommand::class,
+                MakeCommandCommand::class,
+                MakeQueryCommand::class,
+                MakeContextCommand::class,
             ]);
 
             $this->publishMigrations();

@@ -1,0 +1,13 @@
+<?php
+
+namespace {{namespace}};
+
+final class {{Name}}Command
+{
+    public function __construct(
+        public string $id
+    )
+    {
+    }
+
+}

@@ -34,3 +34,5 @@ Pillar brings Domain‑Driven Design and Event Sourcing to Laravel with a compac
 
 - 🪶 **Serializer abstraction** — default JSON serializer; bring your own if you need a different format.  
   → See [/concepts/serialization](/concepts/serialization)
+
+- 🛠️ **Pillar Make**: Bounded Context/Command/Query scaffolding
