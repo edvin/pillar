@@ -93,15 +93,71 @@ final class FindDocumentHandler
 }
 ```
 
+
 ### Facade
 
-```php
+There are a few convenient ways to send commands and queries. Pick what fits your project style and testing needs:
+
+- **Facade (static)** — simplest to call from anywhere.
+- **Injected buses** — explicit dependencies, easiest to mock in tests.
+- **Controller/service usage** — realistic end‑to‑end example, including commands that return values.
+
+::: code-group
+
+```php [Facade (static)]
 use Pillar\Facade\Pillar;
 
+// Command with no return
 Pillar::dispatch(new RenameDocumentCommand($id, 'New Title'));
+
+// Command that returns a value (e.g., a new ID)
 $createdId = Pillar::dispatch(new CreateDocumentCommand('First Draft'));
-$result = Pillar::ask(new FindDocumentQuery($id));
+
+// Query that returns a DTO/array
+$dto = Pillar::ask(new FindDocumentQuery($id));
 ```
+```php [Injected buses]
+final class DocumentService
+{
+    public function __construct(
+        private CommandBus $commandBus, // inject your CommandBus implementation
+        private QueryBus $queryBus,   // inject your QueryBus implementation
+    ) {}
+
+    public function renameAndFetch(string $id, string $title): array
+    {
+        $this->commandBus->dispatch(new RenameDocumentCommand($id, $title));
+        return $this->queryBus->ask(new FindDocumentQuery($id));
+    }
+
+    public function create(string $title): string
+    {
+        return $this->commandBus->dispatch(new CreateDocumentCommand($title));
+    }
+}
+```
+```php [Controller example]
+final class DocumentController
+{
+    public function __construct(private DocumentService $svc) {}
+
+    public function rename(string $id, Request $request): Response
+    {
+        $dto = $this->svc->renameAndFetch($id, $request->string('title'));
+        return new JsonResponse($dto, 200);
+    }
+
+    public function create(Request $request): Response
+    {
+        $id = $this->svc->create($request->string('title'));
+        $dto = Pillar::ask(new FindDocumentQuery($id)); // or via the service
+        return new JsonResponse($dto, 201);
+    }
+}
+```
+:::
+
+_Inject your CommandBus/QueryBus where needed. The facade is a thin convenience over those buses._
 
 ---
 
