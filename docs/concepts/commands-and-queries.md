@@ -2,11 +2,9 @@
 
 Pillar keeps orchestration simple with two buses.
 
-## Commands
+::: code-group
 
-A command is a plain object handled by an invokable class.
-
-```php
+```php [Command]
 final class RenameDocumentCommand
 {
     public function __construct(public string $id, public string $newTitle) {}
@@ -25,27 +23,27 @@ final class RenameDocumentHandler
 }
 ```
 
-Dispatch via the facade or your own bus binding:
+```php [Query]
+final class FindDocumentQuery
+{
+    public function __construct(public string $id) {}
+}
 
-```php
-\Pillar\Facade\Pillar::dispatch(new RenameDocumentCommand($id, 'New Title'));
+final class FindDocumentHandler
+{
+    public function __invoke(FindDocumentQuery $q): array
+    {
+        // return DTO/array for read model
+        return ['id' => $q->id, 'title' => '...'];
+    }
+}
 ```
 
-## Queries
+```php [Facade]
+use Pillar\Facade\Pillar;
 
-Queries return data; they do not change state.
-
-```php
-final class FindDocumentQuery { public function __construct(public string $id) {} }
-final class FindDocumentHandler { public function __invoke(FindDocumentQuery $q): array {/* … */} }
+Pillar::dispatch(new RenameDocumentCommand($id, 'New Title'));
+$result = Pillar::ask(new FindDocumentQuery($id));
 ```
 
-Ask via the facade:
-
-```php
-$result = \Pillar\Facade\Pillar::ask(new FindDocumentQuery($id));
-```
-
-## Registration
-
-Register handlers via your **ContextRegistry** so commands/queries are discoverable.
+:::

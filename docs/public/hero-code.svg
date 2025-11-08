@@ -1,0 +1,61 @@
+<svg width="800" height="480" viewBox="0 0 800 480" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1220"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <filter id="blur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="22"/>
+    </filter>
+  </defs>
+
+  <!-- subtle glow -->
+  <circle cx="670" cy="70" r="95" fill="#2563eb" opacity="0.25" filter="url(#blur)"/>
+  <!-- window -->
+  <rect x="0" y="0" width="800" height="480" rx="24" fill="url(#bg)"/>
+  <!-- header bar: extended further left/right -->
+  <rect x="8" y="24" width="784" height="40" rx="10" fill="#111827" opacity="0.95"/>
+  <circle cx="30" cy="44" r="6" fill="#f87171"/>
+  <circle cx="52" cy="44" r="6" fill="#fbbf24"/>
+  <circle cx="74" cy="44" r="6" fill="#34d399"/>
+  <text x="96" y="50" fill="#9CA3AF" font-size="13" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace">
+    app/Document/RenameDocumentHandler.php
+  </text>
+
+  <!-- code area: extended and shifted left -->
+  <rect x="8" y="78" width="784" height="378" rx="14" fill="#0B1324" opacity="0.60"/>
+
+  <!-- code with preserved spacing and inline syntax colors -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace"
+     font-size="16" xml:space="preserve">
+    <!-- ultra-tight left margin (x=10) -->
+    <text x="10" y="120">
+      <tspan fill="#93c5fd">use </tspan><tspan fill="#cbd5e1">Pillar\Aggregate\AggregateSession;</tspan>
+    </text>
+    <text x="10" y="150"> </text>
+    <text x="10" y="180">
+      <tspan fill="#93c5fd">final class </tspan><tspan fill="#e5e7eb">RenameDocumentHandler {</tspan>
+    </text>
+    <text x="10" y="210">
+      <tspan fill="#e5e7eb">    </tspan><tspan fill="#93c5fd">public function </tspan><tspan fill="#e5e7eb">__construct(</tspan><tspan fill="#93c5fd">private </tspan><tspan fill="#e5e7eb">AggregateSession </tspan><tspan fill="#a3e635">$session</tspan><tspan fill="#e5e7eb">) {}</tspan>
+    </text>
+    <text x="10" y="240">
+      <tspan fill="#e5e7eb">    </tspan><tspan fill="#93c5fd">public function </tspan><tspan fill="#e5e7eb">__invoke(RenameDocument </tspan><tspan fill="#a3e635">$cmd</tspan><tspan fill="#e5e7eb">): void {</tspan>
+    </text>
+    <text x="10" y="270">
+      <tspan fill="#e5e7eb">        </tspan><tspan fill="#a3e635">$doc</tspan><tspan fill="#e5e7eb"> = </tspan><tspan fill="#e879f9">$this</tspan><tspan fill="#e5e7eb">-&gt;session-&gt;find(DocumentId::from(</tspan><tspan fill="#a3e635">$cmd</tspan><tspan fill="#e5e7eb">-&gt;id));</tspan>
+    </text>
+    <text x="10" y="300">
+      <tspan fill="#e5e7eb">        </tspan><tspan fill="#a3e635">$doc</tspan><tspan fill="#e5e7eb">-&gt;rename(</tspan><tspan fill="#a3e635">$cmd</tspan><tspan fill="#e5e7eb">-&gt;newTitle);</tspan>
+    </text>
+    <text x="10" y="330">
+      <tspan fill="#e5e7eb">        </tspan><tspan fill="#e879f9">$this</tspan><tspan fill="#e5e7eb">-&gt;session-&gt;commit();</tspan>
+    </text>
+    <text x="10" y="360">
+      <tspan fill="#e5e7eb">    }</tspan>
+    </text>
+    <text x="10" y="390">
+      <tspan fill="#e5e7eb">}</tspan>
+    </text>
+  </g>
+</svg>

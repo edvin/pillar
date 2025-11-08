@@ -49,15 +49,68 @@ pre code { font-variant-ligatures: none; }
     }
 }
 
-/* 3) Optional: on smaller laptops, hide the aside to maximize content */
+/* 3) On smaller screens, hide the aside to maximize content */
 @media (min-width: 960px) and (max-width: 1200px) {
     .VPDoc .aside { display: none; }
     .VPDoc .content { max-width: 100% !important; }
 }
 
-/* 4) Make code blocks full width within content */
+/* Make code blocks full width within content */
 .vp-doc [class^="language-"],
 .vp-doc [class*=" language-"] {
     margin-left: 0;
     margin-right: 0;
+}
+
+/* Home feature cards: icon + title inline, top-aligned, larger title */
+.VPHomeFeatures .items .item .box {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-areas:
+    "icon title"
+    "icon details"
+    "icon action";
+    column-gap: 14px;
+    align-items: start;
+}
+.VPHomeFeatures .items .item .icon {
+    grid-area: icon;
+    margin: 0;
+    align-self: start;
+    font-size: 1.8rem;
+}
+.VPHomeFeatures .items .item .title {
+    grid-area: title;
+    font-size: 1.3rem;
+    line-height: 1.25;
+}
+.VPHomeFeatures .items .item .details { grid-area: details; margin-top: 6px; }
+.VPHomeFeatures .items .item .action  { grid-area: action;  margin-top: 10px; }
+
+/* Make hero image larger on desktop */
+@media (min-width: 960px) {
+    .VPHome .image .image-src,
+    .VPHome .VPImage.image .image-src,
+    .VPHome .VPImage.image .vp-image,
+    .VPHome .image .vp-image {
+        width: 800px !important;   /* match front-matter width */
+        height: auto !important;
+    }
+}
+
+/* Align hero image vertically with the Pillar title */
+@media (min-width: 960px) {
+    .VPHome .VPHero .image {
+        margin-top: 60px;   /* adjust to push hero-code up or down in the heading */
+    }
+}
+
+/* Keep it sensible on very wide screens */
+@media (min-width: 1280px) {
+    .VPHome .image .image-src,
+    .VPHome .VPImage.image .image-src,
+    .VPHome .VPImage.image .vp-image,
+    .VPHome .image .vp-image {
+        max-width: 860px;
+    }
 }
