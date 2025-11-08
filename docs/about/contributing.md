@@ -18,22 +18,26 @@ cd pillar
 composer install
 ```
 
-Run tests (pick the one the repo defines):
+Run tests
 ```bash
-composer test || ./vendor/bin/pest || ./vendor/bin/phpunit
+composer test
+```
+
+Run tests with coverage, we aim for 100%:
+```bash
+composer test:coverage
 ```
 
 ## Docs development (VitePress)
 
 ```bash
 npm install
-npm run docs:dev   # local preview
-npm run docs:build # production build
+npm run docs:dev
 ```
 
 When changing docs:
 - Place pages under `docs/…` and use absolute links from the docs root (e.g. `/concepts/aggregate-sessions`).
-- If you update the README, mirror the change in **Reference → Full README (archived)**.
+- Significant changes should be mentioned in the README
 - Keep code fences language‑tagged (`php`, `bash`, `mermaid`).
 
 ## Commit / PR
