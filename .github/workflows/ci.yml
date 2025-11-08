@@ -45,8 +45,8 @@ jobs:
   tests:
     name: Tests
     needs: changes
-    # Run tests on PRs always, and on push when PHP-related files changed
-    if: github.event_name == 'pull_request' || needs.changes.outputs.php == 'true'
+    # Run tests on PRs always, and on any push to main (so Codecov always gets a report). For other branches, still gate by PHP file changes.
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || needs.changes.outputs.php == 'true'
     runs-on: ubuntu-latest
 
     services:
