@@ -1,6 +1,20 @@
 ## 🧱 Repositories
 
-Repositories coordinate **load / save** for an aggregate root. Pillar resolves which repository to use **dynamically from configuration**, so you can mix event‑sourced and state‑backed aggregates in the same app.
+Repositories coordinate **load / save** for an aggregate root — handling snapshot loading and event streaming to rehydrate state. Pillar resolves which repository to use **dynamically from configuration**, so you can mix event‑sourced and state‑backed aggregates in the same app.
+
+Most apps rarely touch repositories directly. In handlers you typically work with the [AggregateSession](/concepts/aggregate-sessions), which opens a session, calls the repository’s `find(...)`, tracks recorded events on your aggregate, and invokes `save(...)` on commit. Reach for repositories when you are writing a custom repository or building low‑level tooling.
+
+### How repositories rehydrate aggregates
+
+For event‑sourced aggregates, `EventStoreRepository` does the lifting:
+
+1) **Check snapshot store** for the aggregate ID.  
+2) **If a snapshot exists**, start **after** the snapshot’s version; otherwise construct a fresh aggregate instance.  
+3) **Stream events** from the Event Store using your configured **fetch strategy**, optionally bounded by an `EventWindow` (e.g., as‑of a version / global sequence / UTC time), and apply them to the aggregate.  
+4) On save, consult the **Snapshot Policy** to decide whether to persist a new snapshot.
+
+This is transparent to your handlers — you just call `find(...)` and `save(...)`.  
+State‑backed repositories can ignore windows or implement their own historical lookup.
 
 ---
 
@@ -81,6 +95,17 @@ interface AggregateRepository
 
 ---
 
+### Saving an aggregate
+
+```php
+// Persist newly recorded events on the aggregate
+$repo->save($aggregate, expectedVersion: null);
+```
+
+If **optimistic locking** is enabled, the repository will pass the aggregate’s expected version to the event store on append. If a conflicting write is detected, a `ConcurrencyException` will be thrown.
+
+---
+
 ### Optimistic concurrency
 
 `EventStoreRepository` uses **optimistic locking** when enabled:
@@ -90,7 +115,6 @@ interface AggregateRepository
 'event_store' => [
     'class' => \Pillar\Event\DatabaseEventStore::class,
     'options' => [
-        'default_fetch_strategy' => 'db_chunked',
         'optimistic_locking' => true, // when true, passes expected version to EventStore::append()
     ],
 ],
@@ -143,6 +167,7 @@ final class DocumentRepository implements AggregateRepository
 
 ### See also
 
+- **Aggregate Sessions** — how handlers interact with repositories via a unit‑of‑work wrapper  
 - **Aggregate Roots** — event‑sourced vs state‑backed examples  
 - **Event Store** — streaming, fetch strategies, snapshots  
 - **Snapshotting** — policies and stores
