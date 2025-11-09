@@ -160,17 +160,17 @@ it('enforces expectedSequence on the portable path (conflict throws ConcurrencyE
 });
 
 it('executes the MySQL-optimized branch when connected to real MySQL', function () {
-    // Only run when explicitly enabled (avoids dev machines needing MySQL)
     if (!env('TEST_WITH_MYSQL')) {
         test()->markTestSkipped('Set TEST_WITH_MYSQL=1 to run this integration test.');
     }
-
-    // Require pdo_mysql
     if (!extension_loaded('pdo_mysql')) {
         test()->markTestSkipped('pdo_mysql extension not loaded.');
     }
 
-    // Point the default connection to a real MySQL (CI service or local)
+    // Remember the original default connection (usually sqlite for tests)
+    $original = config('database.default', 'sqlite');
+
+    // Point the default connection to a real MySQL
     config()->set('database.connections.it_mysql', [
         'driver' => 'mysql',
         'host' => env('MYSQL_HOST', '127.0.0.1'),
@@ -188,62 +188,82 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
     DB::purge('it_mysql');
     DB::reconnect('it_mysql');
 
-    // Minimal schema
-    Schema::connection('it_mysql')->dropIfExists('events');
-    Schema::connection('it_mysql')->dropIfExists('aggregate_versions');
+    try {
+        // Minimal schema on MySQL
+        Schema::connection('it_mysql')->dropIfExists('events');
+        Schema::connection('it_mysql')->dropIfExists('aggregate_versions');
 
-    Schema::connection('it_mysql')->create('aggregate_versions', function (Blueprint $t) {
-        $t->string('aggregate_id')->primary();
-        $t->string('aggregate_id_class')->nullable()->index();
-        $t->unsignedBigInteger('last_sequence')->default(0);
-    });
+        Schema::connection('it_mysql')->create('aggregate_versions', function (Blueprint $t) {
+            $t->string('aggregate_id')->primary();
+            $t->string('aggregate_id_class')->nullable()->index();
+            $t->unsignedBigInteger('last_sequence')->default(0);
+        });
 
-    Schema::connection('it_mysql')->create('events', function (Blueprint $t) {
-        $t->bigIncrements('sequence');
-        $t->string('aggregate_id');
-        $t->unsignedBigInteger('aggregate_sequence');
-        $t->string('event_type');
-        $t->unsignedInteger('event_version')->default(1);
-        $t->string('correlation_id')->nullable();
-        $t->longText('event_data');
-        $t->dateTime('occurred_at');
-        $t->index(['aggregate_id', 'aggregate_sequence']);
-    });
+        Schema::connection('it_mysql')->create('events', function (Blueprint $t) {
+            $t->bigIncrements('sequence');
+            $t->string('aggregate_id');
+            $t->unsignedBigInteger('aggregate_sequence');
+            $t->string('event_type');
+            $t->unsignedInteger('event_version')->default(1);
+            $t->string('correlation_id')->nullable();
+            $t->longText('event_data');
+            $t->dateTime('occurred_at');
+            $t->index(['aggregate_id', 'aggregate_sequence']);
+        });
 
-    /** @var EventStore $store */
-    $store = app(EventStore::class);
+        /** @var EventStore $store */
+        $store = app(EventStore::class);
 
-    $id = DocumentId::new();
+        $id = DocumentId::new();
 
-    // This should exercise the MySQL path that uses LAST_INSERT_ID()
-    $s1 = $store->append($id, new DocumentCreated($id, 'first'));
-    $s2 = $store->append($id, new DocumentRenamed($id, 'second'), 1);
+        // Exercise the MySQL LAST_INSERT_ID() branch
+        $s1 = $store->append($id, new DocumentCreated($id, 'first'));
+        $s2 = $store->append($id, new DocumentRenamed($id, 'second'), 1);
 
-    expect($s1)->toBe(1)->and($s2)->toBe(2);
+        expect($s1)->toBe(1)->and($s2)->toBe(2);
 
-    $rows = DB::table('events')
-        ->select('aggregate_sequence', 'event_type')
-        ->where('aggregate_id', $id->value())
-        ->orderBy('aggregate_sequence')
-        ->get()
-        ->map(fn($r) => [(int)$r->aggregate_sequence, $r->event_type])
-        ->all();
+        $rows = DB::table('events')
+            ->select('aggregate_sequence', 'event_type')
+            ->where('aggregate_id', $id->value())
+            ->orderBy('aggregate_sequence')
+            ->get()
+            ->map(fn($r) => [(int)$r->aggregate_sequence, $r->event_type])
+            ->all();
 
-    expect($rows)->toEqual([
-        [1, DocumentCreated::class],
-        [2, DocumentRenamed::class],
-    ])
-        ->and(fn() => $store->append($id, new DocumentRenamed($id, 'should-fail'), 999))
-        ->toThrow(ConcurrencyException::class);
+        expect($rows)->toEqual([
+            [1, DocumentCreated::class],
+            [2, DocumentRenamed::class],
+        ])
+            ->and(fn() => $store->append($id, new DocumentRenamed($id, 'should-fail'), 999))
+            ->toThrow(ConcurrencyException::class);
 
-    // Sanity: still only the two original events, and last_sequence unchanged
-    // Also exercise the guarded UPDATE path: mismatch expectedSequence should throw
-    $count = DB::table('events')->where('aggregate_id', $id->value())->count();
-    $last = (int)DB::table('aggregate_versions')->where('aggregate_id', $id->value())
-        ->value('last_sequence');
+        $count = DB::table('events')->where('aggregate_id', $id->value())->count();
+        $last  = (int) DB::table('aggregate_versions')->where('aggregate_id', $id->value())->value('last_sequence');
 
-    expect($count)->toBe(2)
-        ->and($last)->toBe(2);
+        expect($count)->toBe(2)->and($last)->toBe(2);
+    } finally {
+        // Restore original default connection & tear down MySQL
+        config()->set('database.default', $original);
+
+        // Drop the MySQL tables to avoid leaking state
+        try {
+            Schema::connection('it_mysql')->dropIfExists('events');
+            Schema::connection('it_mysql')->dropIfExists('aggregate_versions');
+        } catch (\Throwable $e) {
+            // ignore if connection is gone
+        }
+
+        // Purge & disconnect both connections
+        DB::disconnect('it_mysql');
+        DB::purge('it_mysql');
+
+        DB::purge($original);
+        DB::reconnect($original);
+
+        // IMPORTANT: reboot the Testbench/Laravel app so any SQLite refresh
+        // runs outside of any lingering transaction context and without MySQL defaults
+        test()->refreshApplication();
+    }
 });
 
 it('returns null when no event exists at the given global sequence', function () {
