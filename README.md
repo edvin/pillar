@@ -27,6 +27,7 @@ php artisan pillar:install
 - ⏱️ **Point‑in‑time reads** — load up to aggregate/global sequence or date via `EventWindow`
 - 🎭 **Aliases** for readable event names
 - 🔁 **Safe replays** to rebuild projections
+- ⚡ **CQRS** — projectors and query bus for a fast, scalable read side
 - 🧰 **Facade + buses** for quick wiring
 - 🛠️ **Pillar Make**: Bounded Context/Command/Query Scaffolding
 

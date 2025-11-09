@@ -73,9 +73,14 @@ features:
     details: "Dispatch commands, ask queries; keep orchestration simple."
     link: "/concepts/commands-and-queries"
 
+  - icon: "⚡"
+    title: "CQRS"
+    details: "Read/write separation with projectors and a fast query side."
+    link: "/concepts/cqrs"
+
   - icon: "🪶"
     title: "Serialization"
-    details: "Default JSON serializer; swap or implement your own."
+    details: "Default JSON serializer, swap or implement your own."
     link: "/concepts/serialization"
 
   - icon: "🔒"

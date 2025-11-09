@@ -38,6 +38,7 @@ export default withMermaid(defineConfig({
                         ]
                     },
                     {text: 'Context registries', link: '/concepts/context-registries'},
+                    {text: 'CQRS', link: '/concepts/cqrs'},
                     {text: 'Event aliases', link: '/concepts/event-aliases'},
                     {text: 'Versioned events', link: '/concepts/versioned-events'},
                     {text: 'Event upcasters', link: '/concepts/event-upcasters'},
