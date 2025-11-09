@@ -12,6 +12,7 @@ export default withMermaid(defineConfig({
             {text: 'Tutorial', link: '/tutorials/build-a-document-service'},
             {text: 'Why Pillar', link: '/about/philosophy'},
             {text: 'Architecture', link: '/architecture/overview'},
+            {text: 'Stream Browser', link: '/ui/stream-browser'},
             {text: 'Config', link: '/reference/configuration'},
         ],
         sidebar: [
@@ -52,6 +53,11 @@ export default withMermaid(defineConfig({
             {
                 text: 'Architecture', items: [
                     {text: 'Overview', link: '/architecture/overview'}
+                ]
+            },
+            {
+                text: 'UI', items: [
+                    {text: 'Stream Browser', link: '/ui/stream-browser'}
                 ]
             },
             {

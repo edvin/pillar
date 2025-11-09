@@ -27,7 +27,7 @@ class DatabaseEventStore implements EventStore
     {
         $eventsTable = $this->streamResolver->resolve($id);
         $aggregateId = $id->value();
-        $aggregateIdClass = $id->aggregateClass();
+        $aggregateIdClass = $id::class;
 
         return DB::transaction(function () use ($eventsTable, $aggregateId, $aggregateIdClass, $event, $expectedSequence) {
             // Ensure a counter row exists for this aggregate (portable across drivers)

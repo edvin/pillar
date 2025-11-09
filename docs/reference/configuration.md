@@ -1,7 +1,17 @@
+## Event Store
 
-# ⚙️ Configuration
+Responsible for persisting and reading domain events. The default implementation is database‑backed. **Note:** the default fetch strategy is not configured here—see **`fetch_strategies.default`** (defaults to `'db_chunked'`).
 
-All options live in `config/pillar.php`. Below is a consolidated overview that mirrors the current defaults.
+```php
+'event_store' => [
+    'class' => Pillar\Event\DatabaseEventStore::class,
+    'options' => [
+        // Optimistic concurrency control for appends. When true, repositories
+        // pass the aggregate's current version as expected_sequence to the EventStore.
+        'optimistic_locking' => true,
+    ],
+],
+```
 
 ---
 
@@ -12,20 +22,6 @@ All options live in `config/pillar.php`. Below is a consolidated overview that m
     'default' => Pillar\Repository\EventStoreRepository::class,
     // Example per-aggregate override:
     // App\Domain\Report\Report::class => App\Infrastructure\ReportRepository::class,
-],
-```
-
----
-
-## Event Store
-
-```php
-'event_store' => [
-    'class' => Pillar\Event\DatabaseEventStore::class,
-    'options' => [
-        // When true, repositories pass expected_sequence to the EventStore (OCC).
-        'optimistic_locking' => true,
-    ],
 ],
 ```
 
@@ -254,3 +250,67 @@ Configure where the CLI scaffolding places Commands/Queries and their Handlers, 
 ];
 ```
 
+---
+
+## 📊 Pillar UI (Stream Browser)
+
+Controls the built‑in event explorer / timeline UI. Outside the environments in `skip_auth_in`, access requires an authenticated user implementing `Pillar\Security\PillarUser` and returning `true` from `canAccessPillar()`.
+
+```php
+'ui' => [
+    /*
+    |--------------------------------------------------------------------------
+    | Master switch
+    |--------------------------------------------------------------------------
+    | If false, the UI is not mounted (routes/views aren’t registered).
+    */
+    'enabled' => env('PILLAR_UI', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🔓 Skip auth in these environments
+    |--------------------------------------------------------------------------
+    | Accepts a comma-separated string or an array. In these environments BOTH
+    | authentication and PillarUser checks are bypassed (handy for local dev).
+    |
+    | .env example:
+    |   PILLAR_UI_SKIP_AUTH_IN=local,testing
+    */
+    'skip_auth_in' => env('PILLAR_UI_SKIP_AUTH_IN', 'local'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🛡️ Auth guard used for access checks
+    |--------------------------------------------------------------------------
+    | Which guard to use to resolve the current user when the UI is protected.
+    | Examples: "web" (session), "sanctum", or "api" (token).
+    */
+    'guard' => env('PILLAR_UI_GUARD', 'web'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🔗 Mount path
+    |--------------------------------------------------------------------------
+    | Base path where the UI is served. Do NOT include a leading slash.
+    | The UI will be reachable at "/{path}" (e.g. "/pillar").
+    */
+    'path' => env('PILLAR_UI_PATH', 'pillar'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | 📜 Pagination & lists
+    |--------------------------------------------------------------------------
+    | page_size:     events per API page (server may cap this)
+    | recent_limit:  how many “recent aggregates” to show on the landing page
+    */
+    'page_size'   => 100,
+    'recent_limit'=> 20,
+],
+```
+
+**Env shortcuts**
+
+- `PILLAR_UI=true|false` – enable/disable mounting the UI
+- `PILLAR_UI_SKIP_AUTH_IN=local,testing` – bypass auth/trait checks in these environments
+- `PILLAR_UI_GUARD=web|sanctum|api` – guard used when UI is protected
+- `PILLAR_UI_PATH=pillar` – base path (UI served at `/{path}`)

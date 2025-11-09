@@ -95,7 +95,6 @@ final readonly class EventStoreRepository implements AggregateRepository
             /** @var AggregateRoot $aggregate */
             $aggregate = new ($id->aggregateClass());
         }
-
         $aggregate->markAsReconstituting();
 
         $hadEvents = false;
