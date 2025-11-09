@@ -5,8 +5,9 @@ namespace Pillar\Event\Fetch\Database;
 use Generator;
 use Illuminate\Container\Attributes\Config;
 use Pillar\Aggregate\AggregateRootId;
-use Pillar\Event\Fetch\EventFetchStrategy;
 use Pillar\Event\EventAliasRegistry;
+use Pillar\Event\EventWindow;
+use Pillar\Event\Fetch\EventFetchStrategy;
 use Pillar\Event\Stream\StreamResolver;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Serialization\ObjectSerializer;
@@ -28,84 +29,86 @@ class DatabaseChunkedFetchStrategy extends AbstractDatabaseFetchStrategy impleme
         $this->chunkSize = $chunkSize;
     }
 
-    public function load(AggregateRootId $id, int $afterAggregateSequence = 0): Generator
+    public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
     {
-        // Page forward using the per-aggregate version as the cursor, ascending
-        $cursor = max(0, (int) $afterAggregateSequence);
+        $after = $window?->afterAggregateSequence ?? 0;
+        $toAgg = $window?->toAggregateSequence;
+        $toGlob = $window?->toGlobalSequence;
+        $toDate = $window?->toDateUtc;
 
         while (true) {
-            $query = $this->baseQuery($id)
-                ->where('aggregate_id', $id->value());
+            // Build a per-page window starting after the moving cursor
+            $pageWindow = new EventWindow(
+                afterAggregateSequence: $after,
+                toAggregateSequence: $toAgg,
+                toGlobalSequence: $toGlob,
+                toDateUtc: $toDate,
+            );
 
-            if ($cursor > 0) {
-                $query->where('aggregate_sequence', '>', $cursor);
-            }
+            $qb = $this->perAggregateBase($id);
+            $this->applyPerAggregateWindow($qb, $pageWindow);
+            $qb = $this->orderPerAggregateAsc($qb)->limit($this->chunkSize);
 
-            $rows = $query
-                ->reorder()
-                ->orderBy('aggregate_sequence', 'asc')
-                ->limit($this->chunkSize)
-                ->get();
-
+            $rows = $qb->get();
             if ($rows->isEmpty()) {
                 break;
             }
 
-            foreach ($this->mapToStoredEvents($rows) as $e) {
-                yield $e;
+            foreach ($this->mapToStoredEvents($rows) as $stored) {
+                yield $stored;
+                $after = $stored->aggregateSequence; // advance cursor
             }
-
-            // Advance cursor to last row's per-aggregate sequence
-            $last = $rows->last();
-            $cursor = (int) ($last->aggregate_sequence ?? $cursor);
 
             if ($rows->count() < $this->chunkSize) {
                 break; // final page
             }
+
+            if ($toAgg !== null && $after >= $toAgg) {
+                break; // reached upper bound
+            }
         }
     }
 
-    public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator
+    public function all(?AggregateRootId $aggregateId = null, ?EventWindow $window = null, ?string $eventType = null):
+Generator
     {
-        // Use keyset pagination to guarantee stable, forward-only ordering.
-        // For a specific aggregate, page by per-aggregate sequence; otherwise by global sequence.
+        // Page forward using keyset pagination; use per-aggregate or global column depending on filter.
         $cursor = 0;
-        $orderColumn = $aggregateId ? 'aggregate_sequence' : 'sequence';
+        $perAgg = $aggregateId !== null;
 
         while (true) {
-            $query = $this->baseQuery($aggregateId);
+            $qb = $perAgg ? $this->perAggregateBase($aggregateId) : $this->globalBase();
 
-            if ($aggregateId) {
-                $query->where('aggregate_id', $aggregateId->value());
+            if ($window) {
+                if ($perAgg) {
+                    $this->applyPerAggregateWindow($qb, $window);
+                } else {
+                    $this->applyGlobalWindow($qb, $window);
+                }
             }
 
             if ($eventType) {
-                $query->where('event_type', $eventType);
+                $qb->where('event_type', $eventType);
             }
 
             if ($cursor > 0) {
-                $query->where($orderColumn, '>', $cursor);
+                $qb->where($perAgg ? 'aggregate_sequence' : 'sequence', '>', $cursor);
             }
 
-            $rows = $query
-                ->reorder($orderColumn)
-                ->limit($this->chunkSize)
-                ->get();
+            $qb = $perAgg ? $this->orderPerAggregateAsc($qb) : $this->orderGlobalAsc($qb);
+            $rows = $qb->limit($this->chunkSize)->get();
 
             if ($rows->isEmpty()) {
                 break;
             }
 
-            foreach ($this->mapToStoredEvents($rows) as $e) {
-                yield $e;
+            foreach ($this->mapToStoredEvents($rows) as $stored) {
+                yield $stored;
+                $cursor = $perAgg ? $stored->aggregateSequence : $stored->sequence; // advance cursor
             }
 
-            // Advance the cursor using the last row of this page.
-            $last = $rows->last();
-            $cursor = (int)($last->{$orderColumn} ?? 0);
-
             if ($rows->count() < $this->chunkSize) {
-                break; // final, short page
+                break; // final page
             }
         }
     }

@@ -9,6 +9,7 @@ return new class extends Migration {
     {
         Schema::create('aggregate_versions', function (Blueprint $table) {
             $table->uuid('aggregate_id')->primary();
+            $table->string('aggregate_id_class', 512)->index();
             $table->unsignedBigInteger('last_sequence')->default(0);
         });
     }

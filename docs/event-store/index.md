@@ -18,8 +18,12 @@ interface EventStore
      */
     public function append(AggregateRootId $id, object $event, ?int $expectedSequence = null): int;
 
-    /** @return Generator<StoredEvent> */
-    public function load(AggregateRootId $id, int $afterAggregateSequence = 0): Generator;
+    /**
+     * Load events for a single aggregate, optionally bounded by an EventWindow.
+     *
+     * @return Generator<StoredEvent>
+     */
+    public function load(AggregateRootId $id, ?EventWindow $window = null): Generator;
 
     /** @return Generator<StoredEvent> */
     public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator;
@@ -27,6 +31,28 @@ interface EventStore
 ```
 
 Instead of returning arrays, `load()` and `all()` yield `StoredEvent` instances as **generators** — allowing **true streaming** of large event streams with minimal memory use.
+
+### Point‑in‑time & bounded reads (EventWindow)
+
+Use `EventWindow` to cap a read at a specific boundary — by aggregate version, by global sequence, or by UTC time. This lets you **inspect history** or rebuild state _as of_ some moment.
+
+```php
+use Pillar\Event\EventWindow;
+
+// Up to a specific per-aggregate version
+$win = EventWindow::toAggSeq(42);
+foreach ($eventStore->load($id, $win) as $e) {
+    // events with aggregate_sequence <= 42
+}
+
+// Up to a wall‑clock time (UTC)
+$win = EventWindow::toDateUtc(new DateTimeImmutable('2025-01-01T00:00:00Z'));
+foreach ($eventStore->load($id, $win) as $e) {
+    // events that occurred on/before that timestamp
+}
+
+// Combine with snapshots transparently via repositories (see Repositories)
+```
 
 **Optimistic concurrency** is handled for you by `AggregateSession`. You can disable it via:
 
@@ -51,9 +77,16 @@ When implementing a store, `append()` must throw a `ConcurrencyException` if `$e
 // Append; returns new per-aggregate sequence
 $seq = $eventStore->append($id, new DocumentCreated($title), $expectedSeq);
 
-// Load one aggregate’s events (stream)
+// Load one aggregate’s events (unbounded stream)
 foreach ($eventStore->load($id) as $stored) {
     // $stored->event, $stored->aggregateId, $stored->aggregateSequence, $stored->occurredAt, ...
+}
+
+// Load events up to a boundary
+use Pillar\Event\EventWindow;
+$win = EventWindow::toAggSeq(100); // or ::toDateUtc($ts), ::toGlobalSeq($n)
+foreach ($eventStore->load($id, $win) as $stored) {
+    // project ‘as of’ this boundary
 }
 
 // Load all events (optionally filter)
@@ -83,7 +116,7 @@ Custom strategies implement:
 interface EventFetchStrategy
 {
     /** @return Generator<StoredEvent> */
-    public function load(AggregateRootId $id, int $afterAggregateSequence = 0): Generator;
+    public function load(AggregateRootId $id, ?EventWindow $window = null): Generator;
 
     /** @return Generator<StoredEvent> */
     public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator;
@@ -116,6 +149,8 @@ Configure defaults and overrides in `config/pillar.php`:
     ],
 ],
 ```
+
+> **Database convenience:** `DatabaseEventStore` also exposes `getByGlobalSequence(int $seq): ?StoredEvent` to look up a single event quickly by its global sequence number.
 
 ---
 

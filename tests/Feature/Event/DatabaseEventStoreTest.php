@@ -1,18 +1,22 @@
 <?php
 
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
+use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\ConcurrencyException;
 use Pillar\Event\DatabaseEventStore;
 use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\Stream\StreamResolver;
+use Pillar\Serialization\JsonObjectSerializer;
 use Pillar\Serialization\ObjectSerializer;
 use Tests\Fixtures\Document\DocumentCreated;
 use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Document\DocumentRenamed;
+use Tests\Fixtures\Encryption\DummyEvent;
 
 it('append() advances last_sequence when expectedSequence matches (portable path)', function () {
     /** @var EventStore $store */
@@ -239,4 +243,40 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
 
     expect($count)->toBe(2)
         ->and($last)->toBe(2);
+});
+
+it('returns null when no event exists at the given global sequence', function () {
+    $store = app(DatabaseEventStore::class);
+
+    // Use an impossible/invalid global sequence
+    expect($store->getByGlobalSequence(-1))->toBeNull();
+});
+
+it('returns a StoredEvent by global sequence (FQCN event_type)', function () {
+    $id  = GenericAggregateId::new();
+    $ser = new JsonObjectSerializer();
+    $now = Carbon::now('UTC')->format('Y-m-d H:i:s');
+
+    // Insert a single event and capture its global sequence (PK)
+    $seq = DB::table('events')->insertGetId([
+        'aggregate_id'       => $id->value(),
+        'aggregate_sequence' => 1,
+        'event_type'         => DummyEvent::class, // FQCN is fine; alias resolution will no-op
+        'event_version'      => 1,
+        'correlation_id'     => null,
+        'event_data'         => $ser->serialize(new DummyEvent('1', 'Hello')),
+        'occurred_at'        => $now,
+    ]);
+
+    $store = app(DatabaseEventStore::class);
+    $e     = $store->getByGlobalSequence((int) $seq);
+
+    expect($e)->not->toBeNull()
+        ->and($e->sequence)->toBe((int) $seq)
+        ->and($e->aggregateId)->toBe($id->value())
+        ->and($e->aggregateSequence)->toBe(1)
+        ->and($e->eventType)->toBe(DummyEvent::class)
+        ->and($e->eventVersion)->toBe(1)
+        ->and($e->occurredAt)->toBe($now)
+        ->and($e->event)->toEqual(new DummyEvent('1', 'Hello'));
 });

@@ -7,24 +7,22 @@ use Pillar\Aggregate\AggregateRootId;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
-use InvalidArgumentException;
-use Pillar\Snapshot\Snapshottable;
 
 class CacheSnapshotStore implements SnapshotStore
 {
     public function load(AggregateRootId $id): ?array
     {
-        /** @var class-string $aggregateClass */
-        $aggregateClass = $id->aggregateClass();
-        $this->assertSnapshottable($aggregateClass);
+        if (!$this->isSnapshottable($id->aggregateClass())) {
+            return null;
+        }
 
-        $payload = Cache::get($this->cacheKey($aggregateClass, $id));
+        $payload = Cache::get($this->cacheKey($id->aggregateClass(), $id));
 
         if (!$payload) {
             return null;
         }
 
-        $aggregate = $aggregateClass::fromSnapshot($payload['data']);
+        $aggregate = $id->aggregateClass()::fromSnapshot($payload['data']);
 
         return [
             'aggregate' => $aggregate,
@@ -34,8 +32,7 @@ class CacheSnapshotStore implements SnapshotStore
 
     public function save(AggregateRoot $aggregate, int $sequence): void
     {
-        if (!$aggregate instanceof Snapshottable) {
-            // Aggregate does not opt in to snapshotting; do nothing.
+        if (!$this->isSnapshottable($aggregate::class)) {
             return;
         }
 
@@ -59,22 +56,9 @@ class CacheSnapshotStore implements SnapshotStore
         Cache::forget($this->cacheKey($id->aggregateClass(), $id));
     }
 
-    /**
-     * Ensure the provided class is a valid Aggregate type for snapshots.
-     *
-     * We require it to extend AggregateRoot (which declares the static fromSnapshot contract)
-     * and to actually implement a static fromSnapshot(array): self.
-     *
-     * @param class-string $aggregateClass
-     * @throws InvalidArgumentException
-     */
-    private function assertSnapshottable(string $aggregateClass): void
+    private function isSnapshottable(string $aggregateClass): bool
     {
-        if (!is_subclass_of($aggregateClass, Snapshottable::class)) {
-            throw new InvalidArgumentException(
-                "Aggregate class $aggregateClass must implement " . Snapshottable::class . " to use snapshots."
-            );
-        }
+        return is_subclass_of($aggregateClass, Snapshottable::class);
     }
 
     private function cacheKey(string $aggregateClass, AggregateRootId $id): string

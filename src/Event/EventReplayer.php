@@ -69,7 +69,7 @@ final class EventReplayer
     {
         $this->validateRanges($fromSequence, $toSequence, $fromDate, $toDate);
 
-        $events = $this->eventStore->all($aggregateId, $eventType);
+        $events = $this->eventStore->all($aggregateId, null, $eventType);
         $filtered = $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
         $count = $this->replayEvents($filtered);
 
@@ -99,7 +99,7 @@ final class EventReplayer
         ?string          $toDate = null
     ): Generator {
         $this->validateRanges($fromSequence, $toSequence, $fromDate, $toDate);
-        $events = $this->eventStore->all($aggregateId, $eventType);
+        $events = $this->eventStore->all($aggregateId, null, $eventType);
         return $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
     }
 

@@ -23,7 +23,6 @@ All options live in `config/pillar.php`. Below is a consolidated overview that m
 'event_store' => [
     'class' => Pillar\Event\DatabaseEventStore::class,
     'options' => [
-        'default_fetch_strategy' => 'db_chunked',
         // When true, repositories pass expected_sequence to the EventStore (OCC).
         'optimistic_locking' => true,
     ],

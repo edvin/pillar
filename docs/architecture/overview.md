@@ -1,40 +1,93 @@
 # 🧱 Architecture Overview
 
-The big picture of how Pillar pieces fit together.
+The big picture of how Pillar pieces fit together — including snapshots, streaming fetch strategies, and the `EventWindow` time/position bounds.
 
 ```mermaid
 flowchart LR
-  subgraph App[Your Laravel App]
-    CH[Command Handler]
-    QH[Query Handler]
-    F[Pillar\\Facade]:::secondary
-    S[AggregateSession]:::core
-    R[Repository]:::core
-    PJ[Projectors]:::secondary
+  subgraph App["Your Laravel App"]
+    U["Client / API"]
+    CH["Command Handler"]
+    QH["Query Handler"]
+    F["Pillar Facade"]
+    S["AggregateSession"]
+    R["Repository"]
+    PJ["Projectors"]
   end
 
-  ES[(Event Store)]:::infra
-  DB[(Read Model DB)]:::infra
+  subgraph Infra["Infrastructure"]
+    ES[(Event Store)]
+    SS[(Snapshot Store)]
+    SP["Snapshot Policy"]
+    SR["Stream Resolver"]
+    SER["Serializer (+ encryption)"]
+    DB[(Read Model DB)]
+  end
 
-  U[Client/API] -->|send command| CH
+  %% Command flow
+  U -->|send command| CH
   CH -->|load| S
   S -->|find| R
+  R -->|load snapshot| SS
   R -->|load events| ES
+  ES --> SER
   CH -->|record events| S
   S -->|commit| R
   R -->|append| ES
   ES -->|dispatch events| PJ
   PJ -->|upsert| DB
+  SP -. decides when to snapshot .-> R
+  R -->|save snapshot if needed| SS
 
+  %% Query flow
   U -->|ask query| QH
   QH --> DB
 
   classDef core fill:#334155,stroke:#94a3b8,color:#e5e7eb
   classDef infra fill:#0f172a,stroke:#64748b,color:#e5e7eb
   classDef secondary fill:#1f2937,stroke:#6b7280,color:#e5e7eb
-```
 
-See also:
-- [/concepts/aggregate-sessions](/concepts/aggregate-sessions)
-- [/event-store/](/event-store/)
-- [/concepts/projectors](/concepts/projectors)
+  class S,R core
+  class ES,SS,SP,SR,SER,DB infra
+  class F,PJ secondary
+```
+---
+
+## Key ideas
+
+- **AggregateSession & Repository**  
+  Your handler calls the session to `find(...)` an aggregate. The repository loads an optional snapshot and then streams events from the **Event Store** to rebuild state.
+
+- **Streaming reads (fetch strategies)**  
+  `load()` yields events as generators (cursor, chunked, or load‑all), letting you process large streams with minimal memory.
+
+- **EventWindow — load “as of” a point in time**  
+  All aggregate loads can be bounded using an optional `EventWindow`:
+  - `afterAggregateSequence`: start strictly *after* this per‑aggregate version (the repository sets this to the snapshot version automatically).
+  - `toAggregateSequence`: stop at a per‑aggregate version.
+  - `toGlobalSequence`: stop at a specific global sequence.
+  - `toDateUtc`: stop at a timestamp (UTC).
+  
+  This enables “show state at event X / at time T” without special APIs.
+
+- **Snapshots (optional, policy‑driven)**  
+  After a commit, the snapshot **policy** decides if the repository should persist a new snapshot to the **Snapshot Store** (cache or your own implementation).
+
+- **Serializer (+ optional payload encryption)**  
+  The base serializer (JSON by default) can be wrapped by an **encrypting** serializer with a pluggable cipher. Encryption can be enabled globally and overridden per event type.
+
+- **Projectors & read models**  
+  Stored events are dispatched to projectors to build queryable read models (in your DB of choice).  
+
+- **Replays**  
+  `pillar:replay-events` replays events to projectors (only), scoped by aggregate, type, or time/sequence windows.
+
+---
+
+## See also
+
+- [Aggregate sessions](/concepts/aggregate-sessions)
+- [Aggregate roots](/concepts/aggregate-roots)
+- [Snapshotting](/concepts/snapshotting)
+- [Event Store](/event-store/)
+- [Serialization → Payload encryption](/concepts/serialization#payload-encryption)
+- [CLI — Replay events](/reference/cli-replay)
