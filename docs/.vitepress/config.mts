@@ -12,6 +12,7 @@ export default withMermaid(defineConfig({
             {text: 'Tutorial', link: '/tutorials/build-a-document-service'},
             {text: 'Why Pillar', link: '/about/philosophy'},
             {text: 'Architecture', link: '/architecture/overview'},
+            {text: 'Stream Browser', link: '/ui/stream-browser'},
             {text: 'Config', link: '/reference/configuration'},
         ],
         sidebar: [
@@ -26,6 +27,7 @@ export default withMermaid(defineConfig({
                     {text: 'Aggregate IDs', link: '/concepts/aggregate-ids'},
                     {text: 'Aggregate sessions', link: '/concepts/aggregate-sessions'},
                     {text: 'Event Store', link: '/event-store/'},
+                    {text: 'Event Window', link: '/concepts/event-window'},
                     {text: 'Repositories', link: '/concepts/repositories'},
                     {text: 'Snapshotting', link: '/concepts/snapshotting'},
                     {text: 'Projectors', link: '/concepts/projectors'},
@@ -51,6 +53,11 @@ export default withMermaid(defineConfig({
             {
                 text: 'Architecture', items: [
                     {text: 'Overview', link: '/architecture/overview'}
+                ]
+            },
+            {
+                text: 'UI', items: [
+                    {text: 'Stream Browser', link: '/ui/stream-browser'}
                 ]
             },
             {

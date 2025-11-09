@@ -4,8 +4,10 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\EventReplayer;
+use Pillar\Event\StoredEvent;
 use Pillar\Event\EventStore;
 use Pillar\Facade\Pillar;
+use Pillar\Event\EventWindow;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Document\DocumentRenamed;
@@ -65,30 +67,30 @@ it('parses --from-date/--to-date options and succeeds', function () {
 it('prints error and returns FAILURE when the replayer throws', function () {
     // Fake EventStore whose all() throws on iteration but still satisfies Generator type
     $throwingStore = new class implements EventStore {
-        public function append($id, object $event, ?int $expectedSequence = null): int
+        public function append(AggregateRootId $id, object $event, ?int $expectedSequence = null): int
         {
             return 0;
         }
 
-        public function load($id, int $afterAggregateSequence = 0): \Generator
+        public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
         {
-            // Return an empty generator without triggering unreachable statements
-            return (function (): \Generator {
-                yield from [];
-            })();
+            if (false) { yield; } // empty generator
         }
 
-        public function all(AggregateRootId|null $aggregateId = null, ?string $eventType = null): \Generator
+        public function all(?AggregateRootId $aggregateId = null, ?EventWindow $window = null, ?string $eventType = null): Generator
         {
-            // Return a generator that throws when iterated (slightly convoluted to avoid unreachable statements)
-            return (function (): \Generator {
-                yield from new class implements IteratorAggregate {
-                    public function getIterator(): Traversable
-                    {
-                        throw new RuntimeException('boom');
-                    }
-                };
-            })();
+            throw new \RuntimeException('boom');
+            if (false) { yield; } // keep generator type
+        }
+
+        public function getByGlobalSequence(int $sequence): ?StoredEvent
+        {
+            return null;
+        }
+
+        public function resolveAggregateIdClass(string $aggregateId): ?string
+        {
+            return null;
         }
     };
 

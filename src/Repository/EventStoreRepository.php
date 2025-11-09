@@ -8,6 +8,7 @@ use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\EphemeralEvent;
 use Pillar\Event\EventStore;
+use Pillar\Event\EventWindow;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Throwable;
@@ -56,25 +57,44 @@ final readonly class EventStoreRepository implements AggregateRepository
         });
     }
 
-    public function find(AggregateRootId $id): ?LoadedAggregate
+    public function find(AggregateRootId $id, ?EventWindow $window = null): ?LoadedAggregate
     {
         $snapshot = $this->snapshots->load($id);
 
         $aggregate = null;
-        $after = 0;
+        $snapshotVersion = 0;
 
         if ($snapshot) {
-            $aggregate = $snapshot['aggregate'];
-            $after = $snapshot['snapshot_version'] ?? 0;
+            $snapshotVersion = (int)($snapshot['snapshot_version'] ?? 0);
         }
 
-        $events = $this->eventStore->load($id, $after);
+        // Caller’s requested starting cursor (defaults to 0)
+        $requestedAfter = $window?->afterAggregateSequence ?? 0;
+
+        // Use snapshot only if it is at/after the requested start; otherwise rebuild earlier state
+        if ($snapshot && $snapshotVersion >= $requestedAfter) {
+            $aggregate = $snapshot['aggregate'];
+            $after = $snapshotVersion;
+        } else {
+            $after = $requestedAfter;
+        }
+
+        // Effective window: start after the chosen cursor, carry any upper bounds
+        $effectiveWindow = $window
+            ? new EventWindow(
+                afterAggregateSequence: $after,
+                toAggregateSequence: $window->toAggregateSequence,
+                toGlobalSequence: $window->toGlobalSequence,
+                toDateUtc: $window->toDateUtc,
+            )
+            : EventWindow::afterAggSeq($after);
+
+        $events = $this->eventStore->load($id, $effectiveWindow);
 
         if (!$aggregate) {
             /** @var AggregateRoot $aggregate */
             $aggregate = new ($id->aggregateClass());
         }
-
         $aggregate->markAsReconstituting();
 
         $hadEvents = false;
@@ -92,13 +112,19 @@ final readonly class EventStoreRepository implements AggregateRepository
             return null;
         }
 
-        // Set the aggregate's persisted version (prefer events applied; otherwise snapshot version)
-        $persistedVersion = (int)($lastSeq ?? $after);
+        // Persisted version = last applied event version (or the chosen "after" when none applied)
+        $persistedVersion = $lastSeq ?? $after;
 
-        if ($hadEvents && $lastSeq !== null) {
-            $prevSeq = (int)$after;                 // version at snapshot time (0 if none)
-            $newSeq = (int)$lastSeq;               // version after replaying new events
-            $delta = max(0, $newSeq - $prevSeq);   // number of applied events
+        // Only snapshot when building the latest (no upper bound)
+        $isLatest = ($window === null)
+            || ($window->toAggregateSequence === null
+                && $window->toGlobalSequence === null
+                && $window->toDateUtc === null);
+
+        if ($isLatest && $hadEvents && $lastSeq !== null) {
+            $prevSeq = $after;     // version at starting point (0 or snapshot version)
+            $newSeq = $lastSeq;   // version after applying events in window
+            $delta = max(0, $newSeq - $prevSeq);
 
             if ($this->snapshotPolicy->shouldSnapshot($aggregate, $newSeq, $prevSeq, $delta)) {
                 $this->snapshots->save($aggregate, $newSeq);

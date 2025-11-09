@@ -9,6 +9,7 @@ use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\Fetch\Database\DatabaseCursorFetchStrategy;
 use Pillar\Event\Fetch\Database\DatabaseLoadAllStrategy;
 use Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy;
+use Pillar\Event\EventWindow;
 
 it('db_chunked and db_load_all return identical events', function () {
     $id  = DocumentId::new();
@@ -44,7 +45,7 @@ it('db_chunked and db_load_all return identical events', function () {
     $store = app(DatabaseEventStore::class);
     $viaLoad = array_map(
         fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, 0))
+        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
     );
 
     $all = array_map(
@@ -85,7 +86,7 @@ it('db_cursor and db_load_all return identical events', function () {
     $store = app(DatabaseEventStore::class);
     $cursorViaLoad = array_map(
         fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, 0))
+        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
     );
 
     $cursor = array_map(
@@ -141,7 +142,7 @@ it('db_chunked load() and all() produce identical sequences', function () {
     $store = app(DatabaseEventStore::class);
     $viaLoad = array_map(
         fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, 0))
+        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
     );
 
     // all() path (explicitly on the concrete strategy)
@@ -195,7 +196,7 @@ it('db_load_all load() and all() produce identical sequences', function () {
     $store = app(DatabaseEventStore::class);
     $viaLoad = array_map(
         fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, 0))
+        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
     );
 
     $viaAll = array_map(
@@ -232,7 +233,7 @@ it('db_streaming load() and all() produce identical sequences', function () {
     $store = app(DatabaseEventStore::class);
     $viaLoad = array_map(
         fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, 0))
+        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
     );
 
     $viaAll = array_map(

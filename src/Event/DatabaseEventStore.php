@@ -27,11 +27,13 @@ class DatabaseEventStore implements EventStore
     {
         $eventsTable = $this->streamResolver->resolve($id);
         $aggregateId = $id->value();
+        $aggregateIdClass = $id::class;
 
-        return DB::transaction(function () use ($eventsTable, $aggregateId, $event, $expectedSequence) {
+        return DB::transaction(function () use ($eventsTable, $aggregateId, $aggregateIdClass, $event, $expectedSequence) {
             // Ensure a counter row exists for this aggregate (portable across drivers)
             DB::table('aggregate_versions')->insertOrIgnore([
-                'aggregate_id'  => $aggregateId,
+                'aggregate_id' => $aggregateId,
+                'aggregate_id_class' => $aggregateIdClass,
                 'last_sequence' => 0,
             ]);
 
@@ -62,7 +64,7 @@ class DatabaseEventStore implements EventStore
                     );
                 }
 
-                $nextAggregateSequence = (int) DB::getPdo()->lastInsertId();
+                $nextAggregateSequence = (int)DB::getPdo()->lastInsertId();
 
             } elseif ($driver === 'pgsql' || $driver === 'sqlite') {
                 // PostgresSQL & SQLite
@@ -90,7 +92,7 @@ class DatabaseEventStore implements EventStore
                 // @codeCoverageIgnoreEnd
 
                 // DB::select returns an array of stdClass
-                $nextAggregateSequence = (int) ($rows[0]->last_sequence ?? 0);
+                $nextAggregateSequence = (int)($rows[0]->last_sequence ?? 0);
 
             } else {
                 // Fallback: portable two-step (possible duplicate conflict if optimistic locking is disabled under extreme concurrency)
@@ -106,34 +108,35 @@ class DatabaseEventStore implements EventStore
                     );
                 }
 
-                $nextAggregateSequence = (int) DB::table('aggregate_versions')
+                $nextAggregateSequence = (int)DB::table('aggregate_versions')
                     ->where('aggregate_id', $aggregateId)
                     ->value('last_sequence');
             }
 
             // Insert the event with the computed per-aggregate version
             DB::table($eventsTable)->insert([
-                'aggregate_id'       => $aggregateId,
+                'aggregate_id' => $aggregateId,
                 'aggregate_sequence' => $nextAggregateSequence,
-                'event_type'         => $this->aliases->resolveAlias($event),
-                'event_version'      => ($event instanceof VersionedEvent) ? $event::version() : 1,
-                'correlation_id'     => EventContext::correlationId(),
-                'event_data'         => $this->serializer->serialize($event),
-                'occurred_at'        => Carbon::now('UTC')->format('Y-m-d H:i:s'),
+                'event_type' => $this->aliases->resolveAlias($event::class) ?? $event::class,
+                'event_version' => ($event instanceof VersionedEvent) ? $event::version() : 1,
+                'correlation_id' => EventContext::correlationId(),
+                'event_data' => $this->serializer->serialize($event),
+                'occurred_at' => Carbon::now('UTC')->format('Y-m-d H:i:s'),
             ]);
 
             return $nextAggregateSequence;
         });
     }
 
-    public function load(AggregateRootId $id, int $afterAggregateSequence = 0): Generator
+    public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
     {
-        return $this->strategyResolver->resolve($id)->load($id, $afterAggregateSequence);
+        return $this->strategyResolver->resolve($id)->load($id, $window);
     }
 
-    public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator
+    public function all(?AggregateRootId $aggregateId = null, ?EventWindow $window = null, ?string $eventType =
+    null): Generator
     {
-        return $this->strategyResolver->resolve($aggregateId)->all($aggregateId, $eventType);
+        return $this->strategyResolver->resolve($aggregateId)->all($aggregateId, $window, $eventType);
     }
 
     protected function driver(): string
@@ -141,4 +144,55 @@ class DatabaseEventStore implements EventStore
         return DB::connection()->getDriverName();
     }
 
+    public function getByGlobalSequence(int $sequence): ?StoredEvent
+    {
+        // NOTE: This assumes a single default events stream/table. If you route
+        // events to multiple tables, consider adding a cross-stream locator.
+        $eventsTable = $this->streamResolver->resolve(null);
+
+        $row = DB::table($eventsTable)
+            ->where('sequence', $sequence)
+            ->first([
+                'sequence',
+                'aggregate_id',
+                'aggregate_sequence',
+                'event_type',
+                'event_version',
+                'event_data',
+                'occurred_at',
+                'correlation_id',
+            ]);
+
+        if (!$row) {
+            return null;
+        }
+
+        // Resolve event class from alias or accept fully-qualified class names
+        $type = (string)$row->event_type;
+        $class = $this->aliases->resolveClass($type) ?? $type;
+
+        // event_data may arrive as string (JSON) or as decoded array/stdClass from the driver
+        $raw = $row->event_data;
+        $wire = is_string($raw) ? $raw : json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $event = $this->serializer->deserialize($class, $wire);
+
+        return new StoredEvent(
+            $event,
+            (int)$row->sequence,
+            (int)$row->aggregate_sequence,
+            (string)$row->aggregate_id,
+            $type,
+            (int)$row->event_version,
+            (string)$row->occurred_at,
+            $row->correlation_id ?? null
+        );
+    }
+
+    public function resolveAggregateIdClass(string $aggregateId): ?string
+    {
+        return DB::table('aggregate_versions')
+            ->where('aggregate_id', $aggregateId)
+            ->value('aggregate_id_class') ?: null;
+    }
 }

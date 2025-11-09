@@ -83,6 +83,11 @@ features:
     details: "Pluggable cipher, per‑event overrides."
     link: "/concepts/serialization#payload-encryption"
 
+  - icon: "📊"
+    title: "Stream Browser (UI)"
+    details: "Browse event streams, inspect payloads, and time‑travel aggregate state."
+    link: "/ui/stream-browser"
+
   - icon: "🏗️"
     title: "Architecture & Config"
     details: "How pieces fit together and how to configure them."

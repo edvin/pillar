@@ -78,7 +78,6 @@ final class ReplayEventsCommand extends Command
             if ($scope === 'event' || $scope === 'both') {
                 $eventType = text(
                     label: 'Event class (FQCN, optional)',
-                    default: '',
                     validate: function (string $v) {
                         if ($v === '') return null;
                         return preg_match('/^[A-Za-z_\\\\][A-Za-z0-9_\\\\]*$/', $v)
@@ -92,12 +91,10 @@ final class ReplayEventsCommand extends Command
             if (confirm('Filter by global sequence range?', default: false)) {
                 $fromSeq = (int) (text(
                     label: 'From sequence (inclusive, empty to skip)',
-                    default: '',
                     validate: fn (string $v) => ($v === '' || ctype_digit($v)) ? null : 'Enter a non-negative integer or leave empty.'
                 ) ?: 0);
                 $toSeqRaw = text(
                     label: 'To sequence (inclusive, empty to skip)',
-                    default: '',
                     validate: fn (string $v) => ($v === '' || ctype_digit($v)) ? null : 'Enter a non-negative integer or leave empty.'
                 );
                 $toSeq = $toSeqRaw === '' ? null : (int) $toSeqRaw;
@@ -107,13 +104,11 @@ final class ReplayEventsCommand extends Command
             if (confirm('Filter by occurred_at date range?', default: false)) {
                 $fromDate = text(
                     label: 'From date/time (ISO8601 or parseable, empty to skip)',
-                    default: '',
                     validate: fn (string $v) => ($v === '' ? null : $this->validateDate($v))
                 ) ?: null;
 
                 $toDate = text(
                     label: 'To date/time (ISO8601 or parseable, empty to skip)',
-                    default: '',
                     validate: fn (string $v) => ($v === '' ? null : $this->validateDate($v))
                 ) ?: null;
             }
@@ -131,13 +126,9 @@ final class ReplayEventsCommand extends Command
             }
         }
 
-        // Normalize dates to UTC "Y-m-d H:i:s"
-        $fromDateNorm = $fromDate
-            ? CarbonImmutable::parse($fromDate)->utc()->format('Y-m-d H:i:s')
-            : null;
-        $toDateNorm = $toDate
-            ? CarbonImmutable::parse($toDate)->utc()->format('Y-m-d H:i:s')
-            : null;
+        // Normalize dates to UTC CarbonImmutable
+        $fromDateUtc = $fromDate ? CarbonImmutable::parse($fromDate)->utc() : null;
+        $toDateUtc   = $toDate ? CarbonImmutable::parse($toDate)->utc() : null;
 
         $scope = match (true) {
             $aggregateId !== null && $eventType !== null => "aggregate {$aggregateId->value()} and event $eventType",
@@ -149,8 +140,8 @@ final class ReplayEventsCommand extends Command
         $window = [];
         if ($fromSeq !== null) $window[] = "seq>=$fromSeq";
         if ($toSeq !== null) $window[] = "seq<=$toSeq";
-        if ($fromDateNorm) $window[] = "date>={$fromDateNorm}Z";
-        if ($toDateNorm) $window[] = "date<={$toDateNorm}Z";
+        if ($fromDateUtc) $window[] = "date>={$fromDateUtc->format('Y-m-d H:i:s\\Z')}";
+        if ($toDateUtc)   $window[] = "date<={$toDateUtc->format('Y-m-d H:i:s\\Z')}";
 
         $this->info("Replaying $scope" . (count($window) ? ' [' . implode(', ', $window) . ']' : '') . '...');
 
@@ -158,9 +149,9 @@ final class ReplayEventsCommand extends Command
 
         try {
             spin(
-                callback: function () use ($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateNorm, $toDateNorm) {
+                callback: function () use ($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateUtc, $toDateUtc) {
                     // Let exceptions bubble to outer catch so we can format the error consistently.
-                    $this->replayer->replay($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateNorm, $toDateNorm);
+                    $this->replayer->replay($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateUtc, $toDateUtc);
                 },
                 message: 'Replaying events…'
             );
@@ -185,7 +176,7 @@ final class ReplayEventsCommand extends Command
         try {
             CarbonImmutable::parse($input);
             return null;
-        } catch (Exception $e) {
+        } catch (Exception) {
             return 'Unable to parse date/time. Use ISO8601 or a format Carbon understands.';
         }
     }

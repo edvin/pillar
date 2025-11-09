@@ -23,6 +23,8 @@ php artisan pillar:install
 - 🧬 **Versioned events** & **upcasters**
 - 💾 **Snapshotting** policies (Always / Cadence / On‑Demand)
 - 🔒 **Payload encryption** — pluggable cipher, per‑event overrides
+- 🖥️ **Event stream browser Web UI** — browse streams and timelines and inspect payloads
+- ⏱️ **Point‑in‑time reads** — load up to aggregate/global sequence or date via `EventWindow`
 - 🎭 **Aliases** for readable event names
 - 🔁 **Safe replays** to rebuild projections
 - 🧰 **Facade + buses** for quick wiring

@@ -4,6 +4,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | 🧩 Context Registries
+    |--------------------------------------------------------------------------
+    |
+    | Each bounded context defines its own registry of commands, queries, upcasters,
+    | and event listeners. ContextCore will automatically register them on boot.
+    |
+    | Example:
+    |   \Context\Document\DocumentContextRegistry::class,
+    |
+    */
+    'context_registries' => [
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | 📦 Repositories
     |--------------------------------------------------------------------------
     |
@@ -33,14 +48,12 @@ return [
     |
     | Example alternative: KafkaEventStore, DynamoDbEventStore, KurrentDBEventStore, etc..
     |
-    | The default fetch strategy is 'db_chunked'.
+    | Default fetch strategy is configured under 'fetch_strategies.default'.
     |
     */
     'event_store' => [
         'class' => \Pillar\Event\DatabaseEventStore::class,
         'options' => [
-            'default_fetch_strategy' => 'db_chunked',
-
             // Optimistic concurrency control for appends. When true, repositories
             // will pass the aggregate's current version as expected_sequence to the
             // EventStore. When false, no expected check is performed.
@@ -107,6 +120,38 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | 💾 Snapshots
+    |--------------------------------------------------------------------------
+    |
+    | Snapshots are used to rehydrate aggregates quickly without replaying
+    | the full event stream. By default, snapshots are cached using Laravel’s
+    | cache system, but you can replace this with a database or file-backed
+    | implementation if desired.
+    |
+    */
+    'snapshot' => [
+        'store' => [
+            'class' => \Pillar\Snapshot\CacheSnapshotStore::class,
+        ],
+        'ttl' => null, // Time-to-live in seconds (null = indefinitely)
+
+        // Global default policy
+        'policy' => [
+            'class' => \Pillar\Snapshot\AlwaysSnapshotPolicy::class,
+            'options' => [],
+        ],
+
+        // Per-aggregate overrides
+        'overrides' => [
+            // \App\Domain\Foo\FooAggregate::class => [
+            //     'class' => \Pillar\Snapshot\EveryNEvents::class,
+            //     'options' => ['threshold' => 50],
+            // ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | 🔍 Fetch Strategies
     |--------------------------------------------------------------------------
     |
@@ -147,38 +192,6 @@ return [
                 'class' => \Pillar\Event\Fetch\Database\DatabaseCursorFetchStrategy::class,
                 'options' => [],
             ],
-        ],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | 💾 Snapshots
-    |--------------------------------------------------------------------------
-    |
-    | Snapshots are used to rehydrate aggregates quickly without replaying
-    | the full event stream. By default, snapshots are cached using Laravel’s
-    | cache system, but you can replace this with a database or file-backed
-    | implementation if desired.
-    |
-    */
-    'snapshot' => [
-        'store' => [
-            'class' => \Pillar\Snapshot\CacheSnapshotStore::class,
-        ],
-        'ttl' => null, // Time-to-live in seconds (null = indefinitely)
-
-        // Global default policy
-        'policy' => [
-            'class' => \Pillar\Snapshot\AlwaysSnapshotPolicy::class,
-            'options' => [],
-        ],
-
-        // Per-aggregate overrides
-        'overrides' => [
-            // \App\Domain\Foo\FooAggregate::class => [
-            //     'class' => \Pillar\Snapshot\EveryNEvents::class,
-            //     'options' => ['threshold' => 50],
-            // ],
         ],
     ],
 
@@ -252,21 +265,6 @@ return [
         'query' => [
             'class' => \Pillar\Bus\InMemoryQueryBus::class
         ],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | 🧩 Context Registries
-    |--------------------------------------------------------------------------
-    |
-    | Each bounded context defines its own registry of commands, queries, upcasters,
-    | and event listeners. ContextCore will automatically register them on boot.
-    |
-    | Example:
-    |   \Context\Document\DocumentContextRegistry::class,
-    |
-    */
-    'context_registries' => [
     ],
 
     /*
@@ -377,6 +375,65 @@ return [
         'overrides' => [
             // ...
         ],
-
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 📊 Pillar UI
+    |--------------------------------------------------------------------------
+    | Controls the built-in event explorer / timeline UI.
+    | Outside the environments listed in `skip_auth_in`, access requires an
+    | authenticated user that implements Pillar\Security\PillarUser and returns
+    | true from canAccessPillar().
+    */
+    'ui' => [
+        /*
+        |--------------------------------------------------------------------------
+        | Master switch
+        |--------------------------------------------------------------------------
+        | If false, the UI is not mounted (routes/views aren’t registered).
+        */
+        'enabled' => env('PILLAR_UI', true),
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🔓 Skip auth in these environments
+        |--------------------------------------------------------------------------
+        | Accepts a comma-separated string or an array. In these environments BOTH
+        | authentication and PillarUser checks are bypassed (handy for local dev).
+        |
+        | .env example:
+        |   PILLAR_UI_SKIP_AUTH_IN=local,testing
+        */
+        'skip_auth_in' => env('PILLAR_UI_SKIP_AUTH_IN', 'local'),
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🛡️ Auth guard used for access checks
+        |--------------------------------------------------------------------------
+        | Which guard to use to resolve the current user when the UI is protected.
+        | Examples: "web" (session), "sanctum", or "api" (token).
+        */
+        'guard' => env('PILLAR_UI_GUARD', 'web'),
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🔗 Mount path
+        |--------------------------------------------------------------------------
+        | Base path where the UI is served. Do NOT include a leading slash.
+        | The UI will be reachable at "/{path}" (e.g. "/pillar").
+        */
+        'path' => env('PILLAR_UI_PATH', 'pillar'),
+
+        /*
+        |--------------------------------------------------------------------------
+        | 📜 Pagination & lists
+        |--------------------------------------------------------------------------
+        | page_size:     events per API page (server may cap this)
+        | recent_limit:  how many “recent aggregates” to show on the landing page
+        */
+        'page_size' => 100,
+        'recent_limit' => 20,
+    ],
+
 ];

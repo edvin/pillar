@@ -3,6 +3,7 @@
 namespace Pillar\Provider;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 use Pillar\Bus\CommandBusInterface;
@@ -19,6 +20,7 @@ use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\Stream\StreamResolver;
 use Pillar\Event\UpcasterRegistry;
+use Pillar\Http\Middleware\AuthorizePillarUI;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Repository\RepositoryResolver;
 use Pillar\Security\EncryptingSerializer;
@@ -27,6 +29,7 @@ use Pillar\Snapshot\DelegatingSnapshotPolicy;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Pillar\Support\PillarManager;
+use Pillar\Support\UI\UISettings;
 
 class PillarServiceProvider extends ServiceProvider
 {
@@ -73,8 +76,37 @@ class PillarServiceProvider extends ServiceProvider
             ], 'config');
         }
 
-        /** @var ContextLoader $contextLoader */
+        // Load registered contexts
         $this->app->make(ContextLoader::class)->load();
+
+        $this->mountPillarUI();
+    }
+
+    private function mountPillarUI(): void
+    {
+        /** @var UISettings $settings */
+        $settings = $this->app->make(UISettings::class);
+        if (!$settings->enabled) {
+            return;
+        }
+
+        /** @var Router $router */
+        $router = $this->app->make(Router::class);
+
+        // Alias access middleware
+        $router->aliasMiddleware('pillar.ui', AuthorizePillarUI::class);
+
+        // Mount UI routes
+        $router->group([
+            'prefix' => $settings->path,
+            'as' => 'pillar.ui.',
+            'middleware' => ['pillar.ui'],
+        ], function () {
+            require __DIR__ . '/../../routes/pillar-ui.php';
+        });
+
+        // Load UI views
+        $this->loadViewsFrom(__DIR__ . '/../../resources/views/ui', 'pillar-ui');
     }
 
     /**

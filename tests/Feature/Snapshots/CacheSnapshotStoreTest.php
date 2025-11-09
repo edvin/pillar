@@ -4,14 +4,7 @@ use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Snapshot\CacheSnapshotStore;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
-
-it('throws if id->aggregateClass() is not an AggregateRoot', function () {
-    $store = new CacheSnapshotStore();
-    $id = GenericAggregateId::new();
-
-    expect(fn() => $store->load($id))
-        ->toThrow(InvalidArgumentException::class);
-});
+use Illuminate\Support\Facades\Cache;
 
 it('no-ops save() when aggregate is not Snapshottable', function () {
     // Fake aggregate: extends AggregateRoot but does NOT implement Snapshottable
@@ -28,4 +21,17 @@ it('no-ops save() when aggregate is not Snapshottable', function () {
 
     // Early-return path means no snapshot write happens
     Cache::shouldNotHaveReceived('put');
+});
+
+it('load() returns null and skips cache when aggregate is not Snapshottable', function () {
+    // GenericAggregateId maps to a non-Snapshottable aggregate, so load() should short-circuit
+    $id = GenericAggregateId::new();
+
+    Cache::spy();
+
+    $store = new CacheSnapshotStore();
+    $result = $store->load($id);
+
+    expect($result)->toBeNull();
+    Cache::shouldNotHaveReceived('get');
 });
