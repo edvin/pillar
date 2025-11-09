@@ -3,8 +3,7 @@
 Aggregates are the **core building blocks** of your domain model — they encapsulate state and enforce invariants through
 event-driven or state-driven updates.
 
-In Pillar, all aggregates extend the abstract base class `AggregateRoot`, which provides a consistent pattern for *
-*recording and applying domain events**, while still allowing simpler state-backed persistence when full event sourcing
+In Pillar, all aggregates extend the abstract base class `AggregateRoot`, which provides a consistent pattern for **recording and applying domain events**, while still allowing simpler state-backed persistence when full event sourcing
 isn’t needed.
 
 ---
@@ -200,10 +199,7 @@ final class DocumentRepository implements AggregateRepository
 }
 ```
 
-> **Optional — optimistic locking:** If you want optimistic concurrency for state‑based aggregates, add a 
-`version` column and fetch the row with 
-`DocumentRecord::query()->whereKey($id)->lockForUpdate()->first()`, verify the current 
-`version` matches the expected value, then bump it on update. This mirrors the event‑store’s concurrency check.
+> **Optional — optimistic locking:** If you want optimistic concurrency for state‑based aggregates, add a `version` column and fetch the row with `DocumentRecord::query()->whereKey($id)->lockForUpdate()->first()`, verify the current `version` matches the expected value, then bump it on update. This mirrors the event‑store’s concurrency check.
 
 Register the repository for this aggregate in `config/pillar.php`:
 
@@ -252,4 +248,4 @@ sequenceDiagram
 
 *(For state-based aggregates, the “EventStore” step is replaced with a direct database update.)*
 
----</file>
+
