@@ -194,6 +194,7 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
 
     Schema::connection('it_mysql')->create('aggregate_versions', function (Blueprint $t) {
         $t->string('aggregate_id')->primary();
+        $t->string('aggregate_id_class')->nullable()->index();
         $t->unsignedBigInteger('last_sequence')->default(0);
     });
 
