@@ -1,6 +1,6 @@
 ## 🔁 Event Replay Command
 
-Replays stored domain events to rebuild projections. Only listeners implementing **`Projector`** are invoked during replay — no side‑effects, no command handlers.
+Replays stored domain events to rebuild projections. This command **never writes new events** — it only re‑dispatches already stored events to your read‑model projectors. Only listeners implementing **`Projector`** are invoked; command handlers and reactors are not run.
 
 ---
 
@@ -26,11 +26,21 @@ php artisan pillar:replay-events null {event_type}
 - **`--from-date=`** _datetime_ — Inclusive lower bound on **occurred_at (UTC)**.
 - **`--to-date=`** _datetime_ — Inclusive upper bound on **occurred_at (UTC)**.
 
+
 Dates accept ISO‑8601 (recommended) or anything Carbon parses. Always interpreted as **UTC**.
+
+#### How it works (under the hood)
+
+- Builds an **EventWindow** from your bounds (sequence and/or date). All bounds are **inclusive**.
+- Streams events from the **Event Store** using your configured **fetch strategy**.
+- Dispatches each event to registered **Projectors** only (no command handlers / reactors).
+
+See: [Event Store](/event-store/) and [Fetch strategies](/concepts/fetch-strategies).
+
 
 ---
 
-### Filters
+### Windows (sequence/time)
 
 Constrain by **global sequence** and/or **occurred_at (UTC)**:
 
