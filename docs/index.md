@@ -36,7 +36,7 @@ features:
   - icon: "🧵"
     title: "Fetch strategies"
     details: "Load all, chunked, or streaming — pick per aggregate."
-    link: "/event-store/"
+    link: "/concepts/fetch-strategies"
 
   - icon: "🧩"
     title: "Stream resolver"
