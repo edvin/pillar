@@ -110,14 +110,14 @@ it('does not instantiate cipher when encryption is disabled (lazy)', function ()
 });
 
 it('returns null for non-envelope payloads', function () {
-    $cipher = app(\Pillar\Security\LaravelPayloadCipher::class);
-    $plain = (new JsonObjectSerializer())->serialize(new DummyEvent('id', 'title'));
+    $cipher = app(LaravelPayloadCipher::class);
+    $plain = new JsonObjectSerializer()->serialize(new DummyEvent('id', 'title'));
 
     expect($cipher->tryDecryptString($plain))->toBeNull();
 });
 
 it('returns null for malformed envelope content', function () {
-    $cipher = app(\Pillar\Security\LaravelPayloadCipher::class);
+    $cipher = app(LaravelPayloadCipher::class);
 
     // Prefixed but not a valid envelope
     expect($cipher->tryDecryptString('PILLAR_ENC:garbage'))->toBeNull();
@@ -129,18 +129,17 @@ it('returns null for malformed envelope content', function () {
 
 it('returns null when payload was encrypted with a different key', function () {
     // Key A: encrypt
-    config()->set('app.cipher', 'AES-256-CBC');
     config()->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
     app()->forgetInstance('encrypter'); // ensure a fresh encrypter uses Key A
 
-    $cipherA = app(\Pillar\Security\LaravelPayloadCipher::class);
-    $wire = (new JsonObjectSerializer())->serialize(new DummyEvent('x', 'y'));
+    $cipherA = app(LaravelPayloadCipher::class);
+    $wire = new JsonObjectSerializer()->serialize(new DummyEvent('x', 'y'));
     $enveloped = $cipherA->encryptString($wire);
 
     // Rotate to Key B: attempt to decrypt with a different key should fail -> null
     config()->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
     app()->forgetInstance('encrypter'); // pick up Key B
 
-    $cipherB = app(\Pillar\Security\LaravelPayloadCipher::class);
+    $cipherB = app(LaravelPayloadCipher::class);
     expect($cipherB->tryDecryptString($enveloped))->toBeNull();
 });

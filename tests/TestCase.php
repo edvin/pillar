@@ -19,6 +19,9 @@ abstract class TestCase extends BaseTestCase
         /** @var Config $config */
         $config = $app['config'];
 
+        $config->set('app.cipher', 'AES-256-CBC');
+        $config->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
+
         $config->set('database.default', 'sqlite');
         $config->set('database.connections.sqlite', [
             'driver' => 'sqlite',

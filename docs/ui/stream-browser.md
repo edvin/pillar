@@ -6,7 +6,7 @@ A built‑in, batteries‑included UI for exploring your event store:
 - Inspect **event payloads** (with upcasters applied)
 - **Time‑travel** an aggregate to see its exact state **as of a given event**
 
-The Stream Browser is designed for local development and production support. It respects your app’s authentication and adds an opt‑in authorization check tailored for Pillar.
+The Stream Browser can be used during local development and production. It respects your app’s authentication and adds an opt‑in authorization check tailored for Pillar.
 
 ---
 
@@ -214,16 +214,6 @@ When you click **Time travel** next to an event, the UI asks the backend to rebu
 - plus an `afterAggregateSequence` cursor set by the repository to your latest **snapshot** (if any), for efficiency
 
 This gives you the **exact state after event N**—useful for debugging and audits.
-
----
-
-## ✅ Requirements
-
-- Pillar ≥ the version that introduced `EventWindow` and the Stream Browser
-- Laravel 10/11/12
-- If you’re using the database event store, ensure your migrations are published and run:
-  - `events` table
-  - `aggregate_versions` table (now includes `aggregate_id_class`)
 
 ---
 
