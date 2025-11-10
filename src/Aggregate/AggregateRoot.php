@@ -3,27 +3,11 @@
 namespace Pillar\Aggregate;
 
 use JsonSerializable;
+use Pillar\Event\EventContext;
 use ReflectionClass;
 
 abstract class AggregateRoot
 {
-    protected bool $reconstituting = false;
-
-    public function markAsReconstituting(): void
-    {
-        $this->reconstituting = true;
-    }
-
-    public function markAsNotReconstituting(): void
-    {
-        $this->reconstituting = false;
-    }
-
-    public function isReconstituting(): bool
-    {
-        return $this->reconstituting;
-    }
-
     public abstract function id(): AggregateRootId;
 
 
@@ -34,7 +18,7 @@ abstract class AggregateRoot
     {
         $this->apply($event);
 
-        if ($this->isReconstituting()) {
+        if (EventContext::isReconstituting()) {
             return;
         }
 

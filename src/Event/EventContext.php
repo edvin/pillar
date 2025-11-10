@@ -9,6 +9,7 @@ final class EventContext
 {
     private static ?CarbonImmutable $occurredAt = null;
     private static ?string $correlationId = null;
+    private static bool $reconstituting = false;
 
     /**
      * Initialize a fresh event context.
@@ -17,6 +18,7 @@ final class EventContext
     public static function initialize(
         CarbonImmutable|string|null $occurredAt = null,
         string|null                 $correlationId = null,
+        bool                        $reconstituting = false,
     ): void
     {
         self::$occurredAt = $occurredAt
@@ -24,6 +26,12 @@ final class EventContext
             : CarbonImmutable::now('UTC');
 
         self::$correlationId = $correlationId ?? (string)Str::uuid();
+        self::$reconstituting = $reconstituting;
+    }
+
+    public static function isReconstituting(): bool
+    {
+        return self::$reconstituting;
     }
 
     /**
@@ -49,6 +57,7 @@ final class EventContext
     {
         self::$occurredAt = null;
         self::$correlationId = null;
+        self::$reconstituting = false;
     }
 
     /**

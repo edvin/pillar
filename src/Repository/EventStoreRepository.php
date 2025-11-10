@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\EphemeralEvent;
+use Pillar\Event\EventContext;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
 use Pillar\Snapshot\SnapshotPolicy;
@@ -95,17 +96,21 @@ final readonly class EventStoreRepository implements AggregateRepository
             /** @var AggregateRoot $aggregate */
             $aggregate = new ($id->aggregateClass());
         }
-        $aggregate->markAsReconstituting();
 
         $hadEvents = false;
         $lastSeq = null;
         foreach ($events as $storedEvent) {
             $hadEvents = true;
+            EventContext::initialize(
+                occurredAt: $storedEvent->occurredAt,
+                correlationId: $storedEvent->correlationId,
+                reconstituting: true,
+            );
             $aggregate->apply($storedEvent->event);
             $lastSeq = $storedEvent->aggregateSequence;
         }
 
-        $aggregate->markAsNotReconstituting();
+        EventContext::clear();
 
         if (!$snapshot && !$hadEvents) {
             // No snapshot and no events to rebuild from

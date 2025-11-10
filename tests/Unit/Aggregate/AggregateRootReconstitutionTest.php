@@ -1,5 +1,6 @@
 <?php
 
+use Pillar\Event\EventContext;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Document\DocumentRenamed;
@@ -12,10 +13,10 @@ it('skips recording while reconstituting but still applies state, and resumes re
     $doc->releaseEvents();
 
     // While reconstituting: record() is invoked via rename(), but it must NOT buffer events.
-    $doc->markAsReconstituting();
+    EventContext::initialize(reconstituting: true);
     $doc->rename('v1');
     $doc->rename('v2');
-    $doc->markAsNotReconstituting();
+    EventContext::clear();
 
     // No recorded events captured during reconstitution phase but the state was applied
     expect($doc->recordedEvents())->toBeArray()->toBeEmpty()

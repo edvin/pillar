@@ -21,12 +21,12 @@ use InvalidArgumentException;
 final class EventReplayer
 {
     /**
-     * @param EventStore $eventStore        The event store to stream events from.
+     * @param EventStore $eventStore The event store to stream events from.
      * @param array<class-string, array<class-string>> $projectors Mapping of event FQCN → list of projector class names (must implement Projector).
      */
     public function __construct(
         private readonly EventStore $eventStore,
-        private array $projectors = []
+        private array               $projectors = []
     )
     {
     }
@@ -49,11 +49,11 @@ final class EventReplayer
      * Bounds are inclusive. Date strings are parsed as UTC (ISO-8601 or anything Carbon parses).
      *
      * @param AggregateRootId|null $aggregateId Restrict to a single aggregate (or null for all).
-     * @param string|null          $eventType    Restrict to a single event class (FQCN), or null for all.
-     * @param int|null             $fromSequence Lower bound on global sequence (inclusive).
-     * @param int|null             $toSequence   Upper bound on global sequence (inclusive).
-     * @param string|null          $fromDate     Lower bound on occurred_at (inclusive), UTC ISO-8601.
-     * @param string|null          $toDate       Upper bound on occurred_at (inclusive), UTC ISO-8601.
+     * @param string|null $eventType Restrict to a single event class (FQCN), or null for all.
+     * @param int|null $fromSequence Lower bound on global sequence (inclusive).
+     * @param int|null $toSequence Upper bound on global sequence (inclusive).
+     * @param string|null $fromDate Lower bound on occurred_at (inclusive), UTC ISO-8601.
+     * @param string|null $toDate Upper bound on occurred_at (inclusive), UTC ISO-8601.
      *
      * @throws InvalidArgumentException when a lower bound is greater than its upper bound.
      * @throws Throwable if a listener throws during replay.
@@ -82,11 +82,11 @@ final class EventReplayer
      * Stream events matching optional filters. Bounds are inclusive; dates are parsed as UTC.
      *
      * @param AggregateRootId|null $aggregateId Restrict to a single aggregate (or null for all).
-     * @param string|null          $eventType    Restrict to a single event class (FQCN), or null for all.
-     * @param int|null             $fromSequence Lower bound on global sequence (inclusive).
-     * @param int|null             $toSequence   Upper bound on global sequence (inclusive).
-     * @param string|null          $fromDate     Lower bound on occurred_at (inclusive), UTC ISO-8601 or Carbon-parseable.
-     * @param string|null          $toDate       Upper bound on occurred_at (inclusive), UTC ISO-8601 or Carbon-parseable.
+     * @param string|null $eventType Restrict to a single event class (FQCN), or null for all.
+     * @param int|null $fromSequence Lower bound on global sequence (inclusive).
+     * @param int|null $toSequence Upper bound on global sequence (inclusive).
+     * @param string|null $fromDate Lower bound on occurred_at (inclusive), UTC ISO-8601 or Carbon-parseable.
+     * @param string|null $toDate Upper bound on occurred_at (inclusive), UTC ISO-8601 or Carbon-parseable.
      *
      * @return Generator<StoredEvent>
      */
@@ -97,7 +97,8 @@ final class EventReplayer
         ?int             $toSequence = null,
         ?string          $fromDate = null,
         ?string          $toDate = null
-    ): Generator {
+    ): Generator
+    {
         $this->validateRanges($fromSequence, $toSequence, $fromDate, $toDate);
         $events = $this->eventStore->all($aggregateId, null, $eventType);
         return $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
@@ -109,17 +110,18 @@ final class EventReplayer
      * @throws InvalidArgumentException
      */
     private function validateRanges(
-        ?int $fromSequence,
-        ?int $toSequence,
+        ?int    $fromSequence,
+        ?int    $toSequence,
         ?string $fromDate,
         ?string $toDate
-    ): void {
+    ): void
+    {
         if ($fromSequence !== null && $toSequence !== null && $fromSequence > $toSequence) {
             throw new InvalidArgumentException('fromSequence must be less than or equal to toSequence');
         }
         if ($fromDate !== null && $toDate !== null) {
             $fromTs = CarbonImmutable::parse($fromDate, 'UTC');
-            $toTs   = CarbonImmutable::parse($toDate, 'UTC');
+            $toTs = CarbonImmutable::parse($toDate, 'UTC');
             if ($fromTs->gt($toTs)) {
                 throw new InvalidArgumentException('fromDate must be earlier than or equal to toDate');
             }
@@ -183,7 +185,11 @@ final class EventReplayer
         foreach ($events as $storedEvent) {
             ++$count;
 
-            EventContext::initialize($storedEvent->occurredAt, $storedEvent->correlationId);
+            EventContext::initialize(
+                occurredAt: $storedEvent->occurredAt,
+                correlationId: $storedEvent->correlationId,
+                reconstituting: true
+            );
 
             $eventClass = $storedEvent->event::class;
             $listeners = $this->projectors[$eventClass] ?? [];

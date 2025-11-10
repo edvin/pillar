@@ -39,14 +39,6 @@ Implement `Pillar\Serialization\ObjectSerializer` and register it in `config/pil
 ],
 ```
 
-Or use the built‑in MessagePack serializer:
-
-```php
-'serializer' => [
-    'class' => \Pillar\Serialization\MessagePackObjectSerializer::class,
-],
-```
-
 Common reasons to swap:
 
 - Binary/compact formats
