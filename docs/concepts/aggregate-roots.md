@@ -3,21 +3,23 @@
 Aggregates are the **core building blocks** of your domain model — they encapsulate state and enforce invariants through
 event-driven or state-driven updates.
 
-In Pillar, all aggregates extend the abstract base class `AggregateRoot`, which provides a consistent pattern for **recording and applying domain events**, while still allowing simpler state-backed persistence when full event sourcing
-isn’t needed.
+In Pillar, all aggregates implement the interface `AggregateRoot`. If your aggregate is using event sourcing, instead
+implement the `EventSourcedAggregateRoot` interface and use the trait `RecordsEvents`, which provides a consistent pattern for **recording and applying domain events**.
 
 ---
 
 ### Example (Event-Sourced Aggregate)
 
 ```php
-use Pillar\Aggregate\AggregateRoot;
+use Pillar\Aggregate\EventSourcedAggregateRoot;
 use Context\Document\Domain\Event\DocumentCreated;
 use Context\Document\Domain\Event\DocumentRenamed;
 use Context\Document\Domain\Identifier\DocumentId;
 
-final class Document extends AggregateRoot
+final class Document implements EventSourcedAggregateRoot
 {
+    use RecordsEvents;
+    
     private DocumentId $id;
     private string $title;
 
@@ -75,9 +77,9 @@ You don’t record or apply events — you just mutate the state directly.
 
 ```php
 use Context\Document\Domain\Identifier\DocumentId;
-use Pillar\Aggregate\AggregateRoot;
+use Pillar\Aggregate\EventSourcedAggregateRoot;
 
-final class Document extends AggregateRoot
+final class Document implements AggregateRoot
 {
     public function __construct(
         private DocumentId $id,
@@ -109,8 +111,6 @@ This **state-based** model is ideal for:
 
 Both models work seamlessly with Pillar’s repository and session abstractions — you can mix and match them in the same
 application.
-
-
 
 #### Wiring a state‑based aggregate with Eloquent
 
@@ -199,7 +199,9 @@ final class DocumentRepository implements AggregateRepository
 }
 ```
 
-> **Optional — optimistic locking:** If you want optimistic concurrency for state‑based aggregates, add a `version` column and fetch the row with `DocumentRecord::query()->whereKey($id)->lockForUpdate()->first()`, verify the current `version` matches the expected value, then bump it on update. This mirrors the event‑store’s concurrency check.
+> **Optional — optimistic locking:** If you want optimistic concurrency for state‑based aggregates, add a `version`
+> column and fetch the row with `DocumentRecord::query()->whereKey($id)->lockForUpdate()->first()`, verify the current
+`version` matches the expected value, then bump it on update. This mirrors the event‑store’s concurrency check.
 
 Register the repository for this aggregate in `config/pillar.php`:
 
@@ -217,7 +219,6 @@ $doc = $session->find(DocumentId::from($id));
 $doc->rename('New Title');
 $session->commit(); // persists through DocumentRepository
 ```
-
 
 ---
 

@@ -4,8 +4,10 @@ namespace Pillar\Repository;
 
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
+use Pillar\Aggregate\EventSourcedAggregateRoot;
 use Pillar\Event\EphemeralEvent;
 use Pillar\Event\EventContext;
 use Pillar\Event\EventStore;
@@ -29,6 +31,14 @@ final readonly class EventStoreRepository implements AggregateRepository
     /** @throws Throwable */
     public function save(AggregateRoot $aggregate, ?int $expectedVersion = null): void
     {
+        if (!$aggregate instanceof EventSourcedAggregateRoot) {
+            throw new LogicException(sprintf(
+                '%s can only save EventSourcedAggregateRoot; got %s',
+                __CLASS__,
+                get_debug_type($aggregate)
+            ));
+        }
+
         DB::transaction(function () use ($aggregate, $expectedVersion) {
             $lastSeq = null;
             $delta = 0;

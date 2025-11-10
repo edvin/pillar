@@ -2,12 +2,14 @@
 
 namespace Tests\Fixtures\Document;
 
-use JsonSerializable;
-use Pillar\Aggregate\AggregateRoot;
+use Pillar\Aggregate\EventSourcedAggregateRoot;
+use Pillar\Aggregate\RecordsEvents;
 use Pillar\Snapshot\Snapshottable;
 
-final class Document extends AggregateRoot implements Snapshottable
+final class Document implements EventSourcedAggregateRoot, Snapshottable
 {
+    use RecordsEvents;
+
     private DocumentId $id;
     private string $title;
 

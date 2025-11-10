@@ -1,15 +1,18 @@
 <?php
 
+use Pillar\Aggregate\EventSourcedAggregateRoot;
 use Pillar\Aggregate\GenericAggregateId;
+use Pillar\Aggregate\RecordsEvents;
 use Pillar\Snapshot\CacheSnapshotStore;
-use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Illuminate\Support\Facades\Cache;
 
 it('no-ops save() when aggregate is not Snapshottable', function () {
     // Fake aggregate: extends AggregateRoot but does NOT implement Snapshottable
     $id = GenericAggregateId::new();
-    $aggregate = new class($id) extends AggregateRoot {
+    $aggregate = new class($id) implements EventSourcedAggregateRoot {
+        use RecordsEvents;
+
         public function __construct(private AggregateRootId $id) {}
         public function id(): AggregateRootId { return $this->id; }
     };

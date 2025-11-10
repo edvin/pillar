@@ -20,12 +20,15 @@ interface Snapshottable
 **Example — aggregate implementing `Snapshottable`:**
 
 ```php
-use Pillar\Aggregate\AggregateRoot;
+use Pillar\Aggregate\EventSourcedAggregateRoot;
+use Pillar\Aggregate\RecordedEvents;
 use Pillar\Snapshot\Snapshottable;
 use Context\Document\Domain\Identifier\DocumentId;
 
-final class Document extends AggregateRoot implements Snapshottable
+final class Document implements Snapshottable, EventSourcedAggregateRoot
 {
+    use RecordedEvents;
+    
     private DocumentId $id;
     public string $title;
 

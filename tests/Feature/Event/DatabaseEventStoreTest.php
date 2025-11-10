@@ -4,6 +4,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
+use Pillar\Aggregate\AggregateRoot;
+use Pillar\Aggregate\AggregateRootId;
 use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\ConcurrencyException;
 use Pillar\Event\DatabaseEventStore;
@@ -11,6 +13,7 @@ use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\Stream\StreamResolver;
+use Pillar\Repository\EventStoreRepository;
 use Pillar\Serialization\JsonObjectSerializer;
 use Pillar\Serialization\ObjectSerializer;
 use Tests\Fixtures\Document\DocumentCreated;
@@ -238,7 +241,7 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
             ->toThrow(ConcurrencyException::class);
 
         $count = DB::table('events')->where('aggregate_id', $id->value())->count();
-        $last  = (int) DB::table('aggregate_versions')->where('aggregate_id', $id->value())->value('last_sequence');
+        $last = (int)DB::table('aggregate_versions')->where('aggregate_id', $id->value())->value('last_sequence');
 
         expect($count)->toBe(2)->and($last)->toBe(2);
     } finally {
@@ -274,30 +277,46 @@ it('returns null when no event exists at the given global sequence', function ()
 });
 
 it('returns a StoredEvent by global sequence (FQCN event_type)', function () {
-    $id  = GenericAggregateId::new();
+    $id = GenericAggregateId::new();
     $ser = new JsonObjectSerializer();
     $now = Carbon::now('UTC')->format('Y-m-d H:i:s');
 
     // Insert a single event and capture its global sequence (PK)
     $seq = DB::table('events')->insertGetId([
-        'aggregate_id'       => $id->value(),
+        'aggregate_id' => $id->value(),
         'aggregate_sequence' => 1,
-        'event_type'         => DummyEvent::class, // FQCN is fine; alias resolution will no-op
-        'event_version'      => 1,
-        'correlation_id'     => null,
-        'event_data'         => $ser->serialize(new DummyEvent('1', 'Hello')),
-        'occurred_at'        => $now,
+        'event_type' => DummyEvent::class, // FQCN is fine; alias resolution will no-op
+        'event_version' => 1,
+        'correlation_id' => null,
+        'event_data' => $ser->serialize(new DummyEvent('1', 'Hello')),
+        'occurred_at' => $now,
     ]);
 
     $store = app(DatabaseEventStore::class);
-    $e     = $store->getByGlobalSequence((int) $seq);
+    $e = $store->getByGlobalSequence($seq);
 
     expect($e)->not->toBeNull()
-        ->and($e->sequence)->toBe((int) $seq)
+        ->and($e->sequence)->toBe($seq)
         ->and($e->aggregateId)->toBe($id->value())
         ->and($e->aggregateSequence)->toBe(1)
         ->and($e->eventType)->toBe(DummyEvent::class)
         ->and($e->eventVersion)->toBe(1)
         ->and($e->occurredAt)->toBe($now)
         ->and($e->event)->toEqual(new DummyEvent('1', 'Hello'));
+});
+
+
+it('throws when attempting to save non event sourced aggregate in event store', function () {
+    // A non event-sourced aggregate: implements AggregateRoot, but no event-sourcing trait or interface
+    $id = GenericAggregateId::new();
+
+    $aggregate = new class($id) implements AggregateRoot {
+        public function __construct(private AggregateRootId $id) {}
+        public function id(): AggregateRootId { return $this->id; }
+    };
+
+    $repo = app(EventStoreRepository::class);
+
+    expect(fn () => $repo->save($aggregate))
+        ->toThrow(LogicException::class, 'EventSourcedAggregateRoot'); // message contains substring
 });

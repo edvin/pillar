@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
+use Pillar\Aggregate\EventSourcedAggregateRoot;
+use Pillar\Aggregate\RecordsEvents;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
 use Pillar\Event\StoredEvent;
@@ -16,8 +18,10 @@ use Tests\Fixtures\Document\DocumentId;
 /**
  * Minimal fake aggregate used for snapshot reconstitution in this test.
  */
-final class __FakeAggregate extends AggregateRoot
+final class __FakeAggregate implements EventSourcedAggregateRoot
 {
+    use RecordsEvents;
+
     public function __construct(private AggregateRootId $id) {}
 
     public function id(): AggregateRootId

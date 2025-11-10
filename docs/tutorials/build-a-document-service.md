@@ -94,13 +94,16 @@ final readonly class DocumentId extends AggregateRootId
 
 ```php
 // app/Context/Document/Domain/Aggregate/Document.php
-use Pillar\Aggregate\AggregateRoot;
+use Pillar\Aggregate\EventSourcedAggregateRoot;
+use Pillar\Aggregate\RecordsEvents;
 use App\Context\Document\Domain\Event\DocumentCreated;
 use App\Context\Document\Domain\Event\DocumentRenamed;
 use App\Context\Document\Domain\Identifier\DocumentId;
 
-final class Document extends AggregateRoot
+final class Document implements EventSourcedAggregateRoot
 {
+    use RecordsEvents;
+    
     private DocumentId $id;
     private string $title;
 
