@@ -181,13 +181,40 @@
                 return shortName.replace(/([a-z])([A-Z])/g, '$1 $2');
             }
 
-            // Toggle JSON preview row below the clicked row
-            function toggleJsonRow(triggerRow, eventData) {
+            // Toggle JSON preview row below the clicked row (meta-aware)
+            function toggleJsonRow(triggerRow, meta) {
                 const nextRow = triggerRow.nextElementSibling;
                 const isOpen = nextRow && nextRow.classList.contains('json-preview-row');
                 if (isOpen) {
                     nextRow.remove();
                     return;
+                }
+
+                // Helpers
+                function esc(s) {
+                  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+                  return String(s).replace(/[&<>"']/g, (m) => map[m]);
+                }
+                const storedV = meta?.storedVersion ?? null;
+                const newV    = meta?.version ?? null;
+                const upcasters = Array.isArray(meta?.upcasters) ? meta.upcasters : [];
+
+                // Build badges
+                const versionBadge = (storedV && newV && storedV !== newV)
+                    ? `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200" title="Stored v${esc(storedV)} → Upcast v${esc(newV)}">v${esc(storedV)} → v${esc(newV)}</span>`
+                    : (newV ? `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200" title="Event version">v${esc(newV)}</span>` : '');
+
+                const upcastersBadges = upcasters.length
+                    ? `<span class="text-xs text-slate-500 dark:text-slate-400 mr-1">Upcasters:</span>` +
+                      upcasters.map(u => `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-200" title="${esc(u)}">${esc(shortClassName(u))}</span>`).join(' ')
+                    : '';
+
+                // Pretty JSON once so both the view and copy use the same text
+                let pretty = '';
+                try {
+                    pretty = JSON.stringify(meta?.event ?? {}, null, 2);
+                } catch {
+                    pretty = String(meta?.event ?? '');
                 }
 
                 const tr = document.createElement('tr');
@@ -196,29 +223,27 @@
                 td.colSpan = 4;
                 td.className = 'px-4 py-3 border-t border-slate-200 dark:border-slate-700';
 
-                // Prettify once so both the view and the copy use the same text
-                let pretty = '';
-                try {
-                    pretty = JSON.stringify(eventData, null, 2);
-                } catch {
-                    pretty = String(eventData ?? '');
-                }
-
                 td.innerHTML = `
-    <div class="flex items-center justify-between mb-2">
-      <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Payload</div>
-      <button type="button"
-        class="inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs bg-slate-200/70 hover:bg-slate-300 dark:bg-slate-700/70 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"
-        title="Copy JSON to clipboard">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="9" y="7" width="10" height="14" rx="2" ry="2"></rect>
-          <rect x="5" y="3" width="10" height="14" rx="2" ry="2"></rect>
-        </svg>
-        <span>Copy JSON</span>
-      </button>
-    </div>
-    <pre class="font-mono text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap max-h-64 overflow-auto bg-white/50 dark:bg-slate-900/40 rounded-md p-3 border border-slate-200 dark:border-slate-700"></pre>
-  `;
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Event Payload</div>
+            <div class="mt-1 flex flex-wrap items-center gap-1">
+              ${versionBadge}
+              ${upcastersBadges}
+            </div>
+          </div>
+          <button type="button"
+            class="inline-flex items-center gap-2 rounded-md px-2.5 py-1 text-xs bg-slate-200/70 hover:bg-slate-300 dark:bg-slate-700/70 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"
+            title="Copy JSON to clipboard">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="7" width="10" height="14" rx="2" ry="2"></rect>
+              <rect x="5" y="3" width="10" height="14" rx="2" ry="2"></rect>
+            </svg>
+            <span>Copy JSON</span>
+          </button>
+        </div>
+        <pre class="font-mono text-xs leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap max-h-64 overflow-auto bg-white/50 dark:bg-slate-900/40 rounded-md p-3 border border-slate-200 dark:border-slate-700"></pre>
+      `;
 
                 const pre = td.querySelector('pre');
                 pre.textContent = pretty;
@@ -301,7 +326,12 @@
                 // Toggle JSON preview on row click
                 tr.addEventListener('click', e => {
                     if (e.target.closest('button')) return;
-                    toggleJsonRow(tr, event.event);
+                    toggleJsonRow(tr, {
+                        event: event.event,
+                        storedVersion: event.storedVersion ?? event.version ?? null,
+                        version: event.version ?? null,
+                        upcasters: event.upcasters ?? []
+                    });
                 });
 
                 return tr;

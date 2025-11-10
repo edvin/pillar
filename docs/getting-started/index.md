@@ -43,7 +43,7 @@ You’ll get the following files:
 ## ✅ Hello Pillar
 
 We’ll create a minimal **Document** aggregate with a single event and persist it using an **AggregateSession**. This
-keeps the first run simple; the tutorial adds command/query buses and registries later.
+keeps the first run simple by not introducing a command step yet; the tutorial adds command/query buses and registries later.
 
 ### 1) ID value object
 
@@ -69,7 +69,6 @@ use App\Context\Document\Domain\Identifier\DocumentId;
 final class DocumentCreated
 {
     public function __construct(
-        public DocumentId $id,
         public string $title,
     ) {}
 }
@@ -88,10 +87,10 @@ final class Document extends AggregateRoot
     private DocumentId $id;
     private string $title;
 
-    public static function create(DocumentId $id, string $title): self
+    public static function create(string $title): self
     {
         $self = new self();
-        $self->record(new DocumentCreated($id, $title));
+        $self->record(new DocumentCreated(DocumentId::new(), $title));
         return $self;
     }
 
@@ -114,16 +113,17 @@ use App\Context\Document\Domain\Identifier\DocumentId;
 use App\Context\Document\Domain\Aggregate\Document;
 
 Route::get('/pillar-hello', function () {
-    $id = DocumentId::new();
-    $doc = Document::create($id, 'Hello Pillar');
+    // Typically you would not create the aggregate directly, but dispatch a command instead
+    $doc = Document::create('Hello Pillar');
 
     Pillar::session()->attach($doc)->commit();
 
-    return 'OK: ' . (string) $id;
+    return 'OK: ' . $id;
 });
 ```
 
-Visit `/pillar-hello`, then check the `events` table — you’ll see a `DocumentCreated` row for your aggregate ID.
+Visit `/pillar-hello`, then check the `events` table — you’ll see a `DocumentCreated` row for your aggregate ID,
+and you can issue `Pillar::session()->find($id)` to load the aggregate.`
 
 ---
 

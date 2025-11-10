@@ -14,10 +14,12 @@ final class StoredEvent
         public readonly int     $aggregateSequence,
         public readonly string  $aggregateId,
         public readonly string  $eventType,
+        public readonly int     $storedVersion,
         public readonly int     $eventVersion,
         public readonly string  $occurredAt,
         public readonly ?string $correlationId = null,
         public readonly ?string $aggregateIdClass = null,
+        public readonly ?array  $upcasters = null,
     )
     {
     }

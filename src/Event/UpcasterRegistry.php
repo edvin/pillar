@@ -54,16 +54,18 @@ class UpcasterRegistry
      * @param array $payload The original event data
      * @return array The transformed (upcasted) data
      */
-    public function upcast(string $eventClass, int $fromVersion, array $payload): array
+    public function upcast(string $eventClass, int $fromVersion, array $payload): UpcastResult
     {
         $current = $fromVersion;
+        $applied = [];
 
         while ($uc = $this->find($eventClass, $current)) {
             $payload = $uc->upcast($payload);
+            $applied[] = $uc::class;
             $current++;
         }
 
-        return $payload;
+        return new UpcastResult($payload, $fromVersion, $current, $applied);
     }
 
     private function find(string $eventClass, int $version): ?Upcaster

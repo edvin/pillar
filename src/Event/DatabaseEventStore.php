@@ -147,7 +147,7 @@ class DatabaseEventStore implements EventStore
     public function getByGlobalSequence(int $sequence): ?StoredEvent
     {
         // NOTE: This assumes a single default events stream/table. If you route
-        // events to multiple tables, consider adding a cross-stream locator.
+        // events to multiple tables, we must consider adding a cross-stream locator.
         $eventsTable = $this->streamResolver->resolve(null);
 
         $row = DB::table($eventsTable)
@@ -178,14 +178,15 @@ class DatabaseEventStore implements EventStore
         $event = $this->serializer->deserialize($class, $wire);
 
         return new StoredEvent(
-            $event,
-            (int)$row->sequence,
-            (int)$row->aggregate_sequence,
-            (string)$row->aggregate_id,
-            $type,
-            (int)$row->event_version,
-            (string)$row->occurred_at,
-            $row->correlation_id ?? null
+            event: $event,
+            sequence: (int)$row->sequence,
+            aggregateSequence: (int)$row->aggregate_sequence,
+            aggregateId: (string)$row->aggregate_id,
+            eventType: $type,
+            storedVersion: (int)$row->event_version,
+            eventVersion: (int)$row->event_version,
+            occurredAt: (string)$row->occurred_at,
+            correlationId: $row->correlation_id ?? null
         );
     }
 

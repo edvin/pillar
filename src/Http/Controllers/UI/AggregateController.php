@@ -122,6 +122,8 @@ final class AggregateController extends Controller
                 'type' => $e->eventType,
                 'event' => $e->event,
                 'version' => $e->eventVersion,
+                'storedVersion' => $e->storedVersion,
+                'upcasters' => $e->upcasters,
             ];
         }
 

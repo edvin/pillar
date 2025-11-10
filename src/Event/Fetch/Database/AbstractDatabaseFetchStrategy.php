@@ -61,10 +61,10 @@ abstract class AbstractDatabaseFetchStrategy
 
         // Per-aggregate bounds (only meaningful when scanning a single aggregate)
         if ($window->afterAggregateSequence !== null && $window->afterAggregateSequence > 0) {
-            $query->where('aggregate_sequence', '>', (int) $window->afterAggregateSequence);
+            $query->where('aggregate_sequence', '>', (int)$window->afterAggregateSequence);
         }
         if ($window->toAggregateSequence !== null) {
-            $query->where('aggregate_sequence', '<=', (int) $window->toAggregateSequence);
+            $query->where('aggregate_sequence', '<=', (int)$window->toAggregateSequence);
         }
 
         // Also apply global/time bounds
@@ -92,10 +92,10 @@ abstract class AbstractDatabaseFetchStrategy
     {
         // Global bounds
         if ($window->afterGlobalSequence !== null && $window->afterGlobalSequence > 0) {
-            $query->where('sequence', '>', (int) $window->afterGlobalSequence);
+            $query->where('sequence', '>', (int)$window->afterGlobalSequence);
         }
         if ($window->toGlobalSequence !== null) {
-            $query->where('sequence', '<=', (int) $window->toGlobalSequence);
+            $query->where('sequence', '<=', (int)$window->toGlobalSequence);
         }
 
         // Time bounds (UTC). `after` is exclusive, `to` is inclusive.
@@ -131,12 +131,17 @@ abstract class AbstractDatabaseFetchStrategy
         foreach ($rows as $row) {
             $eventClass = $this->aliases->resolveClass($row->event_type);
             $fromVersion = $row->event_version ?? 1;
+            $toVersion = $fromVersion;
+            $upcasters = [];
 
             if ($this->upcasters->has($eventClass)) {
                 $data = $this->serializer->toArray($row->event_data);
-                $data = $this->upcasters->upcast($eventClass, $fromVersion, $data);
-                $data = $this->serializer->fromArray($data);
+                $result = $this->upcasters->upcast($eventClass, $fromVersion, $data);
+                $data = $this->serializer->fromArray($result->payload);
                 $event = $this->serializer->deserialize($eventClass, $data);
+
+                $toVersion = $result->toVersion;;
+                $upcasters = $result->upcasters;
             } else {
                 $event = $this->serializer->deserialize($eventClass, $row->event_data);
             }
@@ -147,10 +152,12 @@ abstract class AbstractDatabaseFetchStrategy
                 aggregateSequence: (int)$row->aggregate_sequence,
                 aggregateId: $row->aggregate_id,
                 eventType: $row->event_type,
-                eventVersion: $fromVersion,
+                storedVersion: $fromVersion,
+                eventVersion: $toVersion,
                 occurredAt: (string)$row->occurred_at,
                 correlationId: $row->correlation_id,
-                aggregateIdClass: $row->aggregate_id_class
+                aggregateIdClass: $row->aggregate_id_class,
+                upcasters: $upcasters
             );
         }
     }

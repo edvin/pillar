@@ -1,5 +1,6 @@
 <?php
 /** @noinspection PhpClassNamingConventionInspection */
+
 /** @noinspection PhpIllegalPsrClassPathInspection */
 
 namespace Tests\Feature\Context;
@@ -168,18 +169,17 @@ it('registers event aliases and upcasters through ContextLoader', function () {
     app()->forgetInstance(ContextLoader::class);
     app(ContextLoader::class)->load();
 
-    // Alias registered (use the public API rather than peeking into internal arrays)
-    $aliases = app(\Pillar\Event\EventAliasRegistry::class);
+    $aliases = app(EventAliasRegistry::class);
 
     expect($aliases->resolveClass('dummy.event'))
-        ->toBe(_DummyEvent::class);
-
-    expect($aliases->resolveAlias(_DummyEvent::class))
+        ->toBe(_DummyEvent::class)
+        ->and($aliases->resolveAlias(_DummyEvent::class))
         ->toBe('dummy.event');
 
     // Upcaster registered & applied (version 1 → 2)
-    $upcasters = app(\Pillar\Event\UpcasterRegistry::class);
-    $payload = $upcasters->upcast(_DummyEvent::class, 1, ['k' => 'v']);
+    $upcasters = app(UpcasterRegistry::class);
+    $result = $upcasters->upcast(_DummyEvent::class, 1, ['k' => 'v']);
 
-    expect($payload)->toBe(['k' => 'v', '__upcasted' => true]);
+    expect($result->payload)->toBe(['k' => 'v', '__upcasted' => true])
+        ->and($result->upcasters)->toBe([_DummyUpcaster::class]);
 });

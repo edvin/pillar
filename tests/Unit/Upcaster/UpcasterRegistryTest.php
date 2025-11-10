@@ -15,9 +15,9 @@ it('registers, detects, and applies an upcaster', function () {
     expect($reg->has($eventClass))->toBeTrue();
 
     $input = ['title' => 'v1'];
-    $out   = $reg->upcast($eventClass, 1, $input);
+    $result   = $reg->upcast($eventClass, 1, $input);
 
-    expect($out)->toMatchArray([
+    expect($result->payload)->toMatchArray([
         'title' => 'v1',
         'title_prefixed' => 'prefix:v1',
     ]);

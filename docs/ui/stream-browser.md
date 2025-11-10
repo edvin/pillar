@@ -6,20 +6,28 @@ A built‑in, batteries‑included UI for exploring your event store:
 - Inspect **event payloads** (with upcasters applied)
 - **Time‑travel** an aggregate to see its exact state **as of a given event**
 
-The Stream Browser can be used during local development and production. It respects your app’s authentication and adds an opt‑in authorization check tailored for Pillar.
+The Stream Browser can be used during local development and production. It respects your app’s authentication and adds
+an opt‑in authorization check tailored for Pillar.
 
 ---
 
 ## ✨ Screenshots
 
-- Dashboard (recent streams):  
-  ![Dashboard](/dashboard.png)
+#### Dashboard (recent streams):
 
-- Aggregate timeline (expanded event):  
-  ![Aggregate events](/timeline.png)
+![Dashboard](/dashboard.png)
 
-- Time travel (aggregate state at event):  
-  ![Time travel](/timetravel.png)
+#### Aggregate timeline with event data explorer:
+
+![Aggregate events](/timeline.png)
+
+#### Time travel to show full aggregate state at the selected event:
+
+![Time travel](/timetravel.png)
+
+#### Upcasters applied to event payloads are visualized:
+
+![Upcasters](/upcasters.png)
 
 ---
 
@@ -31,22 +39,24 @@ By default the UI is enabled and mounted at `/pillar`. You can switch it off glo
 
 ```ini
 # .env
-PILLAR_UI=true         # default: true
-PILLAR_UI_PATH=pillar  # default: "pillar" → /pillar
+PILLAR_UI = true         # default: true
+PILLAR_UI_PATH = pillar  # default: "pillar" → /pillar
 ```
 
 2) **Access locally, no extra auth**
 
-In environments listed in `skip_auth_in` (default: `local`), the UI skips both authentication and the Pillar‑specific check so you can use it immediately:
+In environments listed in `skip_auth_in` (default: `local`), the UI skips both authentication and the Pillar‑specific
+check so you can use it immediately:
 
 ```ini
 # .env
-PILLAR_UI_SKIP_AUTH_IN=local,testing
+PILLAR_UI_SKIP_AUTH_IN = local,testing
 ```
 
 3) **Access in other environments**
 
-Outside of the “skip” environments, the visiting user must be **authenticated** (via your chosen guard) **and** must pass the `PillarUser` check (see below).
+Outside of the “skip” environments, the visiting user must be **authenticated** (via your chosen guard) **and** must
+pass the `PillarUser` check (see below).
 
 ---
 
@@ -95,20 +105,21 @@ Add the trait to your `App\Models\User` (or implement custom logic in `canAccess
 ### Guard & skip‑auth environments
 
 - **Guard** (defaults to `web`): which Laravel guard the UI uses to resolve the current user in protected environments.
-- **Skip auth in …**: environments where **both** authentication *and* the `PillarUser` check are bypassed (handy for `local` and CI).
+- **Skip auth in …**: environments where **both** authentication *and* the `PillarUser` check are bypassed (handy for
+  `local` and CI).
 
 ```ini
 # .env
-PILLAR_UI_GUARD=web
-PILLAR_UI_SKIP_AUTH_IN=local,testing
+PILLAR_UI_GUARD = web
+PILLAR_UI_SKIP_AUTH_IN = local,testing
 ```
 
 Behavior matrix:
 
-| Environment          | Auth required | `PillarUser` required | Notes                         |
-|----------------------|---------------|------------------------|-------------------------------|
-| in `skip_auth_in`    | No            | No                     | Great for local dev           |
-| not in `skip_auth_in`| Yes           | Yes                    | Production‑friendly           |
+| Environment           | Auth required | `PillarUser` required | Notes               |
+|-----------------------|---------------|-----------------------|---------------------|
+| in `skip_auth_in`     | No            | No                    | Great for local dev |
+| not in `skip_auth_in` | Yes           | Yes                   | Production‑friendly |
 
 ---
 
@@ -186,21 +197,21 @@ Everything lives under `pillar.ui` in `config/pillar.php`:
 All routes are nested under the configured `path` and namespaced `pillar.ui.*`.
 
 - **Dashboard (HTML)**
-  - `GET /{path}` → route name: `pillar.ui.index`  
-    Recent aggregates + search by ID.
+    - `GET /{path}` → route name: `pillar.ui.index`  
+      Recent aggregates + search by ID.
 
 - **Aggregate page (HTML)**
-  - `GET /{path}/aggregate` → route name: `pillar.ui.aggregate.show`  
-    Shows timeline for `?id=AGG_ID`.
+    - `GET /{path}/aggregate` → route name: `pillar.ui.aggregate.show`  
+      Shows timeline for `?id=AGG_ID`.
 
 - **API**
-  - Recent overview: `GET /{path}/api/recent` → `pillar.ui.api.recent`  
-    Returns the latest events per aggregate (includes resolved aggregate type when available).
-  - Events for one aggregate: `GET /{path}/api/aggregate/events?id=AGG_ID[&before_seq=N&limit=M]`  
-    → `pillar.ui.api.aggregate.events`
-  - Time travel (state as of event):  
-    `GET /{path}/api/aggregate/state?id=AGG_ID&to_agg_seq=N`  
-    → `pillar.ui.api.aggregate.state`
+    - Recent overview: `GET /{path}/api/recent` → `pillar.ui.api.recent`  
+      Returns the latest events per aggregate (includes resolved aggregate type when available).
+    - Events for one aggregate: `GET /{path}/api/aggregate/events?id=AGG_ID[&before_seq=N&limit=M]`  
+      → `pillar.ui.api.aggregate.events`
+    - Time travel (state as of event):  
+      `GET /{path}/api/aggregate/state?id=AGG_ID&to_agg_seq=N`  
+      → `pillar.ui.api.aggregate.state`
 
 > These APIs are used by the UI, but you can also script against them for tooling.
 
@@ -208,7 +219,8 @@ All routes are nested under the configured `path` and namespaced `pillar.ui.*`.
 
 ## ⏳ Time travel (how it works)
 
-When you click **Time travel** next to an event, the UI asks the backend to rebuild the aggregate **up to and including** that event. Under the hood we use an `EventWindow` bound:
+When you click **Time travel** next to an event, the UI asks the backend to rebuild the aggregate **up to and including
+** that event. Under the hood we use an `EventWindow` bound:
 
 - `toAggregateSequence = N` (inclusive)
 - plus an `afterAggregateSequence` cursor set by the repository to your latest **snapshot** (if any), for efficiency
@@ -223,7 +235,8 @@ This gives you the **exact state after event N**—useful for debugging and audi
   Set `PILLAR_UI=true` or ensure your `pillar.ui.enabled` config is `true`.
 
 - **401 at `/pillar`**  
-  You’re not in a “skip” environment; make sure you’re authenticated via the configured guard **and** your user implements `PillarUser` (or uses the `HasPillarAccess` trait returning `true`).
+  You’re not in a “skip” environment; make sure you’re authenticated via the configured guard **and** your user
+  implements `PillarUser` (or uses the `HasPillarAccess` trait returning `true`).
 
 - **Changing the URL**  
   Use `PILLAR_UI_PATH=my-pillar` to serve at `/my-pillar`.
