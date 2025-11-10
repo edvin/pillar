@@ -22,6 +22,7 @@ php artisan pillar:install
 - 🧵 **Fetch strategies** (load‑all / chunked / streaming)
 - 🧬 **Versioned events** & **upcasters**
 - 💾 **Snapshotting** policies (Always / Cadence / On‑Demand)
+- 🧩 **Object serialization** — JSON by default, MessagePack built-in, or custom serializer
 - 🔒 **Payload encryption** — pluggable cipher, per‑event overrides
 - 🖥️ **Event stream browser Web UI** — browse streams and timelines and inspect payloads
 - ⏱️ **Point‑in‑time reads** — load up to aggregate/global sequence or date via `EventWindow`

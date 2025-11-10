@@ -212,7 +212,10 @@ return [
     |
     */
     'serializer' => [
-        // The base serializer (kept even when encryption is enabled)
+        // The base serializer
+        // Built-in alternatives:
+        // - \Pillar\Serialization\MessagePackObjectSerializer::class
+        // - \Pillar\Serialization\JsonObjectSerializer::class
         'class' => \Pillar\Serialization\JsonObjectSerializer::class,
 
         'encryption' => [

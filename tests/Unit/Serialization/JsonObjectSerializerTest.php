@@ -1,6 +1,6 @@
 <?php
 
-use Pillar\Serialization\ObjectSerializer;
+use Pillar\Serialization\JsonObjectSerializer;
 use Pillar\Serialization\SerializationException;
 use Tests\Fixtures\Document\DocumentCreated;
 use Tests\Fixtures\Serialization\PingEvent;
@@ -8,8 +8,7 @@ use Tests\Fixtures\Serialization\BadEvent;
 use Tests\Fixtures\Serialization\RecursiveEvent;
 
 it('round-trips an event through JsonObjectSerializer', function () {
-    /** @var ObjectSerializer $ser */
-    $ser = app(ObjectSerializer::class);
+    $ser = new JsonObjectSerializer();
 
     $evt = new PingEvent(
         id: 'abc-123',
@@ -37,8 +36,7 @@ it('round-trips an event through JsonObjectSerializer', function () {
 });
 
 it('wraps deserialization type errors in SerializationException', function () {
-    /** @var ObjectSerializer $ser */
-    $ser = app(ObjectSerializer::class);
+    $ser = new JsonObjectSerializer();
 
     $badPayloadJson = '{"n":"not-an-int"}';
     expect(fn() => $ser->deserialize(BadEvent::class, $badPayloadJson))
@@ -46,8 +44,7 @@ it('wraps deserialization type errors in SerializationException', function () {
 });
 
 it('wraps JSON encoding failures in SerializationException', function () {
-    /** @var ObjectSerializer $ser */
-    $ser = app(ObjectSerializer::class);
+    $ser = new JsonObjectSerializer();
 
     // Build a recursive payload which json_encode cannot handle (JSON_THROW_ON_ERROR triggers)
     $meta = [];
@@ -60,8 +57,7 @@ it('wraps JSON encoding failures in SerializationException', function () {
 });
 
 it('wraps invalid JSON payload errors in SerializationException (deserialize)', function () {
-    /** @var ObjectSerializer $ser */
-    $ser = app(ObjectSerializer::class);
+    $ser = new JsonObjectSerializer();
 
     // Bad JSON → json_decode throws → caught and rethrown as SerializationException
     expect(fn() => $ser->deserialize(DocumentCreated::class, '{not: "json"'))

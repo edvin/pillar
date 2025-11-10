@@ -25,14 +25,20 @@ Use Pillar just for **auditing** or for **event‑driven islands** inside a conv
 
 ## Solid feature set
 
-- 🧠 **Aggregate sessions (Unit of Work)** with `commit()`
-- 🗃️ **Event Store** abstraction + **Stream Resolver** (multi‑tenancy/sharding ready)
-- 🧵 **Fetch strategies** per aggregate
-- 🧬 **Versioned events** + **Upcasters**
-- 💾 **Snapshotting** policies and pluggable stores
-- 🎭 **Aliases** for human‑readable event names
+- 🧠 **Aggregate sessions (Unit of Work)** — `find()`, mutate, `commit()`
+- 🗃️ **Pluggable event store** with **generator‑based** streams & optimistic locking
+- 🧵 **Fetch strategies** (load‑all / chunked / streaming)
+- 🧬 **Versioned events** & **upcasters**
+- 💾 **Snapshotting** policies (Always / Cadence / On‑Demand)
+- 🧩 **Object serialization** — JSON by default, MessagePack built-in, or custom serializer
+- 🔒 **Payload encryption** — pluggable cipher, per‑event overrides
+- 🖥️ **Event stream browser Web UI** — browse streams and timelines and inspect payloads
+- ⏱️ **Point‑in‑time reads** — load up to aggregate/global sequence or date via `EventWindow`
+- 🎭 **Aliases** for readable event names
+- 🔁 **Safe replays** to rebuild projections
+- ⚡ **CQRS** — projectors and query bus for a fast, scalable read side
 - 🧰 **Facade + buses** for quick wiring
-- 🔁 **Replay command** that only runs **Projectors** (safe replays)
+- 🛠️ **Pillar Make**: Bounded Context/Command/Query Scaffolding
 
 ## Use‑cases
 

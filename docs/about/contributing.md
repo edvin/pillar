@@ -10,7 +10,11 @@ Thanks for considering a contribution! Bug reports, docs fixes, and features are
 
 ## Getting started (code)
 
-Prereqs: PHP (per `composer.json`), Composer, a DB (SQLite is fine), Node 20+ for docs.
+Prereqs: PHP (per `composer.json`) + extensions **sqlite3**, **pdo_sqlite**, **pdo_mysql**, **msgpack**; Composer; SQLite; Node 20+ for docs. (MySQL is optional—only needed for a few integration tests.)
+
+Verify extensions:
+- `php -m | grep -E 'sqlite|pdo|msgpack'`
+- MessagePack (PECL): `pecl install msgpack` then enable with `extension=msgpack` in your php.ini.
 
 ```bash
 git clone https://github.com/edvin/pillar.git
@@ -26,6 +30,23 @@ composer test
 Run tests with coverage, we aim for 100%:
 ```bash
 composer test:coverage
+```
+
+### MySQL-only tests (opt-in)
+
+A small subset of tests exercise MySQL-specific behavior. They are **skipped by default**.
+To run them:
+
+```bash
+TEST_WITH_MYSQL=1 composer test
+```
+
+Make sure a MySQL server is available and your local PHP/Laravel testbench has a working MySQL connection for the suite.
+
+Spin up MySQL quickly via Docker (optional):
+
+```bash
+docker run --name pillar-mysql -e MYSQL_DATABASE=pillar -e MYSQL_USER=pillar -e MYSQL_PASSWORD=secret -e MYSQL_ROOT_PASSWORD=root -p 3306:3306 -d mysql:8.0
 ```
 
 ## Docs development (VitePress)
