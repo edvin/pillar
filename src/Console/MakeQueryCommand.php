@@ -1,22 +1,47 @@
 <?php
-/** @noinspection DuplicatedCode */
+declare(strict_types=1);
+
 // @codeCoverageIgnoreStart
 
 namespace Pillar\Console;
 
-use Illuminate\Console\Command;
-use Pillar\Console\Scaffold\RegistryFinder;
-use Pillar\Console\Scaffold\PlacementResolver;
 use Pillar\Console\Scaffold\Scaffolder;
 use Pillar\Console\Scaffold\RegistryEditor;
-use Pillar\Console\Scaffold\PathStyle;
-use RuntimeException;
 
-use function Laravel\Prompts\text;
-use function Laravel\Prompts\select;
-use function Laravel\Prompts\confirm;
-
-final class MakeQueryCommand extends Command
+/**
+ * Artisan command: `pillar:make:query`
+ *
+ * Generates a Query DTO and its Handler, and registers the pair into the selected
+ * ContextRegistry. Placement (folders & namespaces) is derived from your
+ * `config/pillar.php` → `make` section and the chosen PathStyle.
+ *
+ * Files created (defaults vary with style):
+ *  - Application/Query/{Name}Query.php
+ *  - Handler (colocate | mirrored | split | subcontext):
+ *      • colocate:           Application/Query/{Name}Handler.php
+ *      • mirrored:           Application/Handler/Query/{Name}Handler.php
+ *      • split:              Application/Handler/{Name}Handler.php
+ *      • subcontext:         <Subcontext>/Application/Handler/{Name}Handler.php
+ *
+ * Options:
+ *  --context=      Context name (ContextRegistry::name()) to target. If omitted, you’ll be prompted.
+ *  --subcontext=   Optional extra folder level under the context (used with `style=subcontext`).
+ *  --style=        infer|mirrored|split|subcontext|colocate (defaults from config).
+ *  --force         Overwrite existing files without prompting.
+ *
+ * Behavior:
+ *  • Prompts for a PascalCase name if not provided (e.g., FindDocument, ListInvoices).
+ *  • Delegates path/namespace computation to {@see \Pillar\Console\Scaffold\PlacementResolver}.
+ *  • Delegates file planning & stub selection to {@see \Pillar\Console\Scaffold\Scaffolder::planQuery()}.
+ *  • Supports conditional handler import via the stub placeholder {{queryImport}} (resolved in Scaffolder).
+ *  • Writes files via {@see \Pillar\Console\Scaffold\Scaffolder::execute()} (with overwrite confirmation unless --force).
+ *  • Registers the new mapping in your ContextRegistry via {@see \Pillar\Console\Scaffold\RegistryEditor::registerQuery()}.
+ *
+ * See also:
+ *  - {@see MakeCommandCommand} for commands
+ *  - {@see MakeAggregateCommand} for aggregate + id scaffolding
+ */
+final class MakeQueryCommand extends AbstractMakeArtifactCommand
 {
     protected $signature = 'pillar:make:query {name? : action, e.g. FindDocument}
         {--context= : Context name as returned by ContextRegistry::name()}
@@ -26,122 +51,34 @@ final class MakeQueryCommand extends Command
 
     protected $description = 'Create a Query + Handler and register them in the selected ContextRegistry.';
 
-    public function handle(
-        RegistryFinder $finder,
-        PlacementResolver $resolver,
-        Scaffolder $scaffolder,
-        RegistryEditor $editor
-    ): int {
-        // --- Name (Prompts with validation) -----------------------------------
-        $name = (string) ($this->argument('name') ?? '');
-        if ($name === '' || !preg_match('/^[A-Z][A-Za-z0-9]+$/', $name)) {
-            $name = text(
-                label: 'Query name',
-                validate: function (string $v) {
-                    return preg_match('/^[A-Z][A-Za-z0-9]+$/', $v)
-                        ? null
-                        : 'Please use PascalCase (e.g. FindDocument).';
-                },
-                hint: 'Example: FindDocument, ListInvoices'
-            );
-            if ($name === '') {
-                $this->error('Aborted.');
-                return self::FAILURE;
-            }
-        }
+    protected function artifactKey(): string
+    {
+        return 'query';
+    }
 
-        // --- Context (prompt inside finder when needed) -----------------------
-        $contextName = (string) ($this->option('context') ?? '');
+    protected function nameLabel(): string
+    {
+        return 'Query name';
+    }
 
-        // --- Style (enum + config default via Prompts) ------------------------
-        $choices    = PathStyle::promptOptions(); // value => label (with emojis)
-        $cfgDefault = PathStyle::fromConfig(config('pillar.make.default_style') ?? null)->value;
+    protected function nameHint(): string
+    {
+        return 'Example: FindDocument, ListInvoices';
+    }
 
-        $styleOpt  = $this->option('style');
-        $styleEnum = is_string($styleOpt) ? PathStyle::tryFrom($styleOpt) : null;
-        $style     = $styleEnum?->value
-            ?: (string) select(
-                label: 'Placement style',
-                options: $choices,
-                default: $cfgDefault,
-                hint: 'Controls where the Handler file is placed.'
-            );
+    protected function subcontextPlaceholder(): string
+    {
+        return 'Reader';
+    }
 
-        // --- Subcontext (ask only when style=subcontext) ----------------------
-        $subcontextOpt = $this->option('subcontext');
-        $subcontext = $subcontextOpt ? (string) $subcontextOpt : null;
-        if ($style === PathStyle::Subcontext->value && ($subcontext === null || $subcontext === '')) {
-            $subcontext = (string) text(
-                label: 'Subcontext folder (e.g. Reader)',
-                hint: 'Adds an extra folder level before Application/...'
-            );
-            if ($subcontext === '') {
-                $this->warn('No subcontext provided; keeping chosen style but without subcontext.');
-            }
-        }
+    protected function buildPlan(Scaffolder $scaffolder, string $name, array $placement): object
+    {
+        return $scaffolder->planQuery($name, $placement);
+    }
 
-        $force = (bool) $this->option('force');
-
-        // --- Resolve target ContextRegistry (prompts if multiple) -------------
-        $registry = $finder->selectByContextName($contextName, ask: function (array $choices) {
-            // $choices: ['Name' => $registryObject]
-            $value = (string) select(
-                label: 'Select context',
-                options: array_combine(array_keys($choices), array_keys($choices)),
-                default: array_key_first($choices) ?? null
-            );
-            return $choices[$value];
-        });
-
-        if (!$registry) {
-            $this->error('No ContextRegistry registered. Please register at least one.');
-            return self::FAILURE;
-        }
-
-        // --- Compute placement -------------------------------------------------
-        $placement = $resolver->resolve($registry, 'query', [
-            'style'      => $style,      // pass string; resolver accepts string or enum
-            'subcontext' => $subcontext,
-        ], ask: function (string $question, array $options) {
-            return (string) select(
-                label: $question,
-                options: array_combine($options, $options)
-            );
-        });
-
-        // --- Plan + write files ------------------------------------------------
-        $plan = $scaffolder->planQuery($name, $placement);
-
-        try {
-            $scaffolder->execute($plan, $force);
-        } catch (RuntimeException $e) {
-            if (!$force && str_contains($e->getMessage(), 'File exists')) {
-                if (confirm('Files already exist. Overwrite?', default: false)) {
-                    $scaffolder->execute($plan, true);
-                } else {
-                    $this->warn('Nothing written.');
-                    return self::FAILURE;
-                }
-            } else {
-                $this->error($e->getMessage());
-                return self::FAILURE;
-            }
-        }
-
-        // --- Register in the ContextRegistry source ---------------------------
-        try {
-            $editor->registerQuery($registry, $plan);
-        } catch (RuntimeException $e) {
-            $this->error('Generated files, but failed to register: ' . $e->getMessage());
-            $this->line('Please add the following lines to your ContextRegistry:');
-            foreach ($plan->registrationLines as $line) {
-                $this->line('  ' . $line);
-            }
-            return self::FAILURE;
-        }
-
-        $this->info('Query created and registered.');
-        return self::SUCCESS;
+    protected function registerPlan(RegistryEditor $editor, object $registry, object $plan): void
+    {
+        $editor->registerQuery($registry, $plan);
     }
 }
 // @codeCoverageIgnoreEnd

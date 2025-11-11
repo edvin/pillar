@@ -1,0 +1,24 @@
+<?php
+
+namespace {{aggregateNamespace}};
+
+{{idImport}}
+use Pillar\Aggregate\AggregateRoot;
+
+final class {{Name}} implements AggregateRoot
+{
+    private {{Name}}Id $id;
+
+    public static function create({{Name}}Id $id): self
+    {
+        $self = new self();
+        $self->id = $id;
+        // Initialize your state here
+        return $self;
+    }
+
+    public function id(): {{Name}}Id
+    {
+        return $this->id;
+    }
+}

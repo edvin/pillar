@@ -1,15 +1,46 @@
 <?php
+declare(strict_types=1);
+
 // @codeCoverageIgnoreStart
 
 namespace Pillar\Console;
 
 use Illuminate\Console\Command;
 use Pillar\Console\Scaffold\ConfigEditor;
+use Pillar\Console\Scaffold\Scaffolder;
 use RuntimeException;
 
 use function Laravel\Prompts\text;
-use function Laravel\Prompts\confirm;
 
+/**
+ * Artisan command: `pillar:make:context`
+ *
+ * Creates a bounded context skeleton and registers its ContextRegistry
+ * in `config/pillar.php`.
+ *
+ * It will:
+ *  - derive defaults from `pillar.make.contexts_base_namespace` and
+ *    `pillar.make.contexts_base_path`;
+ *  - prompt for a PascalCase name if not provided;
+ *  - create the base folders:
+ *      - {Context}/Application/Command
+ *      - {Context}/Application/Query
+ *      - {Context}/Domain
+ *      - {Context}/Infrastructure
+ *  - generate `{Name}ContextRegistry.php` from `stubs/context_registry.stub`;
+ *  - update `config/pillar.php` via {@see Pillar\Console\Scaffold\ConfigEditor}.
+ *
+ * Options:
+ *  - name                : Context name (e.g. DocumentHandling)
+ *  - --namespace         : Root PHP namespace (overrides config default)
+ *  - --path              : Base filesystem path (overrides config default)
+ *  - --force             : Overwrite existing files
+ *
+ * Usage:
+ *  php artisan pillar:make:context DocumentHandling
+ *
+ * The command is idempotent; re-run with `--force` to overwrite the generated registry.
+ */
 final class MakeContextCommand extends Command
 {
     protected $signature = 'pillar:make:context {name? : PascalCase bounded context name, e.g. DocumentHandling}
@@ -19,7 +50,7 @@ final class MakeContextCommand extends Command
 
     protected $description = 'Create a bounded context skeleton and register its ContextRegistry in config/pillar.php.';
 
-    public function handle(ConfigEditor $cfg): int
+    public function handle(ConfigEditor $cfg, Scaffolder $scaffolder): int
     {
         // --- Resolve defaults from config pillar.make -------------------------
         $defaultNs   = (string) (config('pillar.make.contexts_base_namespace') ?? 'App');
@@ -98,42 +129,11 @@ final class MakeContextCommand extends Command
 
         // --- Write ContextRegistry from stub ----------------------------------
         $fqcn     = $ctxNs . '\\' . $name . 'ContextRegistry';
-        $filePath = $ctxDir . '/' . $name . 'ContextRegistry.php';
 
-        if (file_exists($filePath) && !$force) {
-            if (!confirm("File exists at {$filePath}. Overwrite?", default: false)) {
-                $this->warn('Nothing written.');
-                return self::FAILURE;
-            }
-        }
-
-        $stubPathCandidates = [
-            base_path('stubs/context_registry.stub'),
-            __DIR__ . '/../../stubs/context_registry.stub',    // packaged with library
-            __DIR__ . '/../../../stubs/context_registry.stub', // extra fallback
-        ];
-
-        $stub = null;
-        foreach ($stubPathCandidates as $p) {
-            if (is_file($p)) {
-                $stub = file_get_contents($p);
-                break;
-            }
-        }
-
-        if ($stub === null) {
-            $this->error('Missing stub: stubs/context_registry.stub');
-            return self::FAILURE;
-        }
-
-        $code = str_replace(
-            ['{{namespace}}', '{{Name}}'],
-            [$ctxNs, $name],
-            $stub
-        );
-
-        if (false === file_put_contents($filePath, $code)) {
-            $this->error("Failed to write file: {$filePath}");
+        try {
+            $filePath = $scaffolder->writeContextRegistry($ctxNs, $name, $ctxDir, $force);
+        } catch (RuntimeException $e) {
+            $this->warn('Nothing written. ' . $e->getMessage());
             return self::FAILURE;
         }
 
@@ -142,13 +142,13 @@ final class MakeContextCommand extends Command
         try {
             $cfg->addContextRegistryFqcn($configPath, $fqcn);
         } catch (RuntimeException $e) {
-            $this->warn('Context created, but could not update config: ' . $e->getMessage());
+            $this->warn('Bounded Context created, but could not update config: ' . $e->getMessage());
             $this->line("Please add this to 'context_registries' in config/pillar.php:");
             $this->line('    ' . $fqcn . '::class,');
         }
 
-        $this->info("Context {$name} created at {$ctxDir}");
-        $this->info("Registered {$fqcn} in config/pillar.php (or printed instructions above).");
+        $this->info("Bounded Context $name created at $ctxDir");
+        $this->info("Registered $fqcn in config/pillar.php (or printed instructions above).");
         return self::SUCCESS;
     }
 }

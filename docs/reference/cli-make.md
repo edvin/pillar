@@ -1,15 +1,18 @@
 # CLI — Make (Scaffolding)
 
-Pillar ships with interactive generators to scaffold Commands/Queries and their Handlers, and to create new bounded contexts.
+Pillar ships with interactive generators to scaffold Bounded Contexts, Commands/Queries and their Handlers, Aggregates,
+and Domain Events.
 
 ## Commands
 
 ### `pillar:make:context {name?}`
+
 - Creates a bounded context skeleton under the configured base (default `App/<Name>` in `app/<Name>`).
 - Writes a `*ContextRegistry` that implements `Pillar\Context\ContextRegistry`.
 - Registers the registry FQCN in `config/pillar.php` under `context_registries`.
 
 Options:
+
 - `--namespace=App` — override root namespace (defaults to `config('pillar.make.contexts_base_namespace')`)
 - `--path=app` — override base path (defaults to `config('pillar.make.contexts_base_path')`)
 - `--force` — overwrite files
@@ -17,11 +20,14 @@ Options:
 ---
 
 ### `pillar:make:command {name?}`
+
 - Generates a `*Command` + `*Handler` and auto-registers them in the selected ContextRegistry.
 - Interactive when args are omitted (name, style, subcontext if applicable).
-- Uses `PathStyle` to decide handler placement. Default comes from `config('pillar.make.default_style')` (defaults to `colocate`).
+- Uses `PathStyle` to decide handler placement. Default comes from `config('pillar.make.default_style')` (defaults to
+  `colocate`).
 
 Options:
+
 - `--context=` — pick the bounded context by `ContextRegistry::name()` (will prompt if not provided)
 - `--style=` — one of: `colocate, mirrored, split, subcontext, infer` (prompted if omitted)
 - `--subcontext=` — adds an extra folder level when using `subcontext`
@@ -30,11 +36,63 @@ Options:
 ---
 
 ### `pillar:make:query {name?}`
+
 - Generates a `*Query` + `*Handler` and auto-registers them in the selected ContextRegistry.
 - Same interactive flow and placement rules as `pillar:make:command`.
 
 Options:
+
 - `--context=`, `--style=`, `--subcontext=`, `--force`
+
+---
+
+### `pillar:make:aggregate {name?}`
+
+- Generates an Aggregate root (and its Id class) in the selected bounded context.
+- Honors subcontext placement like other makers.
+
+Options:
+
+- `--context=` — pick the bounded context by `ContextRegistry::name()` (will prompt if not provided)
+- `--style=` — one of: `colocate, mirrored, split, subcontext, infer` (only `subcontext` affects aggregates; others are
+  accepted for consistency)
+- `--subcontext=` — adds an extra folder level before the domain folder when using `subcontext`
+- `--dir=` — base domain folder (relative to the context root). Defaults to
+  `config('pillar.make.domain_defaults.domain_dir')` (e.g., `Domain`).
+- `--aggregate-dir=` — folder for the Aggregate class (relative to the context root). Defaults to
+  `config('pillar.make.aggregate_defaults.aggregate_dir')`.
+- `--id-dir=` — folder for the Id class (relative to the context root). Defaults to
+  `config('pillar.make.aggregate_defaults.id_dir')`.
+- `--force` — overwrite files
+
+**Notes**
+
+- All directories are **relative to the context root**.
+- If you pass `--dir` without `--aggregate-dir`/`--id-dir`, the defaults are kept as-is (they do not auto-prepend
+  `--dir`).
+
+---
+
+### `pillar:make:event {name?}`
+
+- Generates a Domain Event class in the selected bounded context.
+- Uses the `domain_event` stub and honors subcontext placement.
+
+Options:
+
+- `--context=` — pick the bounded context by `ContextRegistry::name()` (will prompt if not provided)
+- `--style=` — one of: `colocate, mirrored, split, subcontext, infer` (only `subcontext` affects domain placement)
+- `--subcontext=` — adds an extra folder level before the domain folder when using `subcontext`
+- `--dir=` — base domain folder (relative to the context root). Defaults to
+  `config('pillar.make.domain_defaults.domain_dir')` (e.g., `Domain`).
+- `--event-dir=` — folder for Event classes (relative to the context root). Defaults to
+  `config('pillar.make.event_defaults.event_dir')` (e.g., `Domain/Event`).
+- `--force` — overwrite files
+
+**Notes**
+
+- Directories are **relative to the context root**. When `--dir` is provided without `--event-dir`, the event folder
+  name from config is used under your chosen base.
 
 ## Registration model
 
@@ -49,20 +107,24 @@ interface ContextRegistry {
 }
 ```
 
-The generators **edit the source file** of your registry to add entries to the return arrays of `commands()` / `queries()`—no runtime reflection or service-location.
+The generators **edit the source file** of your registry to add entries to the return arrays of `commands()` /
+`queries()`—no runtime reflection or service-location.
 
 ---
 
 ## Placement styles (PathStyle)
 
-Pillar can place Handlers in different locations relative to their Commands/Queries. You choose a style per run (via `--style`) or set the global default in config (`pillar.make.default_style`).
+Pillar can place Handlers in different locations relative to their Commands/Queries. You choose a style per run (via
+`--style`) or set the global default in config (`pillar.make.default_style`).
 
 > **Tip:** You can override per context via `pillar.make.overrides[<RegistryFQCN>|<name()>]['style']`.
 
 Below, examples use the context name **DocumentHandling** and the command **RenameDocument**.
 
 ### 1) `colocate` (default)
-Handler sits **next to** its message (command/query). Keeps related files together and is easiest to navigate in small/medium contexts.
+
+Handler sits **next to** its message (command/query). Keeps related files together and is easiest to navigate in
+small/medium contexts.
 
 ```
 app/DocumentHandling/
@@ -82,6 +144,7 @@ app/DocumentHandling/
 ---
 
 ### 2) `mirrored`
+
 Handlers live under a **mirrored tree**, per message type.
 
 ```
@@ -106,6 +169,7 @@ app/DocumentHandling/
 ---
 
 ### 3) `split`
+
 All handlers go into a single **Application/Handler** folder, regardless of command/query.
 
 ```
@@ -127,7 +191,9 @@ app/DocumentHandling/
 ---
 
 ### 4) `subcontext`
-Adds an extra **sub-folder** before `Application/...`. Good for teams that split a bounded context into smaller “submodules” (e.g., Writer/Reader or Admin/Public).
+
+Adds an extra **sub-folder** before `Application/...`. Good for teams that split a bounded context into smaller
+“submodules” (e.g., Writer/Reader or Admin/Public).
 
 ```
 # with --subcontext=Writer
@@ -141,13 +207,16 @@ app/DocumentHandling/
 ```
 
 **Notes**
+
 - If you choose `subcontext` style but don’t pass `--subcontext`, the generator will prompt for one.
 - Works with `colocate`/`mirrored`/`split` semantics inside the sub-folder (per your config/override).
 
 ---
 
 ### 5) `infer` (future-friendly)
-Attempts to derive placement from **existing files** in the selected bounded context (e.g., “first registration wins”). If it can’t infer, it **falls back to** the configured default (usually `colocate`).
+
+Attempts to derive placement from **existing files** in the selected bounded context (e.g., “first registration wins”).
+If it can’t infer, it **falls back to** the configured default (usually `colocate`).
 
 **Use when:** you incrementally migrate legacy projects—let history drive structure.  
 **Behavior today:** treated as `colocate` unless you’ve implemented a custom inference strategy via `PlacementResolver`.

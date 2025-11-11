@@ -27,47 +27,6 @@ composer require pillar/pillar
 php artisan pillar:install
 ```
 
-### (Optional) Scaffold with Artisan
-
-Prefer to start from stubs instead of hand‑writing classes? Use Pillar’s generators. They’re **interactive** — you can
-omit arguments and answer prompts — and they place files under \
-`app/Context/<Name>/...\` by default.
-
-
-```bash
-# Create a bounded context skeleton (folders + empty registry)
-# (name is optional — you’ll be prompted if omitted)
-php artisan pillar:make:context Document
-
-# Generate commands in that context (name is optional; use --context to skip the prompt)
-php artisan pillar:make:command CreateDocument --context=Document
-php artisan pillar:make:command RenameDocument --context=Document
-
-# (Optional) Generate a query in that context
-php artisan pillar:make:query FindDocument --context=Document
-
-# Placement options (optional):
-#   --style= infer|mirrored|split|subcontext|colocate
-#   --subcontext= Writer   (only used when --style=subcontext)
-#   --force                (overwrite if files exist)
-```
-
-**Quick syntax reference:**
-
-```bash
-php artisan pillar:make:command {name?} --context=Document [--style=…] [--subcontext=…] [--force]
-```
-
-The {name} argument is optional; if omitted, the command will prompt for it (as well as for context and placement style).
-
-**Configurable placement:** You can change where the generators put files (namespaces & directories) via `config/pillar.php`. See the [Configuration reference](/reference/configuration.html).
-
-These commands create namespaced classes for the context and application layer. You’ll still:
-- implement aggregate behavior and events (next sections), and
-- register the context registry in `config/pillar.php`.
-
-If you use the generators, you can skip the boilerplate parts in steps **2–4** and just fill in the stubs.
-
 ## 2) Create the aggregate and events
 
 We’ll model a simple `Document` aggregate. Aggregates record domain events to express state changes; Pillar persists
@@ -210,6 +169,21 @@ final class RenameDocumentHandler
 
 ::: tip
 Prefer constructor injection for handlers. You can also use the `Pillar` facade in quick scripts and tests.
+:::
+
+::: tip Prefer generators?
+You can scaffold the classes you just created with:
+
+```bash
+php artisan pillar:make:context Document
+php artisan pillar:make:aggregate Document --context=Document
+php artisan pillar:make:event DocumentCreated --context=Document
+php artisan pillar:make:event DocumentRenamed --context=Document
+php artisan pillar:make:command CreateDocument --context=Document
+php artisan pillar:make:command RenameDocument --context=Document
+```
+
+For details on placement options (`--style`, `--subcontext`, etc.), see the **Make Commands** reference (coming next).
 :::
 
 ## 4) Context registry, aliases, projector

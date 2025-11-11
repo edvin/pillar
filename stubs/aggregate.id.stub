@@ -1,0 +1,14 @@
+<?php
+
+namespace {{idNamespace}};
+
+use Pillar\Aggregate\AggregateRootId;
+use {{aggregateNamespace}}\{{Name}};
+
+final class {{Name}}Id extends AggregateRootId
+{
+    public static function aggregateClass(): string
+    {
+        return {{Name}}::class;
+    }
+}

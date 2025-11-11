@@ -1,8 +1,7 @@
 <?php
 
 namespace {{handlerNamespace}};
-
-use {{namespace}}\{{Name}}Query;
+{{queryImport}}
 
 final class {{Name}}Handler
 {

@@ -9,8 +9,10 @@ use Illuminate\Support\ServiceProvider;
 use Pillar\Bus\CommandBusInterface;
 use Pillar\Bus\QueryBusInterface;
 use Pillar\Console\InstallPillarCommand;
+use Pillar\Console\MakeAggregateCommand;
 use Pillar\Console\MakeCommandCommand;
 use Pillar\Console\MakeContextCommand;
+use Pillar\Console\MakeEventCommand;
 use Pillar\Console\MakeQueryCommand;
 use Pillar\Console\ReplayEventsCommand;
 use Pillar\Context\ContextLoader;
@@ -67,6 +69,8 @@ class PillarServiceProvider extends ServiceProvider
                 MakeCommandCommand::class,
                 MakeQueryCommand::class,
                 MakeContextCommand::class,
+                MakeAggregateCommand::class,
+                MakeEventCommand::class,
             ]);
 
             $this->publishMigrations();

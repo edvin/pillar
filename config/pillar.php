@@ -272,7 +272,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | 🛠️ Make: Scaffolding (pillar:make:command / pillar:make:query)
+    | 🛠️ Make: Scaffolding (pillar:make:context / pillar:make:command / pillar:make:query / pillar:make:event)
     |--------------------------------------------------------------------------
     |
     | Configure where the CLI scaffolding places Commands/Queries and their
@@ -348,6 +348,66 @@ return [
         */
         'default_style' => 'colocate',
 
+        /*
+        |--------------------------------------------------------------------------
+        | 🏛️ Domain scaffolding defaults (shared)
+        |--------------------------------------------------------------------------
+        |
+        | Common domain placement used by multiple makers (aggregate, event, etc.).
+        | Paths are **relative to the context root** resolved by your
+        | ContextRegistry + PlacementResolver (e.g. App\Billing → app/Billing).
+        |
+        */
+        'domain_defaults' => [
+            // Base folder (under the context) that represents your domain layer.
+            'domain_dir' => 'Domain',
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🧱 Aggregate scaffolding defaults
+        |--------------------------------------------------------------------------
+        |
+        | Used by `pillar:make:aggregate` when deciding where to place the new
+        | Aggregate class and its Id class within a selected bounded context.
+        |
+        | All paths below are **relative to the context root** resolved by your
+        | ContextRegistry + PlacementResolver (e.g. App\Billing maps to app/Billing).
+        |
+        | - aggregate_dir : Subfolder for the Aggregate root class.
+        | - id_dir        : Subfolder for the Aggregate Id class. Defaults to the
+        |                   same folder as the aggregate; change if you prefer
+        |                   an explicit "Identity" or "Ids" folder.
+        |
+        | These defaults can be overridden per invocation using:
+        |   --dir="Domain/Core/Aggregate"   and/or   --id-dir="Domain/Core/Identity"
+        |
+        */
+        'aggregate_defaults' => [
+            // Where the Aggregate root will be written, relative to the context.
+            'aggregate_dir' => 'Domain/Aggregate',
+
+            // Where the Aggregate Id will be written, relative to the context.
+            // Tip: set to 'Domain/Identity' if you separate IDs.
+            'id_dir'        => 'Domain/Aggregate',
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | 📣 Event scaffolding defaults
+        |--------------------------------------------------------------------------
+        |
+        | Used by `pillar:make:event` when deciding where to place new Domain
+        | Event classes within a selected bounded context.
+        |
+        | All paths below are **relative to the context root**. The base
+        | domain folder is taken from `domain_defaults.domain_dir` above.
+        |
+        */
+        'event_defaults' => [
+            // Where Domain Event classes will be written, relative to the context.
+            'event_dir'  => 'Domain/Event',
+        ],
 
         /*
         |--------------------------------------------------------------------------

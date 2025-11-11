@@ -3,7 +3,7 @@
 namespace {{handlerNamespace}};
 
 use Pillar\Aggregate\AggregateSession;
-use {{namespace}}\{{Name}}Command;
+{{commandImport}}
 
 final class {{Name}}Handler
 {
