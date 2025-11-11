@@ -4,6 +4,10 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Database\Events\TransactionCommitted;
+use Illuminate\Database\Events\TransactionRolledBack;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Aggregate\GenericAggregateId;
@@ -19,6 +23,7 @@ use Pillar\Serialization\ObjectSerializer;
 use Tests\Fixtures\Document\DocumentCreated;
 use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Document\DocumentRenamed;
+use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Encryption\DummyEvent;
 
 it('append() advances last_sequence when expectedSequence matches (portable path)', function () {
@@ -319,4 +324,86 @@ it('throws when attempting to save non event sourced aggregate in event store', 
 
     expect(fn () => $repo->save($aggregate))
         ->toThrow(LogicException::class, 'EventSourcedAggregateRoot'); // message contains substring
+});
+
+it('wraps repository save in its own transaction when called outside a transaction', function () {
+    // Switch to a fresh, isolated SQLite connection so we are not inside any harness transaction
+    $original = config('database.default');
+
+    config()->set('database.connections.tx_probe', [
+        'driver' => 'sqlite',
+        'database' => ':memory:',
+        'prefix' => '',
+        'foreign_key_constraints' => true,
+    ]);
+    config()->set('database.default', 'tx_probe');
+    DB::purge('tx_probe');
+    DB::reconnect('tx_probe');
+
+    try {
+        // Now we should be at transaction level 0 on this fresh connection
+        expect(DB::transactionLevel())->toBe(0);
+
+        // Minimal schema for this connection
+        Schema::create('aggregate_versions', function (Blueprint $t) {
+            $t->string('aggregate_id')->primary();
+            $t->string('aggregate_id_class')->nullable()->index();
+            $t->unsignedBigInteger('last_sequence')->default(0);
+        });
+        Schema::create('events', function (Blueprint $t) {
+            $t->bigIncrements('sequence');
+            $t->string('aggregate_id');
+            $t->unsignedBigInteger('aggregate_sequence');
+            $t->string('event_type');
+            $t->unsignedInteger('event_version')->default(1);
+            $t->string('correlation_id')->nullable();
+            $t->longText('event_data');
+            $t->dateTime('occurred_at');
+            $t->index(['aggregate_id', 'aggregate_sequence']);
+        });
+
+        /** @var EventStoreRepository $repo */
+        $repo = app(EventStoreRepository::class);
+
+        $id  = DocumentId::new();
+        $doc = Document::create($id, 't0');
+        $doc->rename('t1');
+
+        // Act: this should hit the internal DB::transaction($work) branch in the repository
+        $repo->save($doc);
+
+        // Assert: events were persisted atomically for this aggregate id
+        $rows = DB::table('events')
+            ->select('aggregate_sequence', 'event_type')
+            ->where('aggregate_id', $id->value())
+            ->orderBy('aggregate_sequence')
+            ->get()
+            ->map(fn($r) => [(int)$r->aggregate_sequence, $r->event_type])
+            ->all();
+
+        expect($rows)->toEqual([
+            [1, Tests\Fixtures\Document\DocumentCreated::class],
+            [2, Tests\Fixtures\Document\DocumentRenamed::class],
+        ]);
+    } finally {
+        // Tear down the temp connection and restore the original default
+        try {
+            Schema::dropIfExists('events');
+            Schema::dropIfExists('aggregate_versions');
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        // Restore original default connection
+        config()->set('database.default', $original);
+
+        // Disconnect/purge temp and reconnect original
+        DB::disconnect('tx_probe');
+        DB::purge('tx_probe');
+        DB::purge($original);
+        DB::reconnect($original);
+
+        // Refresh app to clear any singletons bound to the temp connection
+        test()->refreshApplication();
+    }
 });

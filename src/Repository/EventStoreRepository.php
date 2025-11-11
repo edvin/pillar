@@ -37,8 +37,7 @@ final readonly class EventStoreRepository implements AggregateRepository
                 get_debug_type($aggregate)
             ));
         }
-
-        DB::transaction(function () use ($aggregate, $expectedVersion) {
+        $work = function () use ($aggregate, $expectedVersion) {
             $lastSeq = null;
             $delta = 0;
             $expected = $this->optimisticLocking ? $expectedVersion : null;
@@ -60,7 +59,13 @@ final readonly class EventStoreRepository implements AggregateRepository
                     $this->snapshots->save($aggregate, $lastSeq);
                 }
             }
-        });
+        };
+
+        if (DB::transactionLevel() > 0) {
+            $work();
+        } else {
+            DB::transaction($work);
+        }
     }
 
     public function find(AggregateRootId $id, ?EventWindow $window = null): ?LoadedAggregate
