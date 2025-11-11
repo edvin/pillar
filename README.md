@@ -32,7 +32,7 @@ php artisan pillar:install
 - 🔁 **Safe replays** to rebuild projections
 - ⚡ **CQRS** — projectors and query bus for a fast, scalable read side
 - 🧰 **Facade + buses** for quick wiring
-- 🛠️ **Pillar Make**: Bounded Context/Command/Query Scaffolding
+- 🛠️ **Pillar Make**: Bounded Context/Command/Query/Event Scaffolding
 
 ## Documentation
 

@@ -8,7 +8,6 @@ use LogicException;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Aggregate\EventSourcedAggregateRoot;
-use Pillar\Event\EphemeralEvent;
 use Pillar\Event\EventContext;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
@@ -45,10 +44,6 @@ final readonly class EventStoreRepository implements AggregateRepository
             $expected = $this->optimisticLocking ? $expectedVersion : null;
 
             foreach ($aggregate->recordedEvents() as $event) {
-                if ($event instanceof EphemeralEvent) {
-                    continue;
-                }
-
                 $lastSeq = $this->eventStore->append($aggregate->id(), $event, $expected);
                 $delta++;
                 if ($expected !== null) {

@@ -67,8 +67,6 @@ foreach ($eventStore->load($id, $win) as $e) {
 
 When implementing a store, `append()` must throw a `ConcurrencyException` if `$expectedSequence` doesn’t match.
 
-> Ephemeral events implement `EphemeralEvent` and are **dispatched** but **not persisted**. See [/concepts/ephemeral-events](/concepts/ephemeral-events).
-
 ---
 
 ## Reading & writing
@@ -212,5 +210,4 @@ See [/reference/cli-replay](/reference/cli-replay) for all flags and tips.
 ## Notes & tips
 
 - Use **versioned events** + **upcasters** for schema evolution. See [/concepts/versioned-events](/concepts/versioned-events) and [/concepts/event-upcasters](/concepts/event-upcasters).
-- To keep persistence lean, mark non-durable signals as **ephemeral**. See [/concepts/ephemeral-events](/concepts/ephemeral-events).
 - For large aggregates, prefer `db_chunked` or `db_streaming` and consider **snapshotting**. See [/concepts/snapshotting](/concepts/snapshotting).
