@@ -119,7 +119,7 @@ final class InvoiceController
 **Via facade**
 
 ```php
-use Pillar\Support\Pillar;
+use Pillar\Facade\Pillar;
 use App\Billing\Application\Query\GetInvoiceSummary;
 
 $summary = Pillar::ask(new GetInvoiceSummary($id));
