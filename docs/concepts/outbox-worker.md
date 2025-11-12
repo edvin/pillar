@@ -88,7 +88,7 @@ To claim outbox rows, the worker uses the most efficient path for your driver:
 ## Configuration reference
 
 See the **full list of options** (partitioning, worker timings, table names, partitioner strategy) in the configuration
-docs: [/configuration#outbox](/configuration#outbox).
+docs: [/reference/configuration#outbox](/reference/configuration#outbox).
 
 ---
 
