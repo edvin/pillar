@@ -7,8 +7,7 @@ interface EventSourcedAggregateRoot extends AggregateRoot
     /** @return object[] */
     public function recordedEvents(): array;
 
-    /** @return object[] */
-    public function releaseEvents(): array;
+    public function clearRecordedEvents(): void;
 
     public function apply(object $event): void;
 }

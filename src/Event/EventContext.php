@@ -10,6 +10,12 @@ final class EventContext
     private static ?CarbonImmutable $occurredAt = null;
     private static ?string $correlationId = null;
     private static bool $reconstituting = false;
+    private static bool $replaying = false;
+
+    public static function isReplaying(): bool
+    {
+        return self::$replaying;
+    }
 
     /**
      * Initialize a fresh event context.
@@ -19,6 +25,7 @@ final class EventContext
         CarbonImmutable|string|null $occurredAt = null,
         string|null                 $correlationId = null,
         bool                        $reconstituting = false,
+        bool                        $replaying = false
     ): void
     {
         self::$occurredAt = $occurredAt
@@ -27,6 +34,7 @@ final class EventContext
 
         self::$correlationId = $correlationId ?? (string)Str::uuid();
         self::$reconstituting = $reconstituting;
+        self::$replaying = $replaying;
     }
 
     public static function isReconstituting(): bool
@@ -58,6 +66,7 @@ final class EventContext
         self::$occurredAt = null;
         self::$correlationId = null;
         self::$reconstituting = false;
+        self::$replaying = false;
     }
 
     /**

@@ -6,6 +6,7 @@ use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Pillar\Event\Publication\PublicationPolicy;
 use Pillar\Repository\RepositoryResolver;
 use RuntimeException;
 use Throwable;
@@ -23,8 +24,7 @@ final class AggregateSession
     private array $expectedVersions = [];
 
     public function __construct(
-        private readonly RepositoryResolver $repositoryResolver,
-        private readonly Dispatcher         $dispatcher
+        private readonly RepositoryResolver $repositoryResolver
     )
     {
     }
@@ -83,7 +83,6 @@ final class AggregateSession
             }
         });
 
-        $this->dispatchEvents();
         $this->tracked = [];
         $this->expectedVersions = [];
     }
@@ -93,13 +92,4 @@ final class AggregateSession
         $this->tracked[spl_object_id($aggregate)] = $aggregate;
     }
 
-    private function dispatchEvents(): void
-    {
-        foreach ($this->tracked as $aggregate) {
-            foreach ($aggregate->releaseEvents() as $event) {
-                Log::debug('Dispatching domain event', ['event' => get_class($event)]);
-                $this->dispatcher->dispatch($event);
-            }
-        }
-    }
 }

@@ -48,6 +48,11 @@ features:
     details: "Human-readable names with backward compatibility."
     link: "/concepts/event-aliases"
 
+  - icon: "📣"
+    title: "Events"
+    details: "Local, inline, and publishable events."
+    link: "/concepts/events"
+
   - icon: "🧬"
     title: "Upcasters & versions"
     details: "Evolve event schemas safely over time."
@@ -67,6 +72,16 @@ features:
     title: "Safe replays"
     details: "Only projectors run during replays to rebuild read models."
     link: "/reference/cli-replay"
+
+  - icon: "📬"
+    title: "Transactional Outbox"
+    details: "Reliable event delivery with retries & partitioning."
+    link: "/concepts/outbox"
+
+  - icon: "🛠️"
+    title: "Outbox Worker"
+    details: "CLI with leasing, live stats UI & JSON mode."
+    link: "/concepts/outbox-worker"
 
   - icon: "📦"
     title: "Commands & Queries"

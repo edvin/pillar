@@ -3,6 +3,7 @@
 namespace Pillar\Repository;
 
 use Illuminate\Container\Attributes\Config;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 use Pillar\Aggregate\AggregateRoot;
@@ -11,6 +12,7 @@ use Pillar\Aggregate\EventSourcedAggregateRoot;
 use Pillar\Event\EventContext;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
+use Pillar\Event\ShouldPublishInline;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Throwable;
@@ -21,6 +23,7 @@ final readonly class EventStoreRepository implements AggregateRepository
         private SnapshotPolicy $snapshotPolicy,
         private SnapshotStore  $snapshots,
         private EventStore     $eventStore,
+        private Dispatcher     $dispatcher,
         #[Config('pillar.event_store.options.optimistic_locking', false)]
         private bool           $optimisticLocking,
     )
@@ -37,6 +40,7 @@ final readonly class EventStoreRepository implements AggregateRepository
                 get_debug_type($aggregate)
             ));
         }
+
         $work = function () use ($aggregate, $expectedVersion) {
             $lastSeq = null;
             $delta = 0;
@@ -44,6 +48,9 @@ final readonly class EventStoreRepository implements AggregateRepository
 
             foreach ($aggregate->recordedEvents() as $event) {
                 $lastSeq = $this->eventStore->append($aggregate->id(), $event, $expected);
+                if (!EventContext::isReplaying() && $event instanceof ShouldPublishInline) {
+                    $this->dispatcher->dispatch($event);
+                }
                 $delta++;
                 if ($expected !== null) {
                     $expected = $lastSeq;
@@ -66,6 +73,8 @@ final readonly class EventStoreRepository implements AggregateRepository
         } else {
             DB::transaction($work);
         }
+
+        DB::afterCommit(fn() => $aggregate->clearRecordedEvents());
     }
 
     public function find(AggregateRootId $id, ?EventWindow $window = null): ?LoadedAggregate
@@ -106,6 +115,16 @@ final readonly class EventStoreRepository implements AggregateRepository
             /** @var AggregateRoot $aggregate */
             $aggregate = new ($id->aggregateClass());
         }
+
+        // @codeCoverageIgnoreStart - hard to test, since they can't be inserted into the store
+        if (!$aggregate instanceof EventSourcedAggregateRoot) {
+            throw new LogicException(sprintf(
+                '%s can only load EventSourcedAggregateRoot; got %s',
+                __CLASS__,
+                get_debug_type($aggregate)
+            ));
+        }
+        // @codeCoverageIgnoreEnd
 
         $hadEvents = false;
         $lastSeq = null;

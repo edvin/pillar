@@ -2,7 +2,9 @@
 
 namespace Tests\Fixtures\Document;
 
-final class DocumentCreated
+use Pillar\Event\ShouldPublishInline;
+
+final class DocumentCreated implements ShouldPublishInline
 {
     public function __construct(
         public DocumentId $id,

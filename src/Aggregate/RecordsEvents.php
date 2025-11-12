@@ -35,11 +35,8 @@ trait RecordsEvents
         return $this->recordedEvents;
     }
 
-    /** @return object[] */
-    public function releaseEvents(): array
+    public function clearRecordedEvents(): void
     {
-        $events = $this->recordedEvents;
         $this->recordedEvents = [];
-        return $events;
     }
 }

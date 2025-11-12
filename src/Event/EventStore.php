@@ -97,10 +97,6 @@ interface EventStore
      * - A fully materialized {@see StoredEvent} (deserialized domain object + metadata),
      *   or null if no event exists with the given sequence.
      *
-     * Notes:
-     * - This method performs no authorization; callers should enforce access rules upstream.
-     * - Useful for tooling (timelines, inspectors) to jump directly to a specific event.
-     *
      * @param int $sequence Global sequence number of the event to fetch.
      * @return StoredEvent|null
      */
@@ -114,7 +110,7 @@ interface EventStore
      *   `$class::from($aggregateId)`, without requiring the caller to supply the class explicitly.
      *
      * Contract:
-     * - Return the fully-qualified class-string of the {@see \Pillar\Aggregate\AggregateRootId}
+     * - Return the fully-qualified class-string of the {@see AggregateRootId}
      *   implementation, or null if the store cannot determine it.
      * - Implementations MAY consult store-specific metadata (e.g., a mapping table, stream
      *   metadata, headers) and SHOULD avoid expensive scans.
@@ -124,7 +120,7 @@ interface EventStore
      * - Return null when the mapping is unknown/unavailable; do not throw for “not found”.
      *
      * @param string $aggregateId Raw aggregate identifier as persisted in the store.
-     * @return class-string<\Pillar\Aggregate\AggregateRootId>|null
+     * @return class-string<AggregateRootId>|null
      */
     public function resolveAggregateIdClass(string $aggregateId): ?string;
 }

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Events\Dispatcher;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Aggregate\EventSourcedAggregateRoot;
@@ -22,7 +23,9 @@ final class __FakeAggregate implements EventSourcedAggregateRoot
 {
     use RecordsEvents;
 
-    public function __construct(private AggregateRootId $id) {}
+    public function __construct(private AggregateRootId $id)
+    {
+    }
 
     public function id(): AggregateRootId
     {
@@ -40,7 +43,7 @@ final class __FakeSnapshotStore implements SnapshotStore
     public function load(AggregateRootId $id): ?array
     {
         return [
-            'aggregate'        => new __FakeAggregate($id),
+            'aggregate' => new __FakeAggregate($id),
             'snapshot_version' => 0,
         ];
     }
@@ -82,12 +85,16 @@ final class __CapturingEventStore implements EventStore
     public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
     {
         $this->captured = $window;
-        if (false) { yield; } // empty generator
+        if (false) {
+            yield;
+        } // empty generator
     }
 
     public function all(?AggregateRootId $aggregateId = null, ?EventWindow $window = null, ?string $eventType = null): Generator
     {
-        if (false) { yield; }
+        if (false) {
+            yield;
+        }
     }
 
     public function getByGlobalSequence(int $sequence): ?StoredEvent
@@ -102,27 +109,24 @@ final class __CapturingEventStore implements EventStore
 }
 
 it('passes a non-null EventWindow with snapshot-aware after to EventStore::load()', function () {
-    $store     = new __CapturingEventStore();
+    $store = new __CapturingEventStore();
     $snapshots = new __FakeSnapshotStore();
-    $policy    = new __NeverSnapshotPolicy();
+    $policy = new __NeverSnapshotPolicy();
+    $dispatcher = app(Dispatcher::class);
 
     // optimisticLocking = false for this unit test
-    $repo = new EventStoreRepository($policy, $snapshots, $store, false);
+    $repo = new EventStoreRepository($policy, $snapshots, $store, $dispatcher, false);
 
     $id = DocumentId::new();
 
     // Provide a stopping bound so the repo takes the "non-null window" branch
     $result = $repo->find($id, EventWindow::toAggSeq(5));
 
-    // We got a LoadedAggregate back because a snapshot was present
-    expect($result)->toBeInstanceOf(LoadedAggregate::class);
-
-    // And the window that went into EventStore::load() is what we expect:
-    // - afterAggregateSequence comes from the snapshot version (0 here)
-    // - toAggregateSequence is carried through (5 here)
-    expect($store->captured)->not->toBeNull()
+    expect($result)->toBeInstanceOf(LoadedAggregate::class)
+        ->and($store->captured)->not->toBeNull()
         ->and($store->captured->afterAggregateSequence)->toBe(0)
         ->and($store->captured->toAggregateSequence)->toBe(5)
         ->and($store->captured->toGlobalSequence)->toBeNull()
         ->and($store->captured->toDateUtc)->toBeNull();
+
 });

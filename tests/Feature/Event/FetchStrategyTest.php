@@ -150,12 +150,12 @@ it('applyWindow caps by global sequence (toGlobalSequence)', function () {
     // Build a simple stream with 4 events for one aggregate
     $id = \Tests\Fixtures\Document\DocumentId::new();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($id, 'v0')); // seq 1
+    $s = Pillar::session();
+    $s->attach(Document::create($id, 'v0')); // seq 1
     $s->commit();
 
     foreach (['v1','v2','v3'] as $t) {
-        $sx = \Pillar\Facade\Pillar::session();
+        $sx = Pillar::session();
         $a  = $sx->find($id);
         $a->rename($t); // seq 2..4
         $sx->commit();
@@ -170,7 +170,7 @@ it('applyWindow caps by global sequence (toGlobalSequence)', function () {
 
     $cutoff = (int) $globSeqs[2]; // third event (agg seq 3)
 
-    $window   = \Pillar\Event\EventWindow::toGlobalSeq($cutoff);
+    $window   = EventWindow::toGlobalSeq($cutoff);
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
 
     $got  = iterator_to_array($strategy->load($id, $window));
@@ -188,32 +188,32 @@ it('applyWindow caps by occurred_at timestamp (toDateUtc)', function () {
     $id = \Tests\Fixtures\Document\DocumentId::new();
 
     // Seed 4 events with controlled timestamps
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:00:00', 'UTC'));
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($id, 'v0')); // seq 1 @ :00
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:00:00', 'UTC'));
+    $s = Pillar::session();
+    $s->attach(Document::create($id, 'v0')); // seq 1 @ :00
     $s->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:01:00', 'UTC'));
-    $s2 = \Pillar\Facade\Pillar::session();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:01:00', 'UTC'));
+    $s2 = Pillar::session();
     $a2 = $s2->find($id);
     $a2->rename('v1'); // seq 2 @ :01
     $s2->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:02:00', 'UTC'));
-    $s3 = \Pillar\Facade\Pillar::session();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:02:00', 'UTC'));
+    $s3 = Pillar::session();
     $a3 = $s3->find($id);
     $a3->rename('v2'); // seq 3 @ :02
     $s3->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:03:00', 'UTC'));
-    $s4 = \Pillar\Facade\Pillar::session();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:03:00', 'UTC'));
+    $s4 = Pillar::session();
     $a4 = $s4->find($id);
     $a4->rename('v3'); // seq 4 @ :03
     $s4->commit();
 
     // Cap at 00:01:00 inclusive → should return seq 1 and 2 only
-    $cutAt = new \DateTimeImmutable('2024-01-01 00:01:00 UTC');
-    $window = \Pillar\Event\EventWindow::toDateUtc($cutAt);
+    $cutAt = new DateTimeImmutable('2024-01-01 00:01:00 UTC');
+    $window = EventWindow::toDateUtc($cutAt);
 
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
     $got  = iterator_to_array($strategy->load($id, $window));
@@ -222,24 +222,24 @@ it('applyWindow caps by occurred_at timestamp (toDateUtc)', function () {
     expect($seqs)->toBe([1, 2]);
 
     // Cleanup time mocking
-    \Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 });
 
 it('applyWindow starts after global sequence (afterGlobalSequence)', function () {
     // Use load_all to exercise applyWindow cleanly
     config()->set('pillar.fetch_strategies.default', 'db_load_all');
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // Build a simple stream with 4 events for one aggregate
     $id = \Tests\Fixtures\Document\DocumentId::new();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($id, 'v0')); // seq 1
+    $s = Pillar::session();
+    $s->attach(Document::create($id, 'v0')); // seq 1
     $s->commit();
 
     foreach (['v1','v2','v3'] as $t) {
-        $sx = \Pillar\Facade\Pillar::session();
+        $sx = Pillar::session();
         $a  = $sx->find($id);
         $a->rename($t); // seq 2..4
         $sx->commit();
@@ -254,8 +254,8 @@ it('applyWindow starts after global sequence (afterGlobalSequence)', function ()
 
     $after = (int) $globSeqs[1]; // second event (agg seq 2)
 
-    $window   = \Pillar\Event\EventWindow::afterGlobalSeq($after);
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve($id);
+    $window   = EventWindow::afterGlobalSeq($after);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
 
     $got  = iterator_to_array($strategy->load($id, $window));
     $seqs = array_map(fn($e) => $e->aggregateSequence, $got);
@@ -267,53 +267,53 @@ it('applyWindow starts after global sequence (afterGlobalSequence)', function ()
 it('applyWindow starts after occurred_at timestamp (afterDateUtc)', function () {
     // Use load_all to exercise applyWindow cleanly
     config()->set('pillar.fetch_strategies.default', 'db_load_all');
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     $id = \Tests\Fixtures\Document\DocumentId::new();
 
     // Seed 4 events with controlled timestamps
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:00:00', 'UTC'));
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($id, 'v0')); // seq 1 @ :00
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:00:00', 'UTC'));
+    $s = Pillar::session();
+    $s->attach(Document::create($id, 'v0')); // seq 1 @ :00
     $s->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:01:00', 'UTC'));
-    $s2 = \Pillar\Facade\Pillar::session();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:01:00', 'UTC'));
+    $s2 = Pillar::session();
     $a2 = $s2->find($id);
     $a2->rename('v1'); // seq 2 @ :01
     $s2->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:02:00', 'UTC'));
-    $s3 = \Pillar\Facade\Pillar::session();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:02:00', 'UTC'));
+    $s3 = Pillar::session();
     $a3 = $s3->find($id);
     $a3->rename('v2'); // seq 3 @ :02
     $s3->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:03:00', 'UTC'));
-    $s4 = \Pillar\Facade\Pillar::session();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:03:00', 'UTC'));
+    $s4 = Pillar::session();
     $a4 = $s4->find($id);
     $a4->rename('v3'); // seq 4 @ :03
     $s4->commit();
 
     // After 00:01:00 exclusive → should return seq 3 and 4 only
-    $after = new \DateTimeImmutable('2024-01-01 00:01:00 UTC');
-    $window = \Pillar\Event\EventWindow::afterDateUtc($after);
+    $after = new DateTimeImmutable('2024-01-01 00:01:00 UTC');
+    $window = EventWindow::afterDateUtc($after);
 
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve($id);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
     $got  = iterator_to_array($strategy->load($id, $window));
     $seqs = array_map(fn($e) => $e->aggregateSequence, $got);
 
     expect($seqs)->toBe([3, 4]);
 
     // Cleanup time mocking
-    \Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 });
 
 it('global all() respects afterGlobalSequence in applyGlobalWindow', function () {
     // Use load_all to exercise global base path
     config()->set('pillar.fetch_strategies.default', 'db_load_all');
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // Two aggregates with interleaving events
@@ -321,19 +321,19 @@ it('global all() respects afterGlobalSequence in applyGlobalWindow', function ()
     $b = \Tests\Fixtures\Document\DocumentId::new();
 
     // Seed A@00, B@01, A@02, B@03
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:00:00', 'UTC'));
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($a, 'A0')); $s->commit();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:00:00', 'UTC'));
+    $s = Pillar::session();
+    $s->attach(Document::create($a, 'A0')); $s->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:01:00', 'UTC'));
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($b, 'B0')); $s->commit();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:01:00', 'UTC'));
+    $s = Pillar::session();
+    $s->attach(Document::create($b, 'B0')); $s->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:02:00', 'UTC'));
-    $sx = \Pillar\Facade\Pillar::session(); $ax = $sx->find($a); $ax->rename('A1'); $sx->commit();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:02:00', 'UTC'));
+    $sx = Pillar::session(); $ax = $sx->find($a); $ax->rename('A1'); $sx->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:03:00', 'UTC'));
-    $sy = \Pillar\Facade\Pillar::session(); $by = $sy->find($b); $by->rename('B1'); $sy->commit();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:03:00', 'UTC'));
+    $sy = Pillar::session(); $by = $sy->find($b); $by->rename('B1'); $sy->commit();
 
     // Cutoff = global seq of B0 (second event overall)
     $cutoff = (int) \Illuminate\Support\Facades\DB::table('events')
@@ -341,8 +341,8 @@ it('global all() respects afterGlobalSequence in applyGlobalWindow', function ()
         ->skip(1)
         ->value('sequence');
 
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve(null);
-    $window   = \Pillar\Event\EventWindow::afterGlobalSeq($cutoff);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
+    $window   = EventWindow::afterGlobalSeq($cutoff);
 
     $got = iterator_to_array($strategy->all(null, $window));
 
@@ -351,13 +351,13 @@ it('global all() respects afterGlobalSequence in applyGlobalWindow', function ()
         ->and($got[0]->sequence)->toBeGreaterThan($cutoff)
         ->and($got[1]->sequence)->toBeGreaterThan($cutoff);
 
-    \Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 });
 
 it('global all() respects toDateUtc in applyGlobalWindow', function () {
     // Use load_all to exercise global base path
     config()->set('pillar.fetch_strategies.default', 'db_load_all');
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // Two aggregates with interleaving events
@@ -365,24 +365,24 @@ it('global all() respects toDateUtc in applyGlobalWindow', function () {
     $b = \Tests\Fixtures\Document\DocumentId::new();
 
     // Seed A@00, B@01, A@02, B@03
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:00:00', 'UTC'));
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($a, 'A0')); $s->commit();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:00:00', 'UTC'));
+    $s = Pillar::session();
+    $s->attach(Document::create($a, 'A0')); $s->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:01:00', 'UTC'));
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($b, 'B0')); $s->commit();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:01:00', 'UTC'));
+    $s = Pillar::session();
+    $s->attach(Document::create($b, 'B0')); $s->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:02:00', 'UTC'));
-    $sx = \Pillar\Facade\Pillar::session(); $ax = $sx->find($a); $ax->rename('A1'); $sx->commit();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:02:00', 'UTC'));
+    $sx = Pillar::session(); $ax = $sx->find($a); $ax->rename('A1'); $sx->commit();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:03:00', 'UTC'));
-    $sy = \Pillar\Facade\Pillar::session(); $by = $sy->find($b); $by->rename('B1'); $sy->commit();
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:03:00', 'UTC'));
+    $sy = Pillar::session(); $by = $sy->find($b); $by->rename('B1'); $sy->commit();
 
-    $cutAt = new \DateTimeImmutable('2024-01-01 00:01:00 UTC');
+    $cutAt = new DateTimeImmutable('2024-01-01 00:01:00 UTC');
 
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve(null);
-    $window   = \Pillar\Event\EventWindow::toDateUtc($cutAt);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
+    $window   = EventWindow::toDateUtc($cutAt);
 
     $got = iterator_to_array($strategy->all(null, $window));
 
@@ -391,25 +391,26 @@ it('global all() respects toDateUtc in applyGlobalWindow', function () {
         ->and($got[0]->occurredAt)->toBeLessThanOrEqual('2024-01-01 00:01:00')
         ->and($got[1]->occurredAt)->toBeLessThanOrEqual('2024-01-01 00:01:00');
 
-    \Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 });
+
 it('global all() with null window returns events (hits early-return)', function () {
     // Ensure we use a strategy that calls applyGlobalWindow() in the global path
     config()->set('pillar.fetch_strategies.default', 'db_load_all');
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // Seed two aggregates with one event each
     $a = \Tests\Fixtures\Document\DocumentId::new();
     $b = \Tests\Fixtures\Document\DocumentId::new();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($a, 'A0')); $s->commit();
+    $s = Pillar::session();
+    $s->attach(Document::create($a, 'A0')); $s->commit();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($b, 'B0')); $s->commit();
+    $s = Pillar::session();
+    $s->attach(Document::create($b, 'B0')); $s->commit();
 
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve(null);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
 
     // Passing null window triggers the early-return branch inside applyGlobalWindow()
     $got = iterator_to_array($strategy->all(null, null));
@@ -419,17 +420,17 @@ it('global all() with null window returns events (hits early-return)', function 
 
 it('global all() caps at toGlobalSequence in applyGlobalWindow', function () {
     config()->set('pillar.fetch_strategies.default', 'db_load_all');
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // Build a single aggregate with 4 events so we can pick a global cutoff
     $id = \Tests\Fixtures\Document\DocumentId::new();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($id, 'v0')); $s->commit(); // first global
+    $s = Pillar::session();
+    $s->attach(Document::create($id, 'v0')); $s->commit(); // first global
 
     foreach (['v1','v2','v3'] as $t) {
-        $sx = \Pillar\Facade\Pillar::session();
+        $sx = Pillar::session();
         $a  = $sx->find($id);
         $a->rename($t);
         $sx->commit();
@@ -441,8 +442,8 @@ it('global all() caps at toGlobalSequence in applyGlobalWindow', function () {
         ->skip(2)
         ->value('sequence');
 
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve(null);
-    $window   = \Pillar\Event\EventWindow::toGlobalSeq($cutoff);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
+    $window   = EventWindow::toGlobalSeq($cutoff);
 
     $got = iterator_to_array($strategy->all(null, $window));
 
@@ -456,14 +457,14 @@ it('global all() caps at toGlobalSequence in applyGlobalWindow', function () {
 
 it('per-aggregate load populates aggregateIdClass', function () {
     config()->set('pillar.fetch_strategies.default', 'db_load_all');
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     $id = \Tests\Fixtures\Document\DocumentId::new();
-    $s  = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($id, 'v0')); $s->commit();
+    $s  = Pillar::session();
+    $s->attach(Document::create($id, 'v0')); $s->commit();
 
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve($id);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
     $events   = iterator_to_array($strategy->load($id));
 
     expect($events)->not->toBeEmpty();
@@ -474,19 +475,19 @@ it('per-aggregate load populates aggregateIdClass', function () {
 
 it('global all() populates aggregateIdClass via join', function () {
     config()->set('pillar.fetch_strategies.default', 'db_load_all');
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // two aggregates
     $a = \Tests\Fixtures\Document\DocumentId::new();
     $b = \Tests\Fixtures\Document\DocumentId::new();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($a, 'A0')); $s->commit();
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($b, 'B0')); $s->commit();
+    $s = Pillar::session();
+    $s->attach(Document::create($a, 'A0')); $s->commit();
+    $s = Pillar::session();
+    $s->attach(Document::create($b, 'B0')); $s->commit();
 
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve(null);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
     $events   = iterator_to_array($strategy->all(null));
 
     expect($events)->not->toBeEmpty();
@@ -499,21 +500,21 @@ it('global all() populates aggregateIdClass via join', function () {
 it('cursor strategy hits the global scan branch', function () {
     // Force resolver to pick the cursor strategy
     config()->set('pillar.fetch_strategies.default', 'db_streaming');
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // Seed a couple aggregates
     $a = \Tests\Fixtures\Document\DocumentId::new();
     $b = \Tests\Fixtures\Document\DocumentId::new();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($a, 'A1')); $s->commit();
+    $s = Pillar::session();
+    $s->attach(Document::create($a, 'A1')); $s->commit();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($b, 'B1')); $s->commit();
+    $s = Pillar::session();
+    $s->attach(Document::create($b, 'B1')); $s->commit();
 
     // Resolve strategy for a GLOBAL scan
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve(null);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
     expect($strategy)->toBeInstanceOf(\Pillar\Event\Fetch\Database\DatabaseCursorFetchStrategy::class);
 
     // Call the global path
@@ -533,25 +534,25 @@ it('cursor strategy hits the global scan branch', function () {
 it('global all() applies eventType filter (hits $qb->where("event_type", ...))', function (string $default) {
     // Force strategy and refresh singletons
     config()->set('pillar.fetch_strategies.default', $default);
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // Seed a single aggregate with a mix of event types
     $id = \Tests\Fixtures\Document\DocumentId::new();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($id, 'v0')); // DocumentCreated
+    $s = Pillar::session();
+    $s->attach(Document::create($id, 'v0')); // DocumentCreated
     $s->commit();
 
     foreach (['v1', 'v2', 'v3'] as $t) {
-        $sx = \Pillar\Facade\Pillar::session();
+        $sx = Pillar::session();
         $a  = $sx->find($id);
         $a->rename($t); // DocumentRenamed
         $sx->commit();
     }
 
     // Resolve a GLOBAL strategy (null aggregate => global scan path)
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve(null);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
 
     // Filter to only DocumentCreated (should be exactly 1)
     $created = iterator_to_array($strategy->all(null, null, \Tests\Fixtures\Document\DocumentCreated::class));
@@ -572,28 +573,28 @@ it('db_chunked per-aggregate all() applies EventWindow (hits applyPerAggregateWi
     // Force chunked strategy and small chunks so pagination logic is exercised
     config()->set('pillar.fetch_strategies.default', 'db_chunked');
     config()->set('pillar.fetch_strategies.available.db_chunked.options.chunk_size', 2);
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // Build a single aggregate with 4 events (agg seq 1..4)
     $id = \Tests\Fixtures\Document\DocumentId::new();
 
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($id, 'v0')); // seq 1
+    $s = Pillar::session();
+    $s->attach(Document::create($id, 'v0')); // seq 1
     $s->commit();
 
     foreach (['v1', 'v2', 'v3'] as $t) {
-        $sx = \Pillar\Facade\Pillar::session();
+        $sx = Pillar::session();
         $a  = $sx->find($id);
         $a->rename($t); // seq 2..4
         $sx->commit();
     }
 
     // Resolve the strategy and call all() with a per-aggregate window
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve($id);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
     expect($strategy)->toBeInstanceOf(\Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy::class);
 
-    $window = \Pillar\Event\EventWindow::toAggSeq(3); // inclusive cap at 3
+    $window = EventWindow::toAggSeq(3); // inclusive cap at 3
     $events = iterator_to_array($strategy->all($id, $window));
 
     $seqs = array_map(fn($e) => $e->aggregateSequence, $events);
@@ -604,26 +605,26 @@ it('db_chunked global all() applies EventWindow (hits applyGlobalWindow)', funct
     // Force chunked strategy so we exercise the branch in DatabaseChunkedFetchStrategy::all()
     config()->set('pillar.fetch_strategies.default', 'db_chunked');
     config()->set('pillar.fetch_strategies.available.db_chunked.options.chunk_size', 2);
-    app()->forgetInstance(\Pillar\Event\Fetch\EventFetchStrategyResolver::class);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(\Pillar\Event\DatabaseEventStore::class);
 
     // Two aggregates with interleaving events to get a meaningful global sequence cutoff
     $a = \Tests\Fixtures\Document\DocumentId::new();
     $b = \Tests\Fixtures\Document\DocumentId::new();
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:00:00', 'UTC'));
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($a, 'A0')); $s->commit(); // global #1
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:00:00', 'UTC'));
+    $s = Pillar::session();
+    $s->attach(Document::create($a, 'A0')); $s->commit(); // global #1
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:01:00', 'UTC'));
-    $s = \Pillar\Facade\Pillar::session();
-    $s->attach(\Tests\Fixtures\Document\Document::create($b, 'B0')); $s->commit(); // global #2
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:01:00', 'UTC'));
+    $s = Pillar::session();
+    $s->attach(Document::create($b, 'B0')); $s->commit(); // global #2
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:02:00', 'UTC'));
-    $sx = \Pillar\Facade\Pillar::session(); $ax = $sx->find($a); $ax->rename('A1'); $sx->commit(); // global #3
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:02:00', 'UTC'));
+    $sx = Pillar::session(); $ax = $sx->find($a); $ax->rename('A1'); $sx->commit(); // global #3
 
-    \Illuminate\Support\Carbon::setTestNow(\Illuminate\Support\Carbon::parse('2024-01-01 00:03:00', 'UTC'));
-    $sy = \Pillar\Facade\Pillar::session(); $by = $sy->find($b); $by->rename('B1'); $sy->commit(); // global #4
+    Carbon::setTestNow(Carbon::parse('2024-01-01 00:03:00', 'UTC'));
+    $sy = Pillar::session(); $by = $sy->find($b); $by->rename('B1'); $sy->commit(); // global #4
 
     // Inclusive cap at the 3rd global event
     $cutoff = (int) \Illuminate\Support\Facades\DB::table('events')
@@ -631,10 +632,10 @@ it('db_chunked global all() applies EventWindow (hits applyGlobalWindow)', funct
         ->skip(2)
         ->value('sequence');
 
-    $strategy = app(\Pillar\Event\Fetch\EventFetchStrategyResolver::class)->resolve(null);
+    $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
     expect($strategy)->toBeInstanceOf(\Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy::class);
 
-    $window = \Pillar\Event\EventWindow::toGlobalSeq($cutoff);
+    $window = EventWindow::toGlobalSeq($cutoff);
     $events = iterator_to_array($strategy->all(null, $window));
 
     // We should get exactly the first 3 events globally, all with sequence <= cutoff
@@ -644,5 +645,5 @@ it('db_chunked global all() applies EventWindow (hits applyGlobalWindow)', funct
         ->and($events[2]->sequence)->toBeLessThanOrEqual($cutoff)
         ->and(end($events)->sequence)->toBe($cutoff);
 
-    \Illuminate\Support\Carbon::setTestNow();
+    Carbon::setTestNow();
 });

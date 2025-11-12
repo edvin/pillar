@@ -5,22 +5,34 @@ namespace Pillar\Event;
 use Carbon\Carbon;
 use Generator;
 use Illuminate\Support\Facades\DB;
+use Pillar\Support\HandlesDatabaseDriverSpecifics;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\Stream\StreamResolver;
+use Pillar\Outbox\Outbox;
+use Pillar\Outbox\Partitioner;
 use Pillar\Serialization\ObjectSerializer;
 use RuntimeException;
 
 class DatabaseEventStore implements EventStore
 {
+    use HandlesDatabaseDriverSpecifics;
 
     public function __construct(
         private StreamResolver             $streamResolver,
         private ObjectSerializer           $serializer,
         private EventAliasRegistry         $aliases,
         private EventFetchStrategyResolver $strategyResolver,
+        private PublicationPolicy          $publicationPolicy,
+        private Outbox                     $outbox,
+        private Partitioner                $partitioner
     )
     {
+    }
+
+    protected function driver(): string
+    {
+        return DB::connection()->getDriverName();
     }
 
     public function append(AggregateRootId $id, object $event, ?int $expectedSequence = null): int
@@ -29,7 +41,7 @@ class DatabaseEventStore implements EventStore
         $aggregateId = $id->value();
         $aggregateIdClass = $id::class;
 
-        return DB::transaction(function () use ($eventsTable, $aggregateId, $aggregateIdClass, $event, $expectedSequence) {
+        return DB::transaction(callback: function () use ($eventsTable, $aggregateId, $aggregateIdClass, $event, $expectedSequence) {
             // Ensure a counter row exists for this aggregate (portable across drivers)
             DB::table('aggregate_versions')->insertOrIgnore([
                 'aggregate_id' => $aggregateId,
@@ -38,83 +50,13 @@ class DatabaseEventStore implements EventStore
             ]);
 
             $driver = $this->driver();
+            $nextAggregateSequence = match ($driver) {
+                'mysql' => $this->advanceSequenceMysql($aggregateId, $expectedSequence),
+                'pgsql', 'sqlite' => $this->advanceSequencePgsqlSqlite($aggregateId, $expectedSequence),
+                default => $this->advanceSequenceGeneric($aggregateId, $expectedSequence),
+            };
 
-            // Atomically advance the per-aggregate version and get the value assigned to this transaction
-            if ($driver === 'mysql') {
-                // MySQL/MariaDB: use LAST_INSERT_ID to read the increment atomically
-                if ($expectedSequence === null) {
-                    $updated = DB::update(
-                        'UPDATE aggregate_versions
-                         SET last_sequence = LAST_INSERT_ID(last_sequence + 1)
-                         WHERE aggregate_id = ?',
-                        [$aggregateId]
-                    );
-                } else {
-                    $updated = DB::update(
-                        'UPDATE aggregate_versions
-                         SET last_sequence = LAST_INSERT_ID(last_sequence + 1)
-                         WHERE aggregate_id = ? AND last_sequence = ?',
-                        [$aggregateId, $expectedSequence]
-                    );
-                }
-
-                if ($expectedSequence !== null && $updated === 0) {
-                    throw new ConcurrencyException(
-                        sprintf('Concurrency conflict for aggregate %s (expected %d).', $aggregateId, $expectedSequence)
-                    );
-                }
-
-                $nextAggregateSequence = (int)DB::getPdo()->lastInsertId();
-
-            } elseif ($driver === 'pgsql' || $driver === 'sqlite') {
-                // PostgresSQL & SQLite
-                $sql = 'UPDATE aggregate_versions SET last_sequence = last_sequence + 1 WHERE aggregate_id = ?';
-                $params = [$aggregateId];
-                if ($expectedSequence !== null) {
-                    $sql .= ' AND last_sequence = ?';
-                    $params[] = $expectedSequence;
-                }
-                $sql .= ' RETURNING last_sequence';
-
-                $rows = DB::select($sql, $params);
-
-                if ($expectedSequence !== null && empty($rows)) {
-                    throw new ConcurrencyException(
-                        sprintf('Concurrency conflict for aggregate %s (expected %d).', $aggregateId, $expectedSequence)
-                    );
-                }
-
-                // For the no-expected case, we still expect exactly one row
-                // @codeCoverageIgnoreStart
-                if (empty($rows)) {
-                    throw new RuntimeException('Failed to advance aggregate version');
-                }
-                // @codeCoverageIgnoreEnd
-
-                // DB::select returns an array of stdClass
-                $nextAggregateSequence = (int)($rows[0]->last_sequence ?? 0);
-
-            } else {
-                // Fallback: portable two-step (possible duplicate conflict if optimistic locking is disabled under extreme concurrency)
-                $q = DB::table('aggregate_versions')->where('aggregate_id', $aggregateId);
-                if ($expectedSequence !== null) {
-                    $q->where('last_sequence', $expectedSequence);
-                }
-                $updated = $q->update(['last_sequence' => DB::raw('last_sequence + 1')]);
-
-                if ($expectedSequence !== null && $updated === 0) {
-                    throw new ConcurrencyException(
-                        sprintf('Concurrency conflict for aggregate %s (expected %d).', $aggregateId, $expectedSequence)
-                    );
-                }
-
-                $nextAggregateSequence = (int)DB::table('aggregate_versions')
-                    ->where('aggregate_id', $aggregateId)
-                    ->value('last_sequence');
-            }
-
-            // Insert the event with the computed per-aggregate version
-            DB::table($eventsTable)->insert([
+            $insertedSequence = DB::table($eventsTable)->insertGetId([
                 'aggregate_id' => $aggregateId,
                 'aggregate_sequence' => $nextAggregateSequence,
                 'event_type' => $this->aliases->resolveAlias($event::class) ?? $event::class,
@@ -122,7 +64,12 @@ class DatabaseEventStore implements EventStore
                 'correlation_id' => EventContext::correlationId(),
                 'event_data' => $this->serializer->serialize($event),
                 'occurred_at' => Carbon::now('UTC')->format('Y-m-d H:i:s'),
-            ]);
+            ], 'sequence');
+
+            if ($this->publicationPolicy->shouldPublish($event)) {
+                $partition = $this->partitioner->keyForBucket($aggregateId);
+                $this->outbox->enqueue($insertedSequence, $partition);
+            }
 
             return $nextAggregateSequence;
         });
@@ -137,11 +84,6 @@ class DatabaseEventStore implements EventStore
     null): Generator
     {
         return $this->strategyResolver->resolve($aggregateId)->all($aggregateId, $window, $eventType);
-    }
-
-    protected function driver(): string
-    {
-        return DB::connection()->getDriverName();
     }
 
     public function getByGlobalSequence(int $sequence): ?StoredEvent
@@ -188,6 +130,91 @@ class DatabaseEventStore implements EventStore
             occurredAt: (string)$row->occurred_at,
             correlationId: $row->correlation_id ?? null
         );
+    }
+
+    /**
+     * MySQL/MariaDB: atomically advance aggregate version via LAST_INSERT_ID trick.
+     * @throws ConcurrencyException
+     */
+    private function advanceSequenceMysql(string $aggregateId, ?int $expectedSequence): int
+    {
+        if ($expectedSequence === null) {
+            $updated = DB::update(
+                'UPDATE aggregate_versions
+                 SET last_sequence = LAST_INSERT_ID(last_sequence + 1)
+                 WHERE aggregate_id = ?',
+                [$aggregateId]
+            );
+        } else {
+            $updated = DB::update(
+                'UPDATE aggregate_versions
+                 SET last_sequence = LAST_INSERT_ID(last_sequence + 1)
+                 WHERE aggregate_id = ? AND last_sequence = ?',
+                [$aggregateId, $expectedSequence]
+            );
+        }
+
+        if ($expectedSequence !== null && $updated === 0) {
+            throw new ConcurrencyException(
+                sprintf('Concurrency conflict for aggregate %s (expected %d).', $aggregateId, $expectedSequence)
+            );
+        }
+
+        return (int)DB::getPdo()->lastInsertId();
+    }
+
+    /**
+     * PostgreSQL & SQLite: UPDATE ... RETURNING last_sequence.
+     * @throws ConcurrencyException
+     */
+    private function advanceSequencePgsqlSqlite(string $aggregateId, ?int $expectedSequence): int
+    {
+        $sql = 'UPDATE aggregate_versions SET last_sequence = last_sequence + 1 WHERE aggregate_id = ?';
+        $params = [$aggregateId];
+        if ($expectedSequence !== null) {
+            $sql .= ' AND last_sequence = ?';
+            $params[] = $expectedSequence;
+        }
+        $sql .= ' RETURNING last_sequence';
+
+        $rows = DB::select($sql, $params);
+
+        if ($expectedSequence !== null && empty($rows)) {
+            throw new ConcurrencyException(
+                sprintf('Concurrency conflict for aggregate %s (expected %d).', $aggregateId, $expectedSequence)
+            );
+        }
+
+        // @codeCoverageIgnoreStart
+        if (empty($rows)) {
+            throw new RuntimeException('Failed to advance aggregate version');
+        }
+        // @codeCoverageIgnoreEnd
+
+        return (int)($rows[0]->last_sequence ?? 0);
+    }
+
+    /**
+     * Generic portable fallback: conditional UPDATE then SELECT last_sequence.
+     * @throws ConcurrencyException
+     */
+    private function advanceSequenceGeneric(string $aggregateId, ?int $expectedSequence): int
+    {
+        $q = DB::table('aggregate_versions')->where('aggregate_id', $aggregateId);
+        if ($expectedSequence !== null) {
+            $q->where('last_sequence', $expectedSequence);
+        }
+        $updated = $q->update(['last_sequence' => DB::raw('last_sequence + 1')]);
+
+        if ($expectedSequence !== null && $updated === 0) {
+            throw new ConcurrencyException(
+                sprintf('Concurrency conflict for aggregate %s (expected %d).', $aggregateId, $expectedSequence)
+            );
+        }
+
+        return (int)DB::table('aggregate_versions')
+            ->where('aggregate_id', $aggregateId)
+            ->value('last_sequence');
     }
 
     public function resolveAggregateIdClass(string $aggregateId): ?string

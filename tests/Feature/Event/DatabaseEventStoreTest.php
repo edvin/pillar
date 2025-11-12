@@ -16,7 +16,11 @@ use Pillar\Event\DatabaseEventStore;
 use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
+use Pillar\Event\PublicationPolicy;
 use Pillar\Event\Stream\StreamResolver;
+use Pillar\Facade\Pillar;
+use Pillar\Outbox\Outbox;
+use Pillar\Outbox\Partitioner;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Serialization\JsonObjectSerializer;
 use Pillar\Serialization\ObjectSerializer;
@@ -91,6 +95,9 @@ it('uses the portable path for unsupported drivers and still persists correctly'
         app(ObjectSerializer::class),
         app(EventAliasRegistry::class),
         app(EventFetchStrategyResolver::class),
+        app(PublicationPolicy::class),
+        app(Outbox::class),
+        app(Partitioner::class),
     ) extends DatabaseEventStore {
         protected function driver(): string
         {
@@ -142,6 +149,9 @@ it('enforces expectedSequence on the portable path (conflict throws ConcurrencyE
         app(ObjectSerializer::class),
         app(EventAliasRegistry::class),
         app(EventFetchStrategyResolver::class),
+        app(PublicationPolicy::class),
+        app(Outbox::class),
+        app(Partitioner::class),
     ) extends DatabaseEventStore {
         protected function driver(): string
         {
@@ -257,7 +267,7 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
         try {
             Schema::connection('it_mysql')->dropIfExists('events');
             Schema::connection('it_mysql')->dropIfExists('aggregate_versions');
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // ignore if connection is gone
         }
 
@@ -316,13 +326,19 @@ it('throws when attempting to save non event sourced aggregate in event store', 
     $id = GenericAggregateId::new();
 
     $aggregate = new class($id) implements AggregateRoot {
-        public function __construct(private AggregateRootId $id) {}
-        public function id(): AggregateRootId { return $this->id; }
+        public function __construct(private AggregateRootId $id)
+        {
+        }
+
+        public function id(): AggregateRootId
+        {
+            return $this->id;
+        }
     };
 
     $repo = app(EventStoreRepository::class);
 
-    expect(fn () => $repo->save($aggregate))
+    expect(fn() => $repo->save($aggregate))
         ->toThrow(LogicException::class, 'EventSourcedAggregateRoot'); // message contains substring
 });
 
@@ -365,7 +381,7 @@ it('wraps repository save in its own transaction when called outside a transacti
         /** @var EventStoreRepository $repo */
         $repo = app(EventStoreRepository::class);
 
-        $id  = DocumentId::new();
+        $id = DocumentId::new();
         $doc = Document::create($id, 't0');
         $doc->rename('t1');
 
@@ -390,7 +406,7 @@ it('wraps repository save in its own transaction when called outside a transacti
         try {
             Schema::dropIfExists('events');
             Schema::dropIfExists('aggregate_versions');
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             // ignore
         }
 
@@ -406,4 +422,27 @@ it('wraps repository save in its own transaction when called outside a transacti
         // Refresh app to clear any singletons bound to the temp connection
         test()->refreshApplication();
     }
+});
+
+it('returns the aggregate id class for a known aggregate id', function () {
+    $id = DocumentId::new();
+
+    // Produce a persisted aggregate (writes to events + aggregate_versions)
+    $s = Pillar::session();
+    $s->attach(Document::create($id, 'v0'));
+    $s->commit();
+
+    /** @var DatabaseEventStore $store */
+    $store = app(DatabaseEventStore::class);
+
+    expect($store->resolveAggregateIdClass((string)$id))
+        ->toBe(DocumentId::class);
+});
+
+it('returns null for an unknown aggregate id', function () {
+    /** @var DatabaseEventStore $store */
+    $store = app(DatabaseEventStore::class);
+
+    expect($store->resolveAggregateIdClass('00000000-0000-0000-0000-000000000000'))
+        ->toBeNull();
 });

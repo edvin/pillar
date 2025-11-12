@@ -241,7 +241,7 @@ sequenceDiagram
     Repository -->> Session: reconstituted aggregate
     CommandHandler ->> Aggregate: execute method (rename())
     Aggregate ->> Aggregate: record(event)
-    Aggregate ->> Session: releaseEvents()
+    Aggregate ->> Session: clearEvents()
     Session ->> Repository: save(Aggregate)
     Repository ->> EventStore: append events
     Session -->> Client: commit complete

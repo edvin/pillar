@@ -32,18 +32,22 @@ The installer will publish migrations and config, then run the migrations.
 
 You’ll get the following files:
 
-| File                                                                        | Description                                                             |
-|-----------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_events_table.php`             | Stores domain events                                                    |
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_aggregate_versions_table.php` | Tracks per‑aggregate versions (for optimistic concurrency & sequencing) |
-| `config/pillar.php`                                                         | Configure repositories, event store, serializer (+ optional encryption) |
+| File                                                                        | Description                                                               |
+|-----------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_events_table.php`             | Stores domain events                                                      |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_aggregate_versions_table.php` | Tracks per‑aggregate versions (for optimistic concurrency & sequencing)   |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_table.php`             | Outbox storage for events implementing `ShouldPublish`                    |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_partitions_table.php`  | Tracks outbox partitions to support cooperative leasing worker scheduling |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_workers_table.php`     | Tracks connected outbox publishing workers                                |
+| `config/pillar.php`                                                         | Configure Pillar                                                          |
 
 ---
 
 ## ✅ Hello Pillar
 
 We’ll create a minimal **Document** aggregate with a single event and persist it using an **AggregateSession**. This
-keeps the first run simple by not introducing a command step yet; the tutorial adds command/query buses and registries later.
+keeps the first run simple by not introducing a command step yet; the tutorial adds command/query buses and registries
+later.
 
 ### 1) ID value object
 

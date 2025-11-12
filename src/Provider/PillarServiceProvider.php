@@ -14,15 +14,23 @@ use Pillar\Console\MakeCommandCommand;
 use Pillar\Console\MakeContextCommand;
 use Pillar\Console\MakeEventCommand;
 use Pillar\Console\MakeQueryCommand;
+use Pillar\Console\OutboxWorkCommand;
 use Pillar\Console\ReplayEventsCommand;
 use Pillar\Context\ContextLoader;
 use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventReplayer;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
+use Pillar\Event\PublicationPolicy;
 use Pillar\Event\Stream\StreamResolver;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Http\Middleware\AuthorizePillarUI;
+use Pillar\Outbox\Crc32Partitioner;
+use Pillar\Outbox\DatabaseOutbox;
+use Pillar\Outbox\Lease\DatabasePartitionLeaseStore;
+use Pillar\Outbox\Lease\PartitionLeaseStore;
+use Pillar\Outbox\Outbox;
+use Pillar\Outbox\Partitioner;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Repository\RepositoryResolver;
 use Pillar\Security\EncryptingSerializer;
@@ -39,6 +47,7 @@ class PillarServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../../config/pillar.php', 'pillar');
 
+        // Configurable implementations
         $this->app->singleton(ObjectSerializer::class, EncryptingSerializer::class);
         $this->app->singleton(SnapshotPolicy::class, DelegatingSnapshotPolicy::class);
         $this->app->singleton(SnapshotStore::class, Config::get('pillar.snapshot.store.class'));
@@ -46,7 +55,14 @@ class PillarServiceProvider extends ServiceProvider
         $this->app->singleton(CommandBusInterface::class, Config::get('pillar.buses.command.class'));
         $this->app->singleton(QueryBusInterface::class, Config::get('pillar.buses.query.class'));
         $this->app->singleton(StreamResolver::class, Config::get('pillar.stream_resolver.class'));
+        $this->app->singleton(PublicationPolicy::class, Config::get('pillar.publication_policy.class'));
+        $this->app->singleton(Partitioner::class, Config::get('pillar.outbox.partitioner.class'));
 
+        // Pluggable, but not yet configurable implementations
+        $this->app->singleton(Outbox::class, DatabaseOutbox::class);
+        $this->app->singleton(PartitionLeaseStore::class, DatabasePartitionLeaseStore::class);
+
+        // Singletons without interface
         $this->app->singleton(PillarManager::class);
         $this->app->singleton(RepositoryResolver::class);
         $this->app->singleton(EventFetchStrategyResolver::class);
@@ -71,6 +87,7 @@ class PillarServiceProvider extends ServiceProvider
                 MakeContextCommand::class,
                 MakeAggregateCommand::class,
                 MakeEventCommand::class,
+                OutboxWorkCommand::class,
             ]);
 
             $this->publishMigrations();
@@ -123,6 +140,9 @@ class PillarServiceProvider extends ServiceProvider
         $names = [
             'create_events_table',
             'create_aggregate_versions_table',
+            'create_outbox_table',
+            'create_outbox_partitions_table',
+            'create_outbox_workers_table',
         ];
 
         $publish = [];

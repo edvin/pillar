@@ -188,7 +188,8 @@ final class EventReplayer
             EventContext::initialize(
                 occurredAt: $storedEvent->occurredAt,
                 correlationId: $storedEvent->correlationId,
-                reconstituting: true
+                reconstituting: true,
+                replaying: true
             );
 
             $eventClass = $storedEvent->event::class;

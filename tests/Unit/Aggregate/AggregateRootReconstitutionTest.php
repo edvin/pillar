@@ -10,7 +10,7 @@ it('skips recording while reconstituting but still applies state, and resumes re
     $doc = Document::create($id, 'v0');
 
     // Drop the initial DocumentCreated event so we isolate the test
-    $doc->releaseEvents();
+    $doc->clearRecordedEvents();
 
     // While reconstituting: record() is invoked via rename(), but it must NOT buffer events.
     EventContext::initialize(reconstituting: true);

@@ -32,6 +32,9 @@ export default withMermaid(defineConfig({
                     {text: 'Repositories', link: '/concepts/repositories'},
                     {text: 'Snapshotting', link: '/concepts/snapshotting'},
                     {text: 'Projectors', link: '/concepts/projectors'},
+                    {text: 'Events', link: '/concepts/events'},
+                    {text: 'Outbox', link: '/concepts/outbox'},
+                    {text: 'Outbox Worker', link: '/concepts/outbox-worker'},
                     {
                         text: 'Serialization', link: '/concepts/serialization', items: [
                             {text: 'Payload encryption', link: '/concepts/serialization#payload-encryption'},

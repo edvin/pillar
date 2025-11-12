@@ -74,7 +74,7 @@ if ($atVersion) {
 final class LoadedAggregate
 {
     public function __construct(
-        public readonly \Pillar\Aggregate\AggregateRoot $aggregate,
+        public readonly AggregateRoot $aggregate,
         public readonly int $version = 0, // default when no persisted version is known
     ) {}
 }
@@ -84,12 +84,12 @@ interface AggregateRepository
     /**
      * Rehydrate the aggregate; when $window is provided, return state as-of that bound.
      */
-    public function find(\Pillar\Aggregate\AggregateRootId $id, ?\Pillar\Event\EventWindow $window = null): ?LoadedAggregate;
+    public function find(AggregateRootId $id, ?EventWindow $window = null): ?LoadedAggregate;
 
     /**
      * Persist changes. Implementations may honor optimistic concurrency via $expectedVersion.
      */
-    public function save(\Pillar\Aggregate\AggregateRoot $aggregate, ?int $expectedVersion = null): void;
+    public function save(AggregateRoot $aggregate, ?int $expectedVersion = null): void;
 }
 ```
 
@@ -129,12 +129,6 @@ Custom repositories can implement their own version checks or ignore `$expectedV
 For aggregates you don’t want event‑sourced, create a small repository that maps to your tables. (Full example on **Aggregates**.)
 
 ```php
-use Pillar\Aggregate\AggregateRoot;
-use Pillar\Aggregate\AggregateRootId;
-use Pillar\Event\EventWindow;
-use Pillar\Repository\AggregateRepository;
-use Pillar\Repository\LoadedAggregate;
-
 final class DocumentRepository implements AggregateRepository
 {
     public function find(AggregateRootId $id, ?EventWindow $window = null): ?LoadedAggregate
@@ -143,8 +137,8 @@ final class DocumentRepository implements AggregateRepository
         $row = DocumentRecord::query()->find((string) $id);
         if (!$row) return null;
 
-        $agg = new \Context\Document\Domain\Aggregate\Document(
-            \Context\Document\Domain\Identifier\DocumentId::from($row->id),
+        $agg = new Document(
+            DocumentId::from($row->id),
             $row->title
         );
 
@@ -154,7 +148,7 @@ final class DocumentRepository implements AggregateRepository
 
     public function save(AggregateRoot $aggregate, ?int $expectedVersion = null): void
     {
-        /** @var \Context\Document\Domain\Aggregate\Document $aggregate */
+        /** @var Document $aggregate */
         DocumentRecord::query()->updateOrCreate(
             ['id' => (string) $aggregate->id()],
             ['title' => $aggregate->title()]

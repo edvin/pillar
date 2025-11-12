@@ -1,6 +1,7 @@
 ## Event Store
 
-Responsible for persisting and reading domain events. The default implementation is database‑backed. **Note:** the default fetch strategy is not configured here—see **`fetch_strategies.default`** (defaults to `'db_chunked'`).
+Responsible for persisting and reading domain events. The default implementation is database‑backed. **Note:** the
+default fetch strategy is not configured here—see **`fetch_strategies.default`** (defaults to `'db_chunked'`).
 
 ```php
 'event_store' => [
@@ -167,7 +168,8 @@ Responsible for persisting and reading domain events. The default implementation
 
 ## 🛠️ Make: Scaffolding
 
-Configure where the CLI scaffolding places Commands/Queries and their Handlers, and how it registers them into your Context Registries.
+Configure where the CLI scaffolding places Commands/Queries and their Handlers, and how it registers them into your
+Context Registries.
 
 ```php
 'make' => [
@@ -254,7 +256,8 @@ Configure where the CLI scaffolding places Commands/Queries and their Handlers, 
 
 ## 📊 Pillar UI (Stream Browser)
 
-Controls the built‑in event explorer / timeline UI. Outside the environments in `skip_auth_in`, access requires an authenticated user implementing `Pillar\Security\PillarUser` and returning `true` from `canAccessPillar()`.
+Controls the built‑in event explorer / timeline UI. Outside the environments in `skip_auth_in`, access requires an
+authenticated user implementing `Pillar\Security\PillarUser` and returning `true` from `canAccessPillar()`.
 
 ```php
 'ui' => [
@@ -314,3 +317,118 @@ Controls the built‑in event explorer / timeline UI. Outside the environments i
 - `PILLAR_UI_SKIP_AUTH_IN=local,testing` – bypass auth/trait checks in these environments
 - `PILLAR_UI_GUARD=web|sanctum|api` – guard used when UI is protected
 - `PILLAR_UI_PATH=pillar` – base path (UI served at `/{path}`)
+
+---
+
+## 📬 Outbox (Transactional event publishing) {: #outbox }
+
+Persist publishable domain events **in the same DB transaction** and let a background worker deliver them reliably (
+at‑least‑once) with retries. Partitioning allows multiple workers to share the load while preserving per‑partition
+ordering.
+
+```php
+'outbox' => [
+    /*
+    |--------------------------------------------------------------------------
+    | 📬 Transactional Outbox
+    |--------------------------------------------------------------------------
+    | Persist publishable events and enqueue them in the SAME DB transaction.
+    | A background worker claims rows and delivers them with retries
+    | (at-least-once). Partitioning lets multiple workers share the load.
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🧩 Partitioning
+    |--------------------------------------------------------------------------
+    | How many logical partitions (buckets) the outbox is sharded into.
+    | Each partition is processed by at most one worker at a time.
+    | Tip: keep this a power of two for easy scaling.
+    */
+    'partition_count' => 64,
+
+    /*
+    |--------------------------------------------------------------------------
+    | 👷 Worker runtime
+    |--------------------------------------------------------------------------
+    | Runtime knobs for the outbox worker loop. Times are seconds unless noted.
+    |
+    | • leasing         : set to false for single-worker, no partition leasing
+    | • lease_ttl       : how long a partition lease is valid
+    | • lease_renew     : how often a worker renews its leases
+    | • heartbeat_ttl   : how long a worker stays “active” in the registry
+    | • batch_size      : events to claim per polling cycle (fairly split per
+    |                      owned partition at the call site)
+    | • idle_backoff_ms : sleep between polls when nothing was processed (ms)
+    | • claim_ttl       : short claim lease per row during processing
+    | • retry_backoff   : delay before retrying a failed publish
+    |
+    |   If you run multiple workers with leasing disabled, they’ll safely avoid dupes, but
+    |   you’ll lose per-partition ordering guarantees since workers can interleave claims.
+    */
+    'worker' => [
+        'leasing' => true,
+        'lease_ttl' => 15,
+        'lease_renew' => 6,
+        'heartbeat_ttl' => 20,
+        'batch_size' => 100,
+        'idle_backoff_ms' => 200,
+        'claim_ttl' => 15,
+        'retry_backoff' => 60,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🗄️ Table names
+    |--------------------------------------------------------------------------
+    | Customize table names if you need to. These should match your migrations.
+    */
+    'tables' => [
+        'outbox' => 'outbox',
+        'partitions' => 'outbox_partitions',
+        'workers' => 'outbox_workers',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 🧮 Partitioner strategy
+    |--------------------------------------------------------------------------
+    | Controls how the outbox `partition_key` is computed for each event.
+    |
+    | Default: Crc32Partitioner
+    | - Deterministically maps an aggregate id to a bucket string "pNN"
+    |   where NN ∈ [00 .. partition_count-1].
+    | - Reads the bucket count from: pillar.outbox.partition_count
+    | - If `partition_count` <= 1, returns null (no partition key).
+    |
+    | Why partition?
+    | - Each partition is processed by at most one worker at a time, giving
+    |   ordering guarantees per partition and easy horizontal scale.
+    |
+    | Interface:
+    |   Pillar\Outbox\Partitioner
+    |     public function keyFor(string $aggregateId): ?string
+    |
+    | Swapping strategy:
+    | - You can replace the class to route by tenant, context, etc.
+    |   Example:
+    |     'class' => \App\Outbox\TenantPartitioner::class,
+    |
+    | Notes:
+    | - The default bucket label format is "p%02d". If you change formats,
+    |   ensure your worker is configured to claim the same labels.
+    | - Changing the partitioner or `partition_count` in production reshuffles
+    |   load distribution, but does not affect historical data.
+    */
+    'partitioner' => [
+        'class' => \Pillar\Outbox\Crc32Partitioner::class,
+    ],
+],
+```
+
+**Related concepts**
+
+- Mark events to publish via the **`Pillar\Event\ShouldPublish`** interface.
+- Mark events to publish **within the same transaction** via **`Pillar\Event\ShouldPublishInline`** (for synchronous
+  projections).
+- During **replay**, publishing is suppressed; projectors receive events directly from the store.
