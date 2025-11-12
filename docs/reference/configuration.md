@@ -1,7 +1,7 @@
 ## Event Store
 
 Responsible for persisting and reading domain events. The default implementation is database‑backed. **Note:** the
-default fetch strategy is not configured here—see **`fetch_strategies.default`** (defaults to `'db_chunked'`).
+default fetch strategy is not configured here—see **`fetch_strategies.default`** (defaults to `db_chunked`).
 
 ```php
 'event_store' => [
@@ -320,7 +320,7 @@ authenticated user implementing `Pillar\Security\PillarUser` and returning `true
 
 ---
 
-## 📬 Outbox (Transactional event publishing) {: #outbox }
+## 📬 Outbox (Transactional event publishing) {#outbox}
 
 Persist publishable domain events **in the same DB transaction** and let a background worker deliver them reliably (
 at‑least‑once) with retries. Partitioning allows multiple workers to share the load while preserving per‑partition
