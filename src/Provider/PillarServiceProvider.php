@@ -14,6 +14,7 @@ use Pillar\Console\MakeCommandCommand;
 use Pillar\Console\MakeContextCommand;
 use Pillar\Console\MakeEventCommand;
 use Pillar\Console\MakeQueryCommand;
+use Pillar\Console\OutboxPartitionSyncCommand;
 use Pillar\Console\OutboxWorkCommand;
 use Pillar\Console\ReplayEventsCommand;
 use Pillar\Context\ContextLoader;
@@ -25,7 +26,6 @@ use Pillar\Event\PublicationPolicy;
 use Pillar\Event\Stream\StreamResolver;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Http\Middleware\AuthorizePillarUI;
-use Pillar\Outbox\Crc32Partitioner;
 use Pillar\Outbox\DatabaseOutbox;
 use Pillar\Outbox\Lease\DatabasePartitionLeaseStore;
 use Pillar\Outbox\Lease\PartitionLeaseStore;
@@ -88,6 +88,7 @@ class PillarServiceProvider extends ServiceProvider
                 MakeAggregateCommand::class,
                 MakeEventCommand::class,
                 OutboxWorkCommand::class,
+                OutboxPartitionSyncCommand::class
             ]);
 
             $this->publishMigrations();

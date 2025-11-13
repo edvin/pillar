@@ -544,8 +544,9 @@ return [
         | How many logical partitions (buckets) the outbox is sharded into.
         | Each partition is processed by at most one worker at a time.
         | Tip: keep this a power of two for easy scaling.
+        | If you change this value, please run `php artisan pillar:outbox:partitions:sync`
         */
-        'partition_count' => 64,
+        'partition_count' => 16,
 
         /*
         |--------------------------------------------------------------------------
@@ -615,13 +616,14 @@ return [
         |     'class' => \App\Outbox\TenantPartitioner::class,
         |
         | Notes:
-        | - The default bucket label format is "p%02d". If you change formats,
-        |   ensure your worker is configured to claim the same labels.
+        | - The default bucket label format is "p%02d".
         | - Changing the partitioner or `partition_count` in production reshuffles
         |   load distribution, but does not affect historical data.
         */
         'partitioner' => [
             'class' => \Pillar\Outbox\Crc32Partitioner::class,
+            // Label format: %02d = 2-digit bucket number, 00-99
+            'label_format' => 'p%02d'
         ],
     ],
 ];

@@ -20,14 +20,15 @@
                 } else {
                     root.classList.remove('dark');
                 }
-            } catch (_) {}
+            } catch (_) {
+            }
         })();
     </script>
 
     <!-- 2) Tailwind CDN config -->
     <script>
         window.tailwind = window.tailwind || {};
-        window.tailwind.config = { darkMode: 'class' };
+        window.tailwind.config = {darkMode: 'class'};
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
 
@@ -39,9 +40,17 @@
         <a href="{{ route('pillar.ui.index') }}" class="font-semibold text-lg tracking-tight">
             <span class="bg-gradient-to-r from-sky-500 to-indigo-500 bg-clip-text text-transparent">Pillar Stream Browser</span>
         </a>
+        <a href="{{ route('pillar.ui.outbox') }}"
+           class="inline-flex items-center gap-2 hover:text-sky-600 text-slate-700 dark:text-slate-300 dark:hover:text-sky-400">
+            <span aria-hidden="true">📬</span>
+            <span>Outbox</span>
+        </a>
+
         <nav class="text-sm flex items-center gap-4">
-            <a class="hover:text-sky-600 text-slate-700 dark:text-slate-300 dark:hover:text-sky-400" href="{{ route('pillar.ui.index') }}">Dashboard</a>
-            <a class="hover:text-sky-600 text-slate-700 dark:text-slate-300 dark:hover:text-sky-400" href="https://docs.pillarphp.dev" target="_blank" rel="noreferrer">Docs</a>
+            <a class="hover:text-sky-600 text-slate-700 dark:text-slate-300 dark:hover:text-sky-400"
+               href="{{ route('pillar.ui.index') }}">Dashboard</a>
+            <a class="hover:text-sky-600 text-slate-700 dark:text-slate-300 dark:hover:text-sky-400"
+               href="https://docs.pillarphp.dev" target="_blank" rel="noreferrer">Docs</a>
 
             <!-- Theme toggle -->
             <button id="theme-toggle" type="button"
@@ -78,7 +87,8 @@
                 var nowDark = !root.classList.contains('dark');
                 root.classList.toggle('dark', nowDark);
                 localStorage.setItem(key, nowDark ? 'dark' : 'light');
-            } catch (_) {}
+            } catch (_) {
+            }
         });
     })();
 </script>

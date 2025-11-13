@@ -11,6 +11,7 @@ use Pillar\Event\EventStore;
 use Pillar\Outbox\Lease\PartitionLeaseStore;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
+use ReflectionClass;
 use RuntimeException;
 use Throwable;
 
@@ -21,6 +22,10 @@ final class WorkerRunner
     /** @var list<string> */
     private array $owned = [];
     private int $lastRenewNs = 0;
+    /** @var list<string> */
+    private array $cachedActiveWorkers = [];
+    /** @var list<string> */
+    private array $cachedDesired = [];
 
     public function __construct(
         private readonly WorkerRegistry      $registry,
@@ -33,7 +38,7 @@ final class WorkerRunner
         #[Config('pillar.outbox.worker.leasing')]
         private readonly bool                $leasing = true,
         #[Config('pillar.outbox.partition_count')]
-        private readonly int                 $partitionCount = 64,
+        private readonly int                 $partitionCount = 16,
         #[Config('pillar.outbox.worker.batch_size')]
         private readonly int                 $batchSize = 100,
         #[Config('pillar.outbox.worker.lease_ttl')]
@@ -44,7 +49,11 @@ final class WorkerRunner
         private readonly int                 $idleBackoffMs = 200,
     )
     {
-        $this->identity = new WorkerIdentity($this->workerId ?? Str::uuid()->toString());
+        $this->identity = new WorkerIdentity(
+            $this->workerId ?? Str::uuid()->toString(),
+            gethostname(),
+            getmypid()
+        );
     }
 
     /**
@@ -85,34 +94,53 @@ final class WorkerRunner
             $this->lastRenewNs = $nowNs;
         }
 
-        // Cache active worker ids once per tick to avoid multiple queries
-        $activeWorkersList = $this->activeWorkerIds();
+        // Cache active worker ids; refresh only on renew cadence or first run
+        if ($this->cachedActiveWorkers === [] || $dueRenew) {
+            $this->cachedActiveWorkers = $this->activeWorkerIds();
+        }
+        $activeWorkersList = $this->cachedActiveWorkers;
 
         // Acquire partitions (leasing mode)
         $partitions = [];
         if ($this->leasing) {
-            // Determine which partitions this worker should own (stable modulo by active worker ids)
-            $desired = $this->targetPartitionsFromWorkers($activeWorkersList);
+            // Compute desired set for reporting; refresh when workers list changes
+            if ($this->cachedDesired === [] || $dueRenew) {
+                $this->cachedDesired = $this->targetPartitionsFromWorkers($activeWorkersList);
+            }
+            $desired = $this->cachedDesired;
             $desiredPartitions = $desired;
 
-            // Release any partitions we shouldn't own anymore
-            $toRelease = array_values(array_diff($this->owned, $desired));
-            if ($toRelease !== []) {
-                $this->leases->release($toRelease, $this->identity->id);
-                $this->owned = array_values(array_diff($this->owned, $toRelease));
-            }
-            $releasedPartitions = $toRelease;
+            // Decide if we need a full lease sync this tick:
+            // - on renew cadence, or
+            // - if we currently own nothing (startup/recover)
+            $shouldSyncLeases = $dueRenew || $this->owned === [];
 
-            // Try to lease any missing desired partitions in one batch
-            $toLease = array_values(array_diff($desired, $this->owned));
-            if ($toLease !== []) {
-                $this->leases->tryLease($toLease, $this->identity->id, $this->leaseTtl);
-                // Treat desired as authoritative; we renew them on cadence
-                $this->owned = $desired;
-            }
-            $leasedPartitions = $toLease;
+            if ($shouldSyncLeases) {
+                // Sync from DB: what do we actually own right now?
+                $ownedNow = $this->leases->ownedBy($this->identity->id, $desired);
 
-            // Only claim from partitions we intend to own
+                // Release any partitions we currently own but shouldn't
+                $toRelease = array_values(array_diff($ownedNow, $desired));
+                if ($toRelease !== []) {
+                    $this->leases->release($toRelease, $this->identity->id);
+                    $ownedNow = array_values(array_diff($ownedNow, $toRelease));
+                }
+                $releasedPartitions = $toRelease;
+
+                // Try to lease any missing desired partitions
+                $toLease = array_values(array_diff($desired, $ownedNow));
+                if ($toLease !== []) {
+                    $this->leases->tryLease($toLease, $this->identity->id, $this->leaseTtl);
+                    $leasedPartitions = $toLease; // attempts this tick
+                } else {
+                    $leasedPartitions = [];
+                }
+
+                // Refresh ownership from DB (limit to desired for a stable view)
+                $this->owned = $this->leases->ownedBy($this->identity->id, $desired);
+            }
+
+            // Claim only from what we believe we own (kept fresh by renew+periodic sync)
             $partitions = $this->owned;
         } else {
             // No leasing: claim from all partitions ("[]" = no filter)
@@ -135,7 +163,7 @@ final class WorkerRunner
             } catch (Throwable $e) {
                 $this->outbox->markFailed($m, $e);
                 $lastErrors[] = [
-                    'ts'  => now()->toIso8601String(),
+                    'ts' => now()->toIso8601String(),
                     'msg' => $this->shortError($e),
                     'seq' => $m->globalSequence,
                 ];
@@ -156,8 +184,8 @@ final class WorkerRunner
             usleep($this->idleBackoffMs * 1000);
         }
 
-        // Purge stale workers at most once every 15 minutes across the fleet
-        if (Cache::add('outbox:purge-stale:once', 1, now()->addMinutes(15))) {
+        // Purge stale workers at most once every 5 minutes across the fleet
+        if (Cache::add('outbox:purge-stale:once', 1, now()->addMinutes(5))) {
             $purged = $this->registry->purgeStale();
             Log::info("Purged $purged stale workers");
         }
@@ -166,19 +194,19 @@ final class WorkerRunner
         $durationMs = ($t1 - $t0) / 1e6;
 
         return new TickResult(
-            renewedHeartbeat:  $renewedHeartbeat,
-            activeWorkers:     count($activeWorkersList),
+            renewedHeartbeat: $renewedHeartbeat,
+            activeWorkers: count($activeWorkersList),
             desiredPartitions: $desiredPartitions,
-            leasedPartitions:  $leasedPartitions,
-            releasedPartitions:$releasedPartitions,
-            ownedPartitions:   $this->owned,
-            claimed:           $claimed,
-            published:         $published,
-            failed:            $failed,
-            purgedStale:       $purged,
-            backoffMs:         $backoffMs,
-            durationMs:        $durationMs,
-            lastErrors:       $lastErrors,
+            leasedPartitions: $leasedPartitions,
+            releasedPartitions: $releasedPartitions,
+            ownedPartitions: $this->owned,
+            claimed: $claimed,
+            published: $published,
+            failed: $failed,
+            purgedStale: $purged,
+            backoffMs: $backoffMs,
+            durationMs: $durationMs,
+            lastErrors: $lastErrors,
         );
     }
 
@@ -206,13 +234,14 @@ final class WorkerRunner
 
         $n = max(1, count($workers));
         $idx = array_search($this->identity->id, $workers, true);
-        if ($idx === false) {
-            $idx = 0;
-        }
+        if ($idx === false) $idx = 0;
 
         $parts = [];
         for ($i = $idx; $i < $count; $i += $n) {
-            $parts[] = $this->partitioner->keyForBucket($i);
+            $label = $this->partitioner->labelForIndex($i);
+            if ($label !== null) {
+                $parts[] = $label;
+            }
         }
         return $parts;
     }
@@ -227,9 +256,9 @@ final class WorkerRunner
         return $this->targetPartitionsFromWorkers($workers);
     }
 
-    private function shortError(\Throwable $e): string
+    private function shortError(Throwable $e): string
     {
-        $class = (new \ReflectionClass($e))->getShortName();
+        $class = new ReflectionClass($e)->getShortName();
         $msg = $e->getMessage();
         return $class . ': ' . $this->truncate($msg, 200);
     }

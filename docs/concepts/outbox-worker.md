@@ -120,6 +120,35 @@ Example JSON line:
 
 ---
 
+## ⚠️ Changing `partition_count`
+
+If you change **`pillar.outbox.partition_count`**, you must sync the lease keyspace so the `outbox_partitions` table matches your new configuration:
+
+```bash
+php artisan pillar:outbox:partitions:sync --prune
+```
+
+**Why this matters**
+
+- The set of partition labels (e.g., `p00..p63`) is derived from `partition_count`. Workers only lease partitions that exist in `outbox_partitions`.
+- Changing `partition_count` changes the **hash-to-partition mapping** for **future** events. Existing outbox rows keep their original `partition_key`.
+
+**Ramifications & safe procedure**
+
+- **Increasing** the count: safe. Run the sync command (with `--prune`) to create the new partitions. Workers will rebalance automatically.
+- **Decreasing** the count: take care to avoid **stranded rows** in “old” partitions.
+  - With leasing enabled, workers won’t target partitions that no longer exist in `outbox_partitions`.
+  - Recommended procedure:
+    1. Run `pillar:outbox:partitions:sync` **without** `--prune` first. This creates the new keyspace but keeps the old partitions.
+    2. Let workers drain any remaining messages in the old partitions (watch the UI).
+    3. When old partitions are empty, run `pillar:outbox:partitions:sync --prune` to remove them.
+  - Alternative: temporarily run the worker with `--no-leasing` (or set `worker.leasing=false`) to process all rows regardless of partition leases, then switch back and prune.
+
+**Notes**
+
+- The UI’s partitions view reflects `outbox_partitions`; re‑run the sync command after a config change so the UI matches.
+- Event streams are unaffected; only outbox **leasing/claiming** is impacted.
+
 ## Operational tips
 
 - Keep handler side‑effects **idempotent** (outbox is at‑least‑once).

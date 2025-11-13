@@ -77,7 +77,7 @@ Excerpt from `config/pillar.php`:
 ```php
 'outbox' => [
     // 🧩 Partitioning
-    'partition_count' => 64,
+    'partition_count' => 16,
 
     // 👷 Worker runtime
     'worker' => [
@@ -123,6 +123,23 @@ Runner behavior:
 - With **leasing = false**, there’s no partition restriction—claims can interleave across partitions (no per‑partition ordering).
 
 ---
+
+## UI: Outbox Monitor
+
+If the Pillar UI is enabled, you can inspect workers, partitions and outbox messages at:
+
+```
+`/{pillar.ui.path}/outbox` (default: `/pillar/outbox`)
+```
+
+The `{pillar.ui.path}` comes from your UI config (`pillar.ui.path`). The page shows:
+
+- **Active workers** with heartbeats and TTL
+- **Throughput** for the last 60 minutes
+- **Partition leases** (who owns what, TTLs)
+- **Outbox messages** (Pending / Published / Failed views)
+
+For configuration options, see the [configuration → Outbox](/reference/configuration#outbox) section.
 
 ## CLI: Outbox Worker
 

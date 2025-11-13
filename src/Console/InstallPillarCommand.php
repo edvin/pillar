@@ -3,7 +3,6 @@
 namespace Pillar\Console;
 
 use Illuminate\Console\Command;
-
 use function Laravel\Prompts\confirm;
 
 final class InstallPillarCommand extends Command
@@ -23,16 +22,23 @@ final class InstallPillarCommand extends Command
             ]);
 
             // Optionally run migrations right away
-            if (confirm('Run database migrations now?', default: true)) {
+            if (confirm('Run database migrations now?')) {
                 $this->call('migrate');
             }
         }
 
         // Publish config
-        if (confirm('Publish the configuration file?', default: true)) {
+        if (confirm('Publish the configuration file?')) {
             $this->call('vendor:publish', [
                 '--provider' => 'Pillar\\Provider\\PillarServiceProvider',
                 '--tag' => 'config',
+            ]);
+        }
+
+        // Outbox partitions maintenance: sync to current config and prune extras
+        if (confirm('Initialize Outbox partitions?')) {
+            $this->call('pillar:outbox:partitions:sync', [
+                '--prune' => true,
             ]);
         }
 

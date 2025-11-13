@@ -44,10 +44,10 @@ final class AggregateController extends Controller
                 $aggregateId = $idClass::from($rawId);
             } catch (\Throwable) {
                 $aggregateType = null;
-                $aggregateId = \Pillar\Aggregate\GenericAggregateId::from($rawId);
+                $aggregateId = GenericAggregateId::from($rawId);
             }
         } else {
-            $aggregateId = \Pillar\Aggregate\GenericAggregateId::from($rawId);
+            $aggregateId = GenericAggregateId::from($rawId);
         }
 
         return [$aggregateId, $idClass, $aggregateType];

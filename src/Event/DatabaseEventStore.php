@@ -67,7 +67,7 @@ class DatabaseEventStore implements EventStore
             ], 'sequence');
 
             if ($this->publicationPolicy->shouldPublish($event)) {
-                $partition = $this->partitioner->keyForBucket($aggregateId);
+                $partition = $this->partitioner->partitionKeyForAggregate($aggregateId);
                 $this->outbox->enqueue($insertedSequence, $partition);
             }
 
