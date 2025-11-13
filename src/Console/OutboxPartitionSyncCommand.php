@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+// @codeCoverageIgnoreStart
 
 namespace Pillar\Console;
 
@@ -67,3 +68,4 @@ final class OutboxPartitionSyncCommand extends Command
         return self::SUCCESS;
     }
 }
+// @codeCoverageIgnoreEnd

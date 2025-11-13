@@ -62,7 +62,7 @@ In all cases, DB time is used (portable helpers) to avoid clock skew.
 
 ## Partitioning (ordering & scale)
 
-- Configure `partition_count` (e.g., 64). Each outbox row may include a `partition_key` like `p07`.
+- Configure `partition_count` (e.g., 16). Each outbox row may include a `partition_key` like `p07`.
 - Each partition is processed by **at most one worker at a time**, providing **ordering per partition**.
 - A default **CRC32** partitioner maps an aggregate id to a partition key. You can replace the strategy (e.g., per tenant).
 
@@ -86,7 +86,7 @@ Excerpt from `config/pillar.php`:
         'lease_renew'    => 6,
         'heartbeat_ttl'  => 20,
         'batch_size'     => 100,
-        'idle_backoff_ms'=> 200,
+        'idle_backoff_ms'=> 1000,
         'claim_ttl'      => 15,
         'retry_backoff'  => 60,
     ],
@@ -126,7 +126,9 @@ Runner behavior:
 
 ## UI: Outbox Monitor
 
-If the Pillar UI is enabled, you can inspect workers, partitions and outbox messages at:
+If the Pillar UI is enabled, you can inspect workers, partitions and outbox messages:
+
+![Dashboard](/outbox-monitor.png)
 
 ```
 `/{pillar.ui.path}/outbox` (default: `/pillar/outbox`)

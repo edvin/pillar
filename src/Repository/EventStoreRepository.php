@@ -116,7 +116,7 @@ final readonly class EventStoreRepository implements AggregateRepository
             $aggregate = new ($id->aggregateClass());
         }
 
-        // @codeCoverageIgnoreStart - hard to test, since they can't be inserted into the store
+        // @codeCoverageIgnoreStart
         if (!$aggregate instanceof EventSourcedAggregateRoot) {
             throw new LogicException(sprintf(
                 '%s can only load EventSourcedAggregateRoot; got %s',

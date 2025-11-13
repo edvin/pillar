@@ -8,7 +8,7 @@ use stdClass;
  * Generic ID for cases where we only have a UUID (e.g., CLI replay filters)
  * and do not know the aggregate class. Never used on write paths.
  */
-final readonly class GenericAggregateId extends AggregateRootId
+readonly class GenericAggregateId extends AggregateRootId
 {
     public static function aggregateClass(): string
     {

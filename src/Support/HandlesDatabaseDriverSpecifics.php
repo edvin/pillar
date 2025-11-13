@@ -25,15 +25,14 @@ trait HandlesDatabaseDriverSpecifics
         };
     }
 
-    private function dbPlusSeconds(int $seconds): Expression
+    private function dbPlusSeconds(int $seconds): \Illuminate\Database\Query\Expression
     {
         return match ($this->dbDriver()) {
             'mysql' => DB::raw("DATE_ADD(UTC_TIMESTAMP(), INTERVAL {$seconds} SECOND)"),
             'pgsql' => DB::raw("NOW() + INTERVAL '{$seconds} seconds'"),
-            'sqlite' => DB::raw("datetime('now', '+{$seconds} seconds')"),
             'sqlsrv' => DB::raw("DATEADD(SECOND, {$seconds}, SYSUTCDATETIME())"),
-            default => DB::raw('CURRENT_TIMESTAMP'),
+            // SQLite and portable fallback
+            default => DB::raw("datetime('now', '" . sprintf('%+d seconds', $seconds) . "')"),
         };
     }
-
 }

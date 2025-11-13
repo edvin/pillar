@@ -296,7 +296,12 @@
             async function loadWorkers(){
                 const res = await fetch('{{ route('pillar.ui.api.outbox.workers') }}');
                 const data = await res.json();
-                document.getElementById('kpi-workers').textContent = (data.active_ids||[]).length;
+                const kpiWorkersEl = document.getElementById('kpi-workers');
+                const workerCount = (data.active_ids || []).length;
+                kpiWorkersEl.textContent = workerCount;
+                // Highlight in green when we have active workers
+                kpiWorkersEl.classList.toggle('text-green-600', workerCount > 0);
+                kpiWorkersEl.classList.toggle('dark:text-green-400', workerCount > 0);
 
                 const tbody = document.getElementById('workers-body');
                 tbody.innerHTML='';

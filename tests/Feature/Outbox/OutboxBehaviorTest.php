@@ -3,6 +3,8 @@
 use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\EventStore;
 use Pillar\Event\ShouldPublish;
+use Pillar\Outbox\Outbox;
+use Pillar\Outbox\OutboxMessage;
 use Pillar\Outbox\Worker\WorkerRunner;
 
 it('does not dispatch a ShouldPublish event until a worker tick runs', function () {
@@ -29,6 +31,25 @@ it('does not dispatch a ShouldPublish event until a worker tick runs', function 
 
     // Assert: now it has been dispatched exactly once
     Event::assertDispatchedTimes(TestPublishedForTick::class, 1);
+});
+
+
+it('hydrates a pending outbox message', function () {
+    /** @var Outbox $outbox */
+    $outbox = app(Outbox::class);
+
+    $outbox->enqueue(globalSequence: 42, partition: 'p00');
+
+    $messages = $outbox->claimPending(limit: 10);
+    expect($messages)->toHaveCount(1);
+
+    /** @var OutboxMessage $m */
+    $m = $messages[0];
+
+    expect($m->globalSequence)->toBe(42)
+        ->and($m->publishedAt)->toBeNull()
+        ->and($m->isPublished())->toBeFalse()
+        ->and($m->isReady(new DateTimeImmutable('2030-01-01T00:00:00Z')))->toBeTrue();
 });
 
 

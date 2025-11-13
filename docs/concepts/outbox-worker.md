@@ -1,4 +1,4 @@
-# Outbox Worker (CLI & UI)
+# Outbox Worker (CLI & TUI)
 
 The worker delivers publishable events from the [Transactional Outbox](/concepts/outbox) to your bus with retries.
 
@@ -161,4 +161,3 @@ php artisan pillar:outbox:partitions:sync --prune
 ## Related docs
 
 - **Transactional Outbox** → [Outbox](/concepts/outbox)
-- **Outbox Worker (CLI)** → [Outbox Worker](/concepts/outbox-worker)

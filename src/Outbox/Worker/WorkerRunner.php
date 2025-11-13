@@ -46,7 +46,7 @@ final class WorkerRunner
         #[Config('pillar.outbox.worker.lease_renew')]
         private readonly int                 $leaseRenew = 6,
         #[Config('pillar.outbox.worker.idle_backoff_ms')]
-        private readonly int                 $idleBackoffMs = 200,
+        private readonly int                 $idleBackoffMs = 100,
     )
     {
         $this->identity = new WorkerIdentity(

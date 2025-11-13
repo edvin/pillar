@@ -12,7 +12,7 @@ use DateTimeImmutable;
 final class OutboxMessage
 {
     public function __construct(
-        public readonly int                $globalSequence,                  // PK == events.sequence
+        public readonly int                $globalSequence, // PK == events.sequence
         public readonly int                $attempts,
         public readonly DateTimeImmutable  $availableAt,
         public readonly ?DateTimeImmutable $publishedAt,
@@ -35,35 +35,15 @@ final class OutboxMessage
     /**
      * Hydrate from a DB row (stdClass from Query Builder or associative array).
      */
-    public static function fromRow(object|array $row): self
+    public static function fromRow(object $row): self
     {
-        // Accept both array and object shapes
-        $r = is_array($row) ? (object)$row : $row;
-
         return new self(
-            globalSequence: (int)$r->global_sequence,
-            attempts: (int)$r->attempts,
-            availableAt: new DateTimeImmutable((string)$r->available_at),
-            publishedAt: isset($r->published_at) && $r->published_at !== null
-                ? new DateTimeImmutable((string)$r->published_at)
-                : null,
-            partitionKey: $r->partition_key ?? null,
-            lastError: $r->last_error ?? null,
+            globalSequence: (int)$row->global_sequence,
+            attempts: (int)$row->attempts,
+            availableAt: new DateTimeImmutable((string)$row->available_at),
+            publishedAt: ($row->published_at === null) ? null : new DateTimeImmutable((string)$row->published_at),
+            partitionKey: $row->partition_key ?? null,
+            lastError: $row->last_error ?? null,
         );
-    }
-
-    /**
-     * Convenience for logging/metrics.
-     */
-    public function toArray(): array
-    {
-        return [
-            'global_sequence' => $this->globalSequence,
-            'attempts' => $this->attempts,
-            'available_at' => $this->availableAt->format(DATE_ATOM),
-            'published_at' => $this->publishedAt?->format(DATE_ATOM),
-            'partition_key' => $this->partitionKey,
-            'last_error' => $this->lastError,
-        ];
     }
 }

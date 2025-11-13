@@ -573,7 +573,7 @@ return [
             'lease_renew' => 6,
             'heartbeat_ttl' => 20,
             'batch_size' => 100,
-            'idle_backoff_ms' => 200,
+            'idle_backoff_ms' => 1000,
             'claim_ttl' => 15,
             'retry_backoff' => 60,
         ],
