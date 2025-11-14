@@ -37,6 +37,11 @@ it('throws when aggregateClass is not an EventSourcedAggregateRoot', function ()
         {
             return null;
         }
+
+        public function recent(int $limit): array
+        {
+            return [];
+        }
     };
 
     $repo = new EventStoreRepository(

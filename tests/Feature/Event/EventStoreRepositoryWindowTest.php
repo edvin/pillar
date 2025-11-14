@@ -106,6 +106,11 @@ final class __CapturingEventStore implements EventStore
     {
         return null;
     }
+
+    public function recent(int $limit): array
+    {
+        return [];
+    }
 }
 
 it('passes a non-null EventWindow with snapshot-aware after to EventStore::load()', function () {

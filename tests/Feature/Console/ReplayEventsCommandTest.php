@@ -92,6 +92,11 @@ it('prints error and returns FAILURE when the replayer throws', function () {
         {
             return null;
         }
+
+        public function recent(int $limit): array
+        {
+            return [];
+        }
     };
 
     // Rebind EventStore, then rebuild EventReplayer so it sees our fake
