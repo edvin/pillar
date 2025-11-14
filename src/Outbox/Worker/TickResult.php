@@ -39,9 +39,4 @@ final class TickResult
     )
     {
     }
-
-    public function hadWork(): bool
-    {
-        return ($this->published + $this->failed) > 0;
-    }
 }

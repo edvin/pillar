@@ -9,12 +9,12 @@ trait HandlesDatabaseDriverSpecifics
 {
     private ?string $dbDriver = null; // lazy cache
 
-    private function dbDriver(): string
+    public function dbDriver(): string
     {
         return $this->dbDriver ??= DB::connection()->getDriverName();
     }
 
-    private function dbNow(): Expression
+    public function dbNow(): Expression
     {
         return match ($this->dbDriver()) {
             'mysql' => DB::raw('UTC_TIMESTAMP()'),
@@ -25,7 +25,7 @@ trait HandlesDatabaseDriverSpecifics
         };
     }
 
-    private function dbPlusSeconds(int $seconds): \Illuminate\Database\Query\Expression
+    public function dbPlusSeconds(int $seconds): Expression
     {
         return match ($this->dbDriver()) {
             'mysql' => DB::raw("DATE_ADD(UTC_TIMESTAMP(), INTERVAL {$seconds} SECOND)"),

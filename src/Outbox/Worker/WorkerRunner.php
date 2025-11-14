@@ -15,7 +15,7 @@ use ReflectionClass;
 use RuntimeException;
 use Throwable;
 
-final class WorkerRunner
+class WorkerRunner
 {
     private WorkerIdentity $identity;
     private bool $joined = false;
@@ -129,22 +129,18 @@ final class WorkerRunner
 
                 // Try to lease any missing desired partitions
                 $toLease = array_values(array_diff($desired, $ownedNow));
+
                 if ($toLease !== []) {
                     $this->leases->tryLease($toLease, $this->identity->id, $this->leaseTtl);
-                    $leasedPartitions = $toLease; // attempts this tick
-                } else {
-                    $leasedPartitions = [];
                 }
 
+                $leasedPartitions = $toLease;
                 // Refresh ownership from DB (limit to desired for a stable view)
                 $this->owned = $this->leases->ownedBy($this->identity->id, $desired);
             }
 
             // Claim only from what we believe we own (kept fresh by renew+periodic sync)
             $partitions = $this->owned;
-        } else {
-            // No leasing: claim from all partitions ("[]" = no filter)
-            $partitions = [];
         }
 
         // Claim and publish a batch
@@ -265,9 +261,6 @@ final class WorkerRunner
 
     private function truncate(string $s, int $max): string
     {
-        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
-            return mb_strlen($s) > $max ? mb_substr($s, 0, $max - 1) . '…' : $s;
-        }
-        return strlen($s) > $max ? substr($s, 0, $max - 1) . '…' : $s;
+        return mb_strlen($s) > $max ? mb_substr($s, 0, $max - 1) . '…' : $s;
     }
 }

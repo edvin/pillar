@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 use Pillar\Support\HandlesDatabaseDriverSpecifics;
 use Throwable;
 
-final class DatabaseOutbox implements Outbox
+class DatabaseOutbox implements Outbox
 {
     use HandlesDatabaseDriverSpecifics;
 
@@ -82,7 +82,7 @@ final class DatabaseOutbox implements Outbox
         );
     }
 
-    private function claimPendingPgsql(int $limit, array $partitions, string $token): array
+    protected function claimPendingPgsql(int $limit, array $partitions, string $token): array
     {
         [$partClause, $partParams] = $this->buildPartitionClause($partitions);
 
@@ -108,7 +108,7 @@ final class DatabaseOutbox implements Outbox
         return $this->hydrateRows($rows);
     }
 
-    private function claimPendingSqlite(int $limit, array $partitions, string $token): array
+    protected function claimPendingSqlite(int $limit, array $partitions, string $token): array
     {
         [$partClause, $partParams] = $this->buildPartitionClause($partitions);
 
@@ -131,7 +131,7 @@ final class DatabaseOutbox implements Outbox
         return $this->hydrateRows($rows);
     }
 
-    private function claimPendingMysql(int $limit, array $partitions, string $token): array
+    protected function claimPendingMysql(int $limit, array $partitions, string $token): array
     {
         [$partClause, $partParams] = $this->buildPartitionClause($partitions);
 
@@ -160,7 +160,7 @@ final class DatabaseOutbox implements Outbox
         return $this->hydrateRows($rows);
     }
 
-    private function claimPendingGeneric(int $limit, array $partitions, string $token): array
+    protected function claimPendingGeneric(int $limit, array $partitions, string $token): array
     {
         $candidates = DB::table($this->table)
             ->whereNull('published_at')
