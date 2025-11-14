@@ -275,8 +275,6 @@ it('releases partitions when more workers join and shrink the target set', funct
     // Second tick: worker-a should release some partitions and keep a subset
     $second = $runner->tick();
 
-    $second = $runner->tick();
-
     expect($second->ownedPartitions)->not->toBe($firstOwned);
 });
 

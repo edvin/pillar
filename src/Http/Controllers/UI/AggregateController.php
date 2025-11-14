@@ -90,7 +90,7 @@ final class AggregateController extends Controller
 
         $aggregateId = GenericAggregateId::from($rawId);
 
-        // Stream ASC, keep a rolling buffer of the last N, stop after N+1 to know has_more.
+        // Stream ASC, keep a rolling buffer of the last N; use $seen to decide has_more.
         $buffer = [];
         $seen = 0;
         foreach ($this->events->load($aggregateId, $window) as $stored) {
@@ -98,9 +98,6 @@ final class AggregateController extends Controller
             $buffer[] = $stored;
             if (count($buffer) > $limit) {
                 array_shift($buffer);
-            }
-            if ($seen > $limit) {
-                break; // we have enough to decide has_more
             }
         }
 
