@@ -123,4 +123,32 @@ interface EventStore
      * @return class-string<AggregateRootId>|null
      */
     public function resolveAggregateIdClass(string $aggregateId): ?string;
+
+    /**
+     * Fetch the most recently updated aggregates from the store.
+     *
+     * Semantics:
+     * - Each returned {@see StoredEvent} MUST be the latest (most recent) event
+     *   for its aggregate (i.e. highest per-aggregate sequence for that aggregate).
+     * - No two entries in the result MAY belong to the same aggregateId.
+     * - The list MUST be ordered by the *global* sequence of those latest events
+     *   in descending order (most recently updated aggregate first).
+     * - The `$limit` is a hard upper bound on the *number of distinct aggregates*
+     *   returned.
+     *
+     * Usage:
+     * - Intended for dashboards and monitoring UIs that need to show
+     *   “the N most recently active aggregates” without having to stream and
+     *   de-duplicate the entire history via {@see all()}.
+     *
+     * Performance notes:
+     * - Implementations SHOULD push the aggregation, ordering and limit down to
+     *   the storage layer when possible (e.g. window functions, DISTINCT ON, or
+     *   grouped subqueries), rather than loading all events and post-processing
+     *   in memory.
+     *
+     * @param int $limit Maximum number of distinct aggregates to return.
+     * @return array<int, StoredEvent> A list of the latest event per aggregate, most recent first.
+     */
+    public function recent(int $limit): array;
 }

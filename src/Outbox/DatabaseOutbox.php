@@ -13,8 +13,8 @@ class DatabaseOutbox implements Outbox
     use HandlesDatabaseDriverSpecifics;
 
     public function __construct(
-        #[Config('pillar.outbox.tables.outbox')]
-        private readonly string $table = 'outbox',
+        #[Config('pillar.outbox.tables.outbox', 'outbox')]
+        private readonly string $table,
         #[Config('pillar.outbox.worker.claim_ttl', 15)]
         private readonly int    $claimTtl,
         #[Config('pillar.outbox.worker.retry_backoff', 60)]

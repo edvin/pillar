@@ -223,4 +223,78 @@ class DatabaseEventStore implements EventStore
             ->where('aggregate_id', $aggregateId)
             ->value('aggregate_id_class') ?: null;
     }
+
+    public function recent(int $limit): array
+    {
+        if ($limit <= 0) {
+            return [];
+        }
+
+        // NOTE: Like getByGlobalSequence, this currently assumes a single default
+        // events stream/table. If you route events to multiple tables, we'll need
+        // a cross-stream strategy here as well.
+        $eventsTable = $this->streamResolver->resolve(null);
+
+        // We consider "most recently updated aggregates" to be the aggregates whose
+        // latest *per-aggregate* event (aggregate_sequence = last_sequence) have
+        // the highest global sequence.
+        //
+        // We can obtain that by joining the events table with aggregate_versions
+        // on (aggregate_id, aggregate_sequence = last_sequence), then ordering
+        // those rows by the global sequence and applying the limit.
+        $rows = DB::table($eventsTable . ' as e')
+            ->join('aggregate_versions as av', function ($join) {
+                $join->on('av.aggregate_id', '=', 'e.aggregate_id')
+                    ->on('av.last_sequence', '=', 'e.aggregate_sequence');
+            })
+            ->orderByDesc('e.sequence')
+            ->limit($limit)
+            ->get([
+                'e.sequence',
+                'e.aggregate_id',
+                'e.aggregate_sequence',
+                'e.event_type',
+                'e.event_version',
+                'e.event_data',
+                'e.occurred_at',
+                'e.correlation_id',
+                'av.aggregate_id_class',
+            ]);
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $out = [];
+
+        foreach ($rows as $row) {
+            // Resolve event class from alias or accept fully-qualified class names
+            $type = (string) $row->event_type;
+            $class = $this->aliases->resolveClass($type) ?? $type;
+
+            // event_data may arrive as string (JSON) or as decoded array/stdClass
+            // from the driver. Normalize to a JSON string before deserializing.
+            $raw = $row->event_data;
+            $wire = is_string($raw)
+                ? $raw
+                : json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            $event = $this->serializer->deserialize($class, $wire);
+
+            $out[] = new StoredEvent(
+                event: $event,
+                sequence: (int) $row->sequence,
+                aggregateSequence: (int) $row->aggregate_sequence,
+                aggregateId: (string) $row->aggregate_id,
+                eventType: $type,
+                storedVersion: (int) $row->event_version,
+                eventVersion: (int) $row->event_version,
+                occurredAt: (string) $row->occurred_at,
+                correlationId: $row->correlation_id ?? null,
+                aggregateIdClass: $row->aggregate_id_class ?: null,
+            );
+        }
+
+        return $out;
+    }
 }
