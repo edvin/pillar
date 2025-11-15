@@ -49,22 +49,28 @@ Schema::create('outbox', function (Blueprint $t) {
 - **Pointer‑only**: no payload duplication.
 - **Claim token**: used to atomically identify the rows a worker claimed in this batch (on DBs without `UPDATE … RETURNING`).
 
+On PostgreSQL, the `outbox` table can also be a **partitioned table** (for example,  
+range-partitioned by `available_at` or hash-partitioned by `partition_key`). Pillar  
+always talks to the logical table name from `pillar.outbox.tables.outbox`, so Postgres  
+routes reads and writes to the correct partition transparently.
+
 ---
 
 ## Claiming strategy
 
-- **Postgres / SQLite**: single `UPDATE … RETURNING` yields the rows claimed.
+- **Postgres / SQLite**: a single `UPDATE … RETURNING` both claims and returns the rows.
 - **MySQL / generic**: `SELECT` candidate ids → batch `UPDATE` (set `claim_token`, bump `available_at`) → `SELECT` rows where `claim_token = $token`.
 
-In all cases, DB time is used (portable helpers) to avoid clock skew.
+In all cases, database time is used (portable helpers) to avoid clock skew between workers and the DB.
 
 ---
 
 ## Partitioning (ordering & scale)
 
 - Configure `partition_count` (e.g., 16). Each outbox row may include a `partition_key` like `p07`.
-- Each partition is processed by **at most one worker at a time**, providing **ordering per partition**.
-- A default **CRC32** partitioner maps an aggregate id to a partition key. You can replace the strategy (e.g., per tenant).
+- Each partition is processed by **at most one worker at a time**, providing **ordering guarantees per partition**.
+- The default **CRC32** partitioner maps an aggregate or stream id to a bucket label `pNN`.
+- You can swap the partitioner to route by tenant, context, or any business key that matters for ordering.
 
 When leasing is enabled, workers coordinate to divide partitions among themselves using a DB‑backed lease table.
 
