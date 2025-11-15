@@ -1,6 +1,10 @@
 <?php
 
+use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\EventStore;
+use Pillar\Event\EventWindow;
+use Pillar\Event\StoredEvent;
+use Pillar\Outbox\Worker\TickResult;
 use Pillar\Outbox\Worker\WorkerIdentity;
 use Pillar\Outbox\Worker\WorkerRegistry;
 use Pillar\Outbox\Worker\WorkerRunner;
@@ -8,6 +12,7 @@ use Pillar\Outbox\Lease\PartitionLeaseStore;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
 use Illuminate\Contracts\Events\Dispatcher;
+use Tests\Fixtures\Encryption\DummyEvent;
 
 function makeWorkerRunnerForTest(string $workerId, int $partitionCount = 6): WorkerRunner
 {
@@ -278,3 +283,326 @@ it('releases partitions when more workers join and shrink the target set', funct
     expect($second->ownedPartitions)->not->toBe($firstOwned);
 });
 
+it('records failed messages and trims lastErrors when dispatching throws', function () {
+    /**
+     * Simple message DTO that looks like what the Outbox would normally return.
+     * We only need a globalSequence property for WorkerRunner.
+     */
+    $messages = [];
+    for ($i = 1; $i <= 6; $i++) {
+        $messages[] = (object)[
+            'globalSequence' => $i,
+        ];
+    }
+
+    /**
+     * Fake Outbox that returns a fixed batch once and records markFailed calls.
+     * Adjust method list to match your Outbox interface if needed.
+     */
+    $fakeOutbox = new class($messages) implements Outbox {
+        public array $failed = [];
+        private array $messages;
+
+        public function __construct(array $messages)
+        {
+            $this->messages = $messages;
+        }
+
+        public function claimPending(int $limit = 100, array $partitions = []): iterable
+        {
+            // Return all messages once, then nothing
+            $out = $this->messages;
+            $this->messages = [];
+            return $out;
+        }
+
+        public function markPublished(object $message): void
+        {
+            // not used in this test
+        }
+
+        public function markFailed(object $message, Throwable $e): void
+        {
+            $this->failed[] = [$message, $e];
+        }
+
+        public function enqueue(int $globalSequence, ?string $partition = null): void
+        {
+        }
+    };
+
+    /**
+     * Fake EventStore that always returns a StoredEvent for the requested global sequence.
+     * We only need getByGlobalSequence() for this test.
+     */
+    $fakeStore = new class implements EventStore {
+        public function append($id, object $event, ?int $expectedSequence = null): int
+        {
+            return 0;
+        }
+
+        public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
+        {
+            if (false) {
+                yield;
+            }
+        }
+
+        public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
+        {
+            if (false) {
+                yield;
+            }
+        }
+
+        public function getByGlobalSequence(int $sequence): ?StoredEvent
+        {
+            // Use any event type you like here; DummyEvent is fine if you have it.
+            return new StoredEvent(
+                event: new DummyEvent((string)$sequence, 'E' . $sequence),
+                sequence: $sequence,
+                streamSequence: $sequence,
+                streamId: 'test-' . $sequence,
+                eventType: DummyEvent::class,
+                storedVersion: 1,
+                eventVersion: 1,
+                occurredAt: now('UTC')->format('Y-m-d H:i:s'),
+                correlationId: null,
+            );
+        }
+
+        public function recent(int $limit): array
+        {
+            return [];
+        }
+    };
+
+    // Dispatcher that always throws, so we hit the catch-block for every message.
+    $dispatcher = Mockery::mock(Dispatcher::class);
+    $dispatcher->shouldReceive('dispatch')->andThrow(new RuntimeException('boom'));
+
+    $runner = new WorkerRunner(
+        app(WorkerRegistry::class),
+        app(PartitionLeaseStore::class),
+        $fakeOutbox,
+        $fakeStore,
+        $dispatcher,
+        'error-worker',
+        app(Partitioner::class),
+        false,   // leasing off – we don’t care about partitions here
+        10,      // partition count (ignored by our fake outbox)
+        10,      // batch size (>= 6 so we can process all messages)
+        60,
+        30,
+        10,
+    );
+
+    /** @var TickResult $result */
+    $result = $runner->tick();
+
+    // All 6 messages failed
+    expect($result->failed)->toBe(6);
+
+    // lastErrors keeps only the last 5 entries after trimming
+    expect($result->lastErrors)->toHaveCount(5);
+
+    // Check that the last error corresponds to the last sequence (6)
+    $last = $result->lastErrors[array_key_last($result->lastErrors)];
+    expect($last['seq'])->toBe(6);
+
+    // And Outbox::markFailed was called for each message
+    expect($fakeOutbox->failed)->toHaveCount(6);
+});
+
+it('marks messages as failed when stored event is missing', function () {
+    // One message whose stored event will be missing
+    $messages = [
+        (object)['globalSequence' => 42],
+    ];
+
+    // Fake Outbox: returns the message once, tracks markFailed calls
+    $fakeOutbox = new class($messages) implements Outbox {
+        public array $failed = [];
+        private array $messages;
+
+        public function __construct(array $messages)
+        {
+            $this->messages = $messages;
+        }
+
+        public function claimPending(int $limit = 100, array $partitions = []): iterable
+        {
+            $out = $this->messages;
+            $this->messages = [];
+            return $out;
+        }
+
+        public function markPublished(object $message): void
+        {
+            // not used in this test
+        }
+
+        public function markFailed(object $message, Throwable $e): void
+        {
+            $this->failed[] = [$message, $e];
+        }
+
+        public function enqueue(int $globalSequence, ?string $partition = null): void
+        {
+            // not needed here
+        }
+    };
+
+    // Fake EventStore: getByGlobalSequence() always returns null
+    $fakeStore = new class implements EventStore {
+        public function append($id, object $event, ?int $expectedSequence = null): int
+        {
+            return 0;
+        }
+
+        public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
+        {
+            if (false) {
+                yield;
+            }
+        }
+
+        public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
+        {
+            if (false) {
+                yield;
+            }
+        }
+
+        public function getByGlobalSequence(int $sequence): ?StoredEvent
+        {
+            // Simulate missing event
+            return null;
+        }
+
+        public function recent(int $limit): array
+        {
+            return [];
+        }
+    };
+
+    // Dispatcher is never reached (we throw before dispatch), so a noop mock is fine
+    $dispatcher = Mockery::mock(Dispatcher::class);
+
+    $runner = new WorkerRunner(
+        app(WorkerRegistry::class),
+        app(PartitionLeaseStore::class),
+        $fakeOutbox,
+        $fakeStore,
+        $dispatcher,
+        'missing-event-worker',
+        app(Partitioner::class),
+        false,   // leasing off
+        10,
+        10,
+        60,
+        30,
+        10,
+    );
+
+    /** @var TickResult $result */
+    $result = $runner->tick();
+
+    // One claimed, one failed, nothing published
+    expect($result->failed)->toBe(1)
+        ->and($result->published)->toBe(0);
+
+    // lastErrors should contain the missing sequence with a helpful message
+    expect($result->lastErrors)->toHaveCount(1);
+    $err = $result->lastErrors[0];
+
+    expect($err['seq'])->toBe(42);
+
+    $joined = implode(' ', array_map('strval', array_values($err)));
+    expect($joined)->toContain('Stored event not found');
+
+    // Outbox::markFailed should have been called once
+    expect($fakeOutbox->failed)->toHaveCount(1);
+});
+
+it('releases partitions we no longer desire', function () {
+    $partitioner = app(Partitioner::class);
+
+    // Fake lease store: starts owning a superset of what we "should" own
+    $fakeLeases = new class($partitioner) implements \Pillar\Outbox\Lease\PartitionLeaseStore {
+        public array $owned;
+        public array $released = [];
+
+        public function __construct(Partitioner $partitioner)
+        {
+            // Two partitions owned to start with; we'll only "desire" one of them
+            $this->owned = [
+                $partitioner->labelForIndex(0),
+                $partitioner->labelForIndex(1),
+            ];
+        }
+
+        public function ownedBy(string $workerId, array $desired): array
+        {
+            // Worker currently owns whatever is in $this->owned
+            return $this->owned;
+        }
+
+        public function tryLease(array $partitions, string $owner, int $ttlSeconds): bool
+        {
+            return true;
+        }
+
+        public function release(array $partitions, string $owner): void
+        {
+            // Record what was released and update owned set
+            $this->released = $partitions;
+            $this->owned = array_values(array_diff($this->owned, $partitions));
+        }
+
+        public function renew(array $partitions, string $owner, int $ttlSeconds): bool
+        {
+            return true;
+        }
+    };
+
+    // WorkerRegistry: two workers, so our worker should not own *all* partitions
+    $registry = Mockery::mock(WorkerRegistry::class);
+    $registry->shouldReceive('join')->andReturnNull();
+    $registry->shouldReceive('heartbeat')->andReturnNull();
+    $registry->shouldReceive('purgeStale')->andReturn(1);
+    $registry->shouldReceive('activeIds')->andReturn(['worker-a', 'worker-b']);
+
+    $outbox = app(Outbox::class);      // not used in this test
+    $eventStore = app(EventStore::class);  // not used in this test
+    $dispatcher = app(Dispatcher::class);
+
+    $runner = new WorkerRunner(
+        $registry,
+        $fakeLeases,
+        $outbox,
+        $eventStore,
+        $dispatcher,
+        'worker-a',
+        $partitioner,
+        true,   // leasing enabled
+        2,      // small partition count: 0 and 1
+        10,
+        60,
+        30,
+        10,
+    );
+
+    // Force a renew/sync on the next tick so the leasing logic runs
+    $ref = new ReflectionClass(WorkerRunner::class);
+    $propLastRenew = $ref->getProperty('lastRenewNs');
+    $propLastRenew->setAccessible(true);
+    $propLastRenew->setValue($runner, 0);
+
+    /** @var TickResult $result */
+    $result = $runner->tick();
+
+    // We should have released at least one partition
+    expect($fakeLeases->released)->not->toBe([]);
+    expect($result->releasedPartitions)->toBe($fakeLeases->released);
+});

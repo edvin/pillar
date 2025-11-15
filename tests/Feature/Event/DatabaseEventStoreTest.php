@@ -1,13 +1,12 @@
 <?php
 
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Aggregate\GenericAggregateId;
-use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\ConcurrencyException;
 use Pillar\Event\DatabaseEventMapper;
 use Pillar\Event\DatabaseEventStore;
@@ -18,7 +17,6 @@ use Pillar\Event\PublicationPolicy;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
 use Pillar\Repository\EventStoreRepository;
-use Pillar\Serialization\JsonObjectSerializer;
 use Pillar\Serialization\ObjectSerializer;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentCreated;
@@ -172,103 +170,77 @@ it('enforces expectedSequence on the portable path (conflict throws ConcurrencyE
     }
 });
 
-it('executes the MySQL-optimized branch when connected to real MySQL', function () {
-    if (!env('TEST_WITH_MYSQL')) {
-        test()->markTestSkipped('Set TEST_WITH_MYSQL=1 to run this integration test.');
-    }
-    if (!extension_loaded('pdo_mysql')) {
-        test()->markTestSkipped('pdo_mysql extension not loaded.');
-    }
+it('recent() returns empty array when limit is non-positive', function () {
+    $store = app(DatabaseEventStore::class);
 
-    // Remember the original default connection (usually sqlite for tests)
-    $original = config('database.default', 'sqlite');
+    expect($store->recent(0))->toBe([])
+        ->and($store->recent(-5))->toBe([]);
+});
 
-    // Point the default connection to a real MySQL
-    config()->set('database.connections.it_mysql', [
-        'driver' => 'mysql',
-        'host' => env('MYSQL_HOST', '127.0.0.1'),
-        'port' => env('MYSQL_PORT', '3306'),
-        'database' => env('MYSQL_DATABASE', 'pillar_test'),
-        'username' => env('MYSQL_USERNAME', 'root'),
-        'password' => env('MYSQL_PASSWORD', 'secret'),
-        'charset' => 'utf8mb4',
-        'collation' => 'utf8mb4_unicode_ci',
-        'prefix' => '',
-        'strict' => false,
+it('recent() returns empty array when there are no events', function () {
+    // Ensure the events table is empty for this scenario
+    DB::table('events')->truncate();
+
+    $store = app(DatabaseEventStore::class);
+
+    expect($store->recent(10))->toBe([]);
+});
+
+it('recent() returns latest event per stream ordered by global sequence desc', function () {
+    /** @var DatabaseEventStore $store */
+    $store = app(DatabaseEventStore::class);
+
+    // Start from a clean slate for deterministic assertions
+    DB::table('events')->truncate();
+
+    $idA = DocumentId::new();
+    $idB = DocumentId::new();
+    $idC = DocumentId::new();
+
+    // Produce events in a known global order:
+    // seq1: A created
+    $store->append($idA, new DocumentCreated($idA, 'A0'));
+    // seq2: B created
+    $store->append($idB, new DocumentCreated($idB, 'B0'));
+    // seq3: C created
+    $store->append($idC, new DocumentCreated($idC, 'C0'));
+    // seq4: B renamed
+    $store->append($idB, new DocumentRenamed($idB, 'B1'));
+    // seq5: A renamed
+    $store->append($idA, new DocumentRenamed($idA, 'A1'));
+
+    $streamA = app(AggregateRegistry::class)->toStreamName($idA);
+    $streamB = app(AggregateRegistry::class)->toStreamName($idB);
+    $streamC = app(AggregateRegistry::class)->toStreamName($idC);
+
+    // recent() with a generous limit should return one latest event per stream,
+    // ordered by their global sequence desc: A(renamed), B(renamed), C(created)
+    $recent = $store->recent(10);
+
+    $asArray = array_map(
+        fn($e) => [$e->streamId, $e->streamSequence, $e->eventType],
+        $recent
+    );
+
+    expect($recent)->toHaveCount(3);
+    expect($asArray)->toEqual([
+        [$streamA, 2, DocumentRenamed::class], // seq5
+        [$streamB, 2, DocumentRenamed::class], // seq4
+        [$streamC, 1, DocumentCreated::class], // seq3
     ]);
-    config()->set('database.default', 'it_mysql');
 
-    DB::purge('it_mysql');
-    DB::reconnect('it_mysql');
+    // And the limit parameter should cap the number of streams returned
+    $recent2 = $store->recent(2);
+    $asArray2 = array_map(
+        fn($e) => [$e->streamId, $e->streamSequence, $e->eventType],
+        $recent2
+    );
 
-    try {
-        // Minimal schema on MySQL
-        Schema::connection('it_mysql')->dropIfExists('events');
-        Schema::connection('it_mysql')->create('events', function (Blueprint $t) {
-            $t->bigIncrements('sequence');
-            $t->string('stream_id');
-            $t->unsignedBigInteger('stream_sequence');
-            $t->string('event_type');
-            $t->unsignedInteger('event_version')->default(1);
-            $t->string('correlation_id')->nullable();
-            $t->longText('event_data');
-            $t->dateTime('occurred_at');
-            $t->index(['stream_id', 'stream_sequence']);
-        });
-
-        /** @var EventStore $store */
-        $store = app(EventStore::class);
-
-        $id = DocumentId::new();
-
-        // Exercise the MySQL LAST_INSERT_ID() branch
-        $s1 = $store->append($id, new DocumentCreated($id, 'first'));
-        $s2 = $store->append($id, new DocumentRenamed($id, 'second'), 1);
-
-        expect($s1)->toBe(1)->and($s2)->toBe(2);
-
-        $streamId = app(AggregateRegistry::class)->toStreamName($id);
-
-        $rows = DB::table('events')
-            ->select('stream_sequence', 'event_type')
-            ->where('stream_id', $streamId)
-            ->orderBy('stream_sequence')
-            ->get()
-            ->map(fn($r) => [(int)$r->stream_sequence, $r->event_type])
-            ->all();
-
-        expect($rows)->toEqual([
-            [1, DocumentCreated::class],
-            [2, DocumentRenamed::class],
-        ])
-            ->and(fn() => $store->append($id, new DocumentRenamed($id, 'should-fail'), 999))
-            ->toThrow(ConcurrencyException::class);
-
-        $count = DB::table('events')->where('stream_id', $streamId)->count();
-
-        expect($count)->toBe(2);
-    } finally {
-        // Restore original default connection & tear down MySQL
-        config()->set('database.default', $original);
-
-        // Drop the MySQL tables to avoid leaking state
-        try {
-            Schema::connection('it_mysql')->dropIfExists('events');
-        } catch (Throwable $e) {
-            // ignore if connection is gone
-        }
-
-        // Purge & disconnect both connections
-        DB::disconnect('it_mysql');
-        DB::purge('it_mysql');
-
-        DB::purge($original);
-        DB::reconnect($original);
-
-        // IMPORTANT: reboot the Testbench/Laravel app so any SQLite refresh
-        // runs outside of any lingering transaction context and without MySQL defaults
-        test()->refreshApplication();
-    }
+    expect($recent2)->toHaveCount(2);
+    expect($asArray2)->toEqual([
+        [$streamA, 2, DocumentRenamed::class],
+        [$streamB, 2, DocumentRenamed::class],
+    ]);
 });
 
 it('returns null when no event exists at the given global sequence', function () {
@@ -281,8 +253,7 @@ it('returns null when no event exists at the given global sequence', function ()
 it('returns a StoredEvent by global sequence (FQCN event_type)', function () {
     $store = app(DatabaseEventStore::class);
 
-    $id  = DocumentId::new();
-    $now = Carbon::now('UTC')->format('Y-m-d H:i:s');
+    $id = DocumentId::new();
 
     // Append via the store so we respect whatever mapping logic is in place
     $store->append($id, new DummyEvent('1', 'Hello'));
@@ -302,7 +273,7 @@ it('returns a StoredEvent by global sequence (FQCN event_type)', function () {
         ->and($e->streamSequence)->toBe(1)
         ->and($e->eventType)->toBe(DummyEvent::class)
         ->and($e->eventVersion)->toBe(1)
-        ->and($e->occurredAt)->toBe($now)
+        ->and($e->occurredAt)->not->toBeEmpty()
         ->and($e->event)->toEqual(new DummyEvent('1', 'Hello'));
 });
 

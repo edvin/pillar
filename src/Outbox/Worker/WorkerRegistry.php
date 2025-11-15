@@ -7,7 +7,7 @@ use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\DB;
 use Pillar\Support\HandlesDatabaseDriverSpecifics;
 
-final class WorkerRegistry
+class WorkerRegistry
 {
     use HandlesDatabaseDriverSpecifics;
 

@@ -109,15 +109,13 @@ final readonly class EventStoreRepository implements AggregateRepository
             $after = $requestedAfter;
         }
 
-        // Effective window: start after the chosen cursor, carry any upper bounds
-        $effectiveWindow = $window
-            ? new EventWindow(
-                afterStreamSequence: $after,
-                toStreamSequence: $window->toStreamSequence,
-                toGlobalSequence: $window->toGlobalSequence,
-                toDateUtc: $window->toDateUtc,
-            )
-            : EventWindow::afterStreamSeq($after);
+        // Effective window: always start after $after, carry any upper bounds from the caller
+        $effectiveWindow = new EventWindow(
+            afterStreamSequence: $after,
+            toStreamSequence: $window?->toStreamSequence,
+            toGlobalSequence: $window?->toGlobalSequence,
+            toDateUtc: $window?->toDateUtc,
+        );
 
         $events = $this->eventStore->streamFor($id, $effectiveWindow);
 

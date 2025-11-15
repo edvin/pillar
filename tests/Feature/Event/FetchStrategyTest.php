@@ -12,7 +12,6 @@ use Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\StoredEvent;
 use Pillar\Facade\Pillar;
-use Pillar\Serialization\JsonObjectSerializer;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentCreated;
 use Tests\Fixtures\Document\DocumentId;
@@ -91,6 +90,22 @@ it('all() applies eventType filter', function (string $default, string $expected
     expect($created)->toHaveCount(1)
         ->and($created[0]->eventType)->toBe(DocumentCreated::class);
 })->with('strategies');
+
+it('db_chunked global stream stops cleanly when there are no events', function () {
+    config()->set('pillar.fetch_strategies.default', 'db_chunked');
+    config()->set('pillar.fetch_strategies.available.db_chunked.options.chunk_size', 2);
+    app()->forgetInstance(EventFetchStrategyResolver::class);
+    app()->forgetInstance(DatabaseEventStore::class);
+    app()->forgetInstance(DatabaseChunkedFetchStrategy::class);
+
+    // Ensure table is empty
+    DB::table('events')->truncate();
+
+    $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
+    $events   = iterator_to_array($strategy->stream());
+
+    expect($events)->toBe([]);
+});
 
 it('db_chunked stops at toStreamSequence across chunks (hits early-break)', function () {
     // Force chunked strategy with very small chunk size so we span multiple chunks.
@@ -464,6 +479,10 @@ it('global all() caps at toGlobalSequence in applyGlobalWindow', function () {
 it('global all() applies eventType filter (hits $qb->where("event_type", ...))', function (string $default) {
     // Force strategy and refresh singletons
     config()->set('pillar.fetch_strategies.default', $default);
+    if ($default === 'db_chunked') {
+        config()->set('pillar.fetch_strategies.available.db_chunked.options.chunk_size', 2);
+        app()->forgetInstance(DatabaseChunkedFetchStrategy::class);
+    }
     app()->forgetInstance(EventFetchStrategyResolver::class);
     app()->forgetInstance(DatabaseEventStore::class);
 
@@ -497,7 +516,7 @@ it('global all() applies eventType filter (hits $qb->where("event_type", ...))',
     foreach ($renamed as $e) {
         expect($e->eventType)->toBe(\Tests\Fixtures\Document\DocumentRenamed::class);
     }
-})->with(['db_load_all', 'db_streaming']);
+})->with(['db_load_all', 'db_streaming', 'db_chunked']);
 
 it('db_chunked per-aggregate all() applies EventWindow (hits applyPerAggregateWindow)', function () {
     // Force chunked strategy and small chunks so pagination logic is exercised
