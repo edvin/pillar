@@ -9,9 +9,9 @@ Every Aggregate ID **is also the stream ID** used by the event store.
 
 Pillar derives the stream name directly from the ID’s string representation:
 
-- `OrderId → "order-<uuid>"`
-- `InvoiceId → "invoice-<uuid>"`
-- `DocumentId → "document-<uuid>"`
+- `OrderId` → `order-{uuid}`
+- `InvoiceId` → `invoice-{uuid}`
+- `DocumentId` → `document-{uuid}`
 
 This mapping is **automatic** and handled by `AggregateRegistry`.  
 No separate “stream resolver” or configuration is needed.
@@ -44,6 +44,8 @@ final readonly class DocumentId extends AggregateRootId
 }
 ```
 
+---
+
 Aggregate IDs are used throughout Pillar APIs, including:
 
 - Finding aggregates in an `AggregateSession`
@@ -52,4 +54,4 @@ Aggregate IDs are used throughout Pillar APIs, including:
 
 Using strongly-typed IDs helps prevent mixing different aggregate types and improves code readability.
 
----</file>
+---
