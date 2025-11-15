@@ -4,7 +4,7 @@
     <div class="max-w-6xl mx-auto p-6">
         <a href="{{ route('pillar.ui.index') }}" class="text-sm text-blue-600 hover:underline">&larr; Back to
             overview</a>
-        <h1 class="text-3xl font-semibold mb-6">Aggregate timeline</h1>
+        <h1 class="text-3xl font-semibold mb-6">Stream timeline</h1>
 
         @php
             $aggTypeFull  = $aggregate_type ?? null; // optional: controller may set this
@@ -22,7 +22,7 @@
                 <div class="flex items-center gap-2 font-mono text-xs text-slate-600 dark:text-slate-300">
                     <span id="aggregate-id">{{ $id }}</span>
                     <button type="button" class="inline-flex items-center opacity-70 hover:opacity-100"
-                            title="Copy aggregate ID"
+                            title="Copy stream ID"
                             onclick="event.stopPropagation(); copyToClipboard('{{ $id }}', 'Aggregate ID')">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                              stroke-width="2" class="w-4 h-4">
@@ -87,7 +87,7 @@
                     <div class="flex items-center gap-2 font-mono text-xs text-slate-600 dark:text-slate-300">
                         <span id="modal-agg-id">—</span>
                         <button type="button" class="inline-flex items-center opacity-70 hover:opacity-100"
-                                title="Copy aggregate ID"
+                                title="Copy stream ID"
                                 onclick="event.stopPropagation(); copyToClipboard(document.getElementById('modal-agg-id').textContent, 'Aggregate ID')">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
                                 <rect x="9" y="7" width="10" height="14" rx="2" ry="2"></rect>
@@ -375,8 +375,8 @@
                 return parts[parts.length - 1] || '';
             }
 
-            // Open modal and fetch state at aggregate sequence (enriched version)
-            function openModal(toAggSeq, whenStr, eventType) {
+            // Open modal and fetch state at stream sequence (enriched version)
+            function openModal(toStreamSeq, whenStr, eventType) {
                 const modalAggType = document.getElementById('modal-agg-type');
                 const modalAggTypeFull = document.getElementById('modal-agg-type-full');
                 const modalAggId = document.getElementById('modal-agg-id');
@@ -403,7 +403,7 @@
 
                 const url = new URL('{{ route('pillar.ui.api.aggregate.state') }}', location.origin);
                 url.searchParams.set('id', aggId);
-                url.searchParams.set('to_agg_seq', toAggSeq);
+                url.searchParams.set('to_stream_seq', toStreamSeq);
 
                 fetch(url)
                     .then(res => {

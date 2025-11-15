@@ -35,7 +35,6 @@ You’ll get the following files:
 | File                                                                        | Description                                                               |
 |-----------------------------------------------------------------------------|---------------------------------------------------------------------------|
 | `database/migrations/YYYY_MM_DD_HHMMSS_create_events_table.php`             | Stores domain events                                                      |
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_aggregate_versions_table.php` | Tracks per‑aggregate versions (for optimistic concurrency & sequencing)   |
 | `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_table.php`             | Outbox storage for events implementing `ShouldPublish`                    |
 | `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_partitions_table.php`  | Tracks outbox partitions to support cooperative leasing worker scheduling |
 | `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_workers_table.php`     | Tracks connected outbox publishing workers                                |

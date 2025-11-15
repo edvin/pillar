@@ -142,7 +142,7 @@ final class AggregateController extends Controller
     /**
      * Return the aggregate state as of a given event bound.
      * Accepts one of:
-     *   - to_agg_seq     (inclusive per-aggregate sequence)
+     *   - to_stream_seq  (inclusive per-stream sequence)
      *   - to_global_seq  (inclusive global sequence)
      *   - to_date        (ISO8601 UTC timestamp)
      */
@@ -158,12 +158,12 @@ final class AggregateController extends Controller
         // Build an optional window from query params (pick the first provided)
         $window = null;
 
-        $toAgg = $request->query('to_agg_seq');
+        $toStream = $request->query('to_stream_seq');
         $toGlob = $request->query('to_global_seq');
         $toDate = $request->query('to_date');
 
-        if ($toAgg !== null && $toAgg !== '') {
-            $window = EventWindow::toStreamSeq((int)$toAgg);
+        if ($toStream !== null && $toStream !== '') {
+            $window = EventWindow::toStreamSeq((int)$toStream);
         } elseif ($toGlob !== null && $toGlob !== '') {
             $window = EventWindow::toGlobalSeq((int)$toGlob);
         } elseif ($toDate !== null && $toDate !== '') {
@@ -188,7 +188,7 @@ final class AggregateController extends Controller
             'aggregate_class' => get_class($aggregate),
             'version' => $loaded->version,
             'window' => [
-                'to_agg_seq' => isset($toAgg) && $toAgg !== '' ? (int)$toAgg : null,
+                'to_stream_seq' => isset($toStream) && $toStream !== '' ? (int)$toStream : null,
                 'to_global_seq' => isset($toGlob) && $toGlob !== '' ? (int)$toGlob : null,
                 'to_date' => isset($dt) ? $dt->format(DateTimeInterface::ATOM) : null,
             ],

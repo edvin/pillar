@@ -62,22 +62,26 @@ By default, Pillar publishes events that implement `Pillar\Event\ShouldPublish`.
 
 ## Repositories
 
-Define which repository implementation should be used for each aggregate root.
-The default repository is event-sourced, but you can override this per aggregate
-by mapping its class here.
-
-Any custom repository must implement:
-
-- `Pillar\Domain\Repository\AggregateRepository`
+Repositories control how aggregates are loaded and saved.  
+By default, all aggregates use the event‑sourced repository.
 
 ```php
 'repositories' => [
+    // Default repository used for any aggregate not explicitly overridden.
     'default' => \Pillar\Repository\EventStoreRepository::class,
 
-    // Example per-aggregate override:
-    // \App\Domain\Report\Report::class => \App\Infrastructure\ReportRepository::class,
+    // Override per aggregate if needed:
+    // App\Domain\Report\Report::class => App\Infrastructure\ReportRepository::class,
 ],
 ```
+
+Notes:
+
+- All repositories must implement `Pillar\Repository\AggregateRepository`.
+- The default `EventStoreRepository` now uses **stream‑centric reads**, accepts
+  `EventWindow` constraints, and supports **optimistic locking** when enabled in
+  `event_store.options.optimistic_locking`.
+- Snapshotting is applied automatically based on your configured `snapshot.policy`.
 
 ---
 

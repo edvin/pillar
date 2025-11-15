@@ -17,7 +17,7 @@ an opt‑in authorization check tailored for Pillar.
 
 ![Dashboard](/dashboard.png)
 
-#### Aggregate timeline with event data explorer:
+#### Stream timeline with event data explorer:
 
 ![Aggregate events](/timeline.png)
 
@@ -198,19 +198,19 @@ All routes are nested under the configured `path` and namespaced `pillar.ui.*`.
 
 - **Dashboard (HTML)**
     - `GET /{path}` → route name: `pillar.ui.index`  
-      Recent aggregates + search by ID.
+      Recent streams + search by stream_id.
 
-- **Aggregate page (HTML)**
+- **Stream page (HTML)**
     - `GET /{path}/aggregate` → route name: `pillar.ui.aggregate.show`  
       Shows timeline for `?id=AGG_ID`.
 
 - **API**
     - Recent overview: `GET /{path}/api/recent` → `pillar.ui.api.recent`  
       Returns the latest events per aggregate (includes resolved aggregate type when available).
-    - Events for one aggregate: `GET /{path}/api/aggregate/events?id=AGG_ID[&before_seq=N&limit=M]`  
+    - Events for one stream: `GET /{path}/api/aggregate/events?stream_id=STREAM_ID[&before_seq=N&limit=M]`  
       → `pillar.ui.api.aggregate.events`
     - Time travel (state as of event):  
-      `GET /{path}/api/aggregate/state?id=AGG_ID&to_agg_seq=N`  
+      `GET /{path}/api/aggregate/state?stream_id=STREAM_ID&to_agg_seq=N`  
       → `pillar.ui.api.aggregate.state`
 
 > These APIs are used by the UI, but you can also script against them for tooling.
@@ -219,11 +219,11 @@ All routes are nested under the configured `path` and namespaced `pillar.ui.*`.
 
 ## ⏳ Time travel (how it works)
 
-When you click **Time travel** next to an event, the UI asks the backend to rebuild the aggregate **up to and including
+When you click **Time travel** next to an event, the UI asks the backend to rebuild the stream **up to and including
 ** that event. Under the hood we use an `EventWindow` bound:
 
 - `toStreamSequence = N` (inclusive)
-- plus an `afterStreamSequence` cursor set by the repository to your latest **snapshot** (if any), for efficiency
+- plus an `afterStreamSequence` cursor set by the event store / reader to your latest **snapshot** (if any), for efficiency
 
 This gives you the **exact state after event N**—useful for debugging and audits.
 

@@ -5,13 +5,14 @@ outline: deep
 
 # 🪟 EventWindow
 
-`EventWindow` lets you describe **bounds** for reading an aggregate’s events:
+`EventWindow` lets you describe **bounds** for reading events from a stream or globally:
 
 - where to **start** (strictly *after* a given aggregate version), and/or
 - where to **stop** (up to an aggregate version, a global sequence, or a UTC timestamp).
 
-It is used by `EventStore::load($id, ?EventWindow $window = null)` and by
-`EventStoreRepository::find($id, ?EventWindow)`.
+It is used by `EventStore::streamFor($id, ?EventWindow $window = null)`, by
+`EventStore::stream(?EventWindow $window = null, ?string $eventType = null)` (for global scans), and by
+`EventStoreRepository::find($id, ?EventWindow $window = null)`.
 
 ## API
 
@@ -38,17 +39,52 @@ final class EventWindow
 - **Stop**: all upper bounds are *inclusive* (read **up to and including** the bound).  
   Combining multiple `to*` bounds narrows the window (the earliest cutoff wins).
 
+### Interaction with Snapshots and Repositories
+
+When used through `EventStoreRepository::find()`:
+
+- The repository will determine the **effective starting point** by comparing  
+  your `afterStreamSequence` with any available snapshot version.
+- If a snapshot exists **at or after** your requested starting point, the repository
+  will begin replay *after the snapshot*.
+- If the snapshot is **older** than the requested starting point, it is ignored
+  and reconstruction starts from `afterStreamSequence`.
+
+Because of this, calls like:
+
+```php
+$repo->find($id, EventWindow::toStreamSeq(50));
+```
+
+may internally convert into:
+
+```php
+new EventWindow(
+    afterStreamSequence: $snapshotVersion,  // if >= requested window start
+    toStreamSequence: 50,
+    toGlobalSequence: null,
+    toDateUtc: null,
+);
+```
+
+This behavior is intentional—it ensures that snapshots never cause you to miss events,
+while still avoiding unnecessary replay.
+
 ## Examples
 
 ```php
-// Rebuild state as of aggregate version 25
-$loaded = $repo->find($id, EventWindow::toAggSeq(25));
+// Rebuild state as of stream version 25
+$loaded = $repo->find($id, EventWindow::toStreamSeq(25));
 
 // Rebuild state as of a point in time (UTC)
 $loaded = $repo->find($id, EventWindow::toDateUtc(new DateTimeImmutable('2025-01-01T00:00:00Z')));
 
 // Stream events in pages up to a global checkpoint
-foreach ($store->streamFor($id, EventWindow::toGlobalSeq($checkpoint)) as $e) {
+foreach ($store->stream(EventWindow::toGlobalSeq($checkpoint)) as $e) {
     // ...
 }
 ```
+
+> **Note:** When used with `EventStore::stream()`, only the *global* bounds of
+> the window (`toGlobalSequence`, `toDateUtc`) are applied; per-stream
+> bounds (`afterStreamSequence`, `toStreamSequence`) are ignored in global scans.

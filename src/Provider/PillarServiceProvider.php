@@ -142,7 +142,6 @@ class PillarServiceProvider extends ServiceProvider
 
         $names = [
             'create_events_table',
-            'create_aggregate_versions_table',
             'create_outbox_table',
             'create_outbox_partitions_table',
             'create_outbox_workers_table',

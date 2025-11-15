@@ -1,17 +1,25 @@
 ## 🧱 Repositories
 
-Repositories coordinate **load / save** for an aggregate root — handling snapshot loading and event streaming to rehydrate state. Pillar resolves which repository to use **dynamically from configuration**, so you can mix event‑sourced and state‑backed aggregates in the same app.
+Repositories coordinate **load / save** of aggregate roots.  
+They handle snapshot lookup, event streaming, optimistic locking, and
+point‑in‑time rehydration.  
+Pillar resolves repositories **dynamically from configuration**, which means you
+can freely mix **event‑sourced** and **state‑backed** aggregates in one system.
 
 Most apps rarely touch repositories directly. In handlers you typically work with the [AggregateSession](/concepts/aggregate-sessions), which opens a session, calls the repository’s `find(...)`, tracks recorded events on your aggregate, and invokes `save(...)` on commit. Reach for repositories when you are writing a custom repository or building low‑level tooling.
 
 ### How repositories rehydrate aggregates
 
-For event‑sourced aggregates, `EventStoreRepository` does the lifting:
+For event‑sourced aggregates, `EventStoreRepository` orchestrates rehydration:
 
 1) **Check snapshot store** for the aggregate ID.  
-2) **If a snapshot exists**, start **after** the snapshot’s version; otherwise construct a fresh aggregate instance.  
-3) **Stream events** from the Event Store using your configured **fetch strategy**, optionally bounded by an `EventWindow` (e.g., as‑of a version / global sequence / UTC time), and apply them to the aggregate.  
-4) On save, consult the **Snapshot Policy** to decide whether to persist a new snapshot.
+2) If found, begin rehydration **after the snapshot’s version**  
+   (using the snapshot only if it is compatible with the caller’s `EventWindow`).  
+3) **Stream events** from the Event Store — using your configured fetch strategy —  
+   applying all events **within the effective `EventWindow`**.  
+4) On save, check the **Snapshot Policy** to decide whether to persist a new
+   snapshot. A snapshot is only created when rehydrating the **latest** state
+   (i.e. when the window has no upper bounds).
 
 This is transparent to your handlers — you just call `find(...)` and `save(...)`.  
 State‑backed repositories can ignore windows or implement their own historical lookup.
@@ -63,8 +71,13 @@ if ($atVersion) {
 }
 ```
 
-> `EventStoreRepository` applies windows by replaying events up to the bound (honoring snapshots automatically).  
-> State‑backed repositories may ignore the window or apply their own logic (document in your repo).
+`EventStoreRepository` applies windows by:
+* selecting a compatible snapshot (if any),  
+* adjusting the window’s lower bound to that snapshot’s version,  
+* streaming only events **inside** the requested bounds.
+
+State‑backed repositories may ignore windows entirely or implement custom
+historical lookup.
 
 ---
 
@@ -75,7 +88,10 @@ final class LoadedAggregate
 {
     public function __construct(
         public readonly AggregateRoot $aggregate,
-        public readonly int $version = 0, // default when no persisted version is known
+        // The aggregate’s persisted version at the replay boundary:
+        //   - equal to the last applied stream_sequence, or
+        //   - equal to the snapshot version when no events were applied.
+        public readonly int $version = 0,
     ) {}
 }
 
@@ -108,7 +124,7 @@ If **optimistic locking** is enabled, the repository will pass the aggregate’s
 
 ### Optimistic concurrency
 
-`EventStoreRepository` uses **optimistic locking** when enabled:
+EventStoreRepository performs **optimistic locking** when enabled:
 
 ```php
 // config/pillar.php
@@ -120,7 +136,8 @@ If **optimistic locking** is enabled, the repository will pass the aggregate’s
 ],
 ```
 
-Custom repositories can implement their own version checks or ignore `$expectedVersion`.
+Custom repositories may implement their own version checks or ignore
+`$expectedVersion` entirely.
 
 ---
 
