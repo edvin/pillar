@@ -2,7 +2,7 @@
 
 Pillar’s event store is a **pluggable abstraction** that supports streaming domain events efficiently using PHP generators.  
 The default implementation, `DatabaseEventStore`, persists domain events in a database table — but you can replace it
-with any backend (KurrentDB, Kafka, DynamoDB, S3, …).  
+with any backend (KurrentDB, Kafka, DynamoDB, S3 etc).  
 Events are grouped into **streams**; in Pillar, a stream corresponds to a single aggregate root instance (e.g. `order-1234`).
 
 ---
@@ -13,18 +13,21 @@ Events are grouped into **streams**; in Pillar, a stream corresponds to a single
 interface EventStore
 {
     /**
-     * Append an event and return the assigned per-stream version (stream_sequence).
+     * Appends an event to the stream for a given aggregate root and returns
+     * the assigned per-stream version (stream_sequence).
+     *
      * If $expectedSequence is provided, the append only succeeds when the current
-     * per-stream version matches; otherwise a ConcurrencyException is thrown.
+     * last per-stream version equals the expected value. Otherwise a
+     * ConcurrencyException MUST be thrown.
      */
     public function append(AggregateRootId $id, object $event, ?int $expectedSequence = null): int;
 
     /**
-     * Stream events for a single stream (aggregate), optionally bounded by an EventWindow.
+     * Stream events for a single stream (aggregate) within an optional window.
      *
      * Implementations MUST yield events in ascending per-stream sequence order.
      *
-     * @return Generator&lt;StoredEvent&gt;
+     * @return Generator<StoredEvent>
      */
     public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator;
 
@@ -34,13 +37,45 @@ interface EventStore
      * Implementations MUST yield events in ascending global sequence order.
      * Implementations MAY apply additional filtering by $eventType.
      *
-     * @return Generator&lt;StoredEvent&gt;
+     * Only the global bounds of the EventWindow are applied here; per-stream
+     * bounds are ignored in this method.
+     *
+     * @return Generator<StoredEvent>
      */
     public function stream(?EventWindow $window = null, ?string $eventType = null): Generator;
+
+    /**
+     * Fetch a single stored event by its global, monotonically increasing sequence
+     * number. Returns null if no event exists for the given sequence.
+     */
+    public function getByGlobalSequence(int $sequence): ?StoredEvent;
+
+    /**
+     * Fetch the most recently updated streams (aggregates) from the store.
+     *
+     * Each returned StoredEvent is the latest (highest per-stream sequence) event
+     * for its stream. The list is ordered by the global sequence of those latest
+     * events in descending order (most recently updated stream first).
+     *
+     * @return array<int, StoredEvent>
+     */
+    public function recent(int $limit): array;
 }
 ```
 
 Instead of returning arrays, `streamFor()` and `stream()` yield `StoredEvent` instances as **generators** — allowing **true streaming** of large event streams with minimal memory use.
+
+Under the default `DatabaseEventStore`, events live in a single **stream-centric** table with columns:
+
+- `sequence` – global, monotonically increasing primary key
+- `stream_id` – logical stream name (e.g. `"document-<uuid>"`)
+- `stream_sequence` – per‑stream version (1, 2, 3, …) for each `stream_id`
+- `event_type`, `event_version`, `event_data`, `occurred_at`, `correlation_id`
+
+Two convenience methods help with diagnostics and dashboards:
+
+- `getByGlobalSequence(int $sequence)` – fetch one event by global sequence
+- `recent(int $limit)` – return the latest event per stream, most recent streams first
 
 ### Point‑in‑time & bounded reads (EventWindow)
 
@@ -124,10 +159,10 @@ Custom strategies implement a lower-level interface that `DatabaseEventStore` us
 interface EventFetchStrategy
 {
     /** @return Generator<StoredEvent> */
-    public function load(AggregateRootId $id, ?EventWindow $window = null): Generator;
+    public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator;
 
     /** @return Generator<StoredEvent> */
-    public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator;
+    public function stream(?EventWindow $window = null, ?string $eventType = null): Generator;
 }
 ```
 
@@ -158,7 +193,52 @@ Configure defaults and overrides in `config/pillar.php`:
 ],
 ```
 
-> **Database convenience:** `DatabaseEventStore` also exposes `getByGlobalSequence(int $seq): ?StoredEvent` to look up a single event quickly by its global sequence number.
+> **Database convenience:** `DatabaseEventStore` also exposes:
+> - `getByGlobalSequence(int $seq): ?StoredEvent` to look up a single event by global sequence
+> - `recent(int $limit): array<StoredEvent>` to list the most recently updated streams
+
+---
+
+## Stream names
+
+Pillar treats each **stream** as the event history for a single aggregate instance.
+Rather than passing raw `stream_id` strings around your domain, you work with
+strongly-typed `AggregateRootId` value objects.
+
+Stream IDs are derived from these IDs by the `AggregateRegistry`:
+
+- Each `AggregateRootId` class is registered with a short, stable **prefix**  
+  (for example, `document` for `DocumentId`).
+- The registry turns an ID into a stream name like `document-<raw-id>`.
+- That stream name is what ends up in the `stream_id` column in the event store.
+
+Example:
+
+```php
+use Pillar\Aggregate\AggregateRegistry;
+use Tests\Fixtures\Document\DocumentId;
+
+$id = DocumentId::new();              // e.g. an internal UUID
+$streamId = app(AggregateRegistry::class)->toStreamName($id);
+// "document-{$id->value()}" → stored in events.stream_id
+```
+
+The mapping is reversible as well:
+
+```php
+$id = app(AggregateRegistry::class)->idFromStreamName($streamId);
+// returns the correct AggregateRootId subtype (e.g. DocumentId)
+```
+
+This gives you:
+ 
+- Readable, prefix-tagged stream IDs at the storage/UI level.
+- A single `events` table keyed by `stream_id` + `stream_sequence`.
+- Strongly-typed IDs inside your domain and application layers.
+
+Most application code never touches `stream_id` directly; you call
+`EventStore::append()` / `streamFor()` with an `AggregateRootId` and Pillar
+handles the mapping behind the scenes.
 
 ---
 
@@ -168,8 +248,8 @@ To rebuild read models, replay stored events. Only listeners implementing `Proje
 
 ```bash
 php artisan pillar:replay-events
-php artisan pillar:replay-events {aggregate_id}
-php artisan pillar:replay-events {aggregate_id} {event_type}
+php artisan pillar:replay-events [stream_id]
+php artisan pillar:replay-events [stream_id] [event_type]
 # Filters:
 php artisan pillar:replay-events --from-seq=1000 --to-seq=2000
 php artisan pillar:replay-events --from-date="2025-01-01" --to-date="2025-01-31"

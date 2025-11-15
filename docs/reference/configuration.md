@@ -1,16 +1,60 @@
 ## Event Store
 
-Responsible for persisting and reading domain events. The default implementation is database‑backed. **Note:** the
-default fetch strategy is not configured here—see **`fetch_strategies.default`** (defaults to `db_chunked`).
+Responsible for persisting and reading domain events. The default implementation is
+a stream-centric, database-backed store. The **default fetch strategy** is configured
+under `fetch_strategies.default` (defaults to `db_chunked`).
 
 ```php
 'event_store' => [
-    'class' => Pillar\Event\DatabaseEventStore::class,
+    'class' => \Pillar\Event\DatabaseEventStore::class,
     'options' => [
         // Optimistic concurrency control for appends. When true, repositories
-        // pass the aggregate's current version as expected_sequence to the EventStore.
+        // will pass the aggregate's current version as expected_sequence to the
+        // EventStore. When false, no expected check is performed.
         'optimistic_locking' => true,
+
+        'tables' => [
+            // Primary event stream table.
+            //
+            // Expected columns (for the default DatabaseEventStore):
+            //   - sequence         BIGINT PK, global, monotonically increasing
+            //   - stream_id        string, logical stream name (e.g. "document-<uuid>")
+            //   - stream_sequence  BIGINT, per-stream version (1,2,3,...) for each stream_id
+            //   - event_type       string, FQCN or alias
+            //   - event_version    int, schema version for upcasters
+            //   - event_data       text/json/blob payload (serializer-controlled)
+            //   - occurred_at      datetime (UTC recommended)
+            //   - correlation_id   nullable string for tracing
+            //
+            // You can rename the table here if you customise the migration, e.g.:
+            //   'events' => 'pillar_events',
+            'events' => 'events',
+        ],
     ],
+],
+```
+
+---
+
+## Event publication policy
+
+Controls which recorded domain events are **published** (sent to the outbox and
+event buses) versus kept private to the aggregate.
+
+Semantics:
+
+- All events you `record()` on an aggregate are **persisted** to its stream.
+- Events that the publication policy marks as *publishable* are **also** enqueued
+  to the transactional outbox in the same DB transaction and delivered with
+  retries (at-least-once).
+- Events not marked publishable remain private: they are stored for rehydration
+  only and are **not** published to handlers / projections.
+
+By default, Pillar publishes events that implement `Pillar\Event\ShouldPublish`.
+
+```php
+'publication_policy' => [
+    'class' => \Pillar\Event\DefaultPublicationPolicy::class,
 ],
 ```
 
@@ -18,38 +62,20 @@ default fetch strategy is not configured here—see **`fetch_strategies.default`
 
 ## Repositories
 
+Define which repository implementation should be used for each aggregate root.
+The default repository is event-sourced, but you can override this per aggregate
+by mapping its class here.
+
+Any custom repository must implement:
+
+- `Pillar\Domain\Repository\AggregateRepository`
+
 ```php
 'repositories' => [
-    'default' => Pillar\Repository\EventStoreRepository::class,
+    'default' => \Pillar\Repository\EventStoreRepository::class,
+
     // Example per-aggregate override:
-    // App\Domain\Report\Report::class => App\Infrastructure\ReportRepository::class,
-],
-```
-
----
-
-## Stream resolver
-
-```php
-'stream_resolver' => [
-    'class' => Pillar\Event\Stream\DatabaseStreamResolver::class,
-    'options' => [
-        // Global fallback stream/table.
-        'default' => 'events',
-
-        // Explicit per-type mapping (takes precedence over per_aggregate_id).
-        // App\Domain\Document::class => 'document_events',
-        'per_aggregate_type' => [],
-
-        // If true (and no per-type mapping applies), generate a unique stream
-        // per aggregate instance according to 'per_aggregate_id_format'.
-        'per_aggregate_id' => false,
-
-        // When per_aggregate_id is true:
-        //  - 'default_id' -> "{default}_{aggregateId}"  e.g. "events_123"
-        //  - 'type_id'    -> "{aggregateClassBaseName}_{aggregateId}" e.g. "Document_123"
-        'per_aggregate_id_format' => 'default_id',
-    ],
+    // \App\Domain\Report\Report::class => \App\Infrastructure\ReportRepository::class,
 ],
 ```
 

@@ -59,6 +59,20 @@ return [
             // EventStore. When false, no expected check is performed.
             'optimistic_locking' => true,
             'tables' => [
+                // Primary event stream table.
+                //
+                // Expected columns (for the default DatabaseEventStore):
+                //   - sequence         BIGINT PK, global, monotonically increasing
+                //   - stream_id        string, logical stream name (e.g. "document-<uuid>")
+                //   - stream_sequence  BIGINT, per-stream version (1,2,3,...) for each stream_id
+                //   - event_type       string, FQCN or alias
+                //   - event_version    int, schema version for upcasters
+                //   - event_data       text/json/blob payload (serializer-controlled)
+                //   - occurred_at      datetime (UTC recommended)
+                //   - correlation_id   nullable string for tracing
+                //
+                // You can rename the table here if you customise the migration, e.g.:
+                //   'events' => 'pillar_events',
                 'events' => 'events',
             ]
         ],
