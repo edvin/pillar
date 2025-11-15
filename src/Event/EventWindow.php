@@ -10,21 +10,21 @@ final class EventWindow
 {
     public function __construct(
         // start (after …), pick at most one
-        public readonly ?int               $afterAggregateSequence = null,
+        public readonly ?int               $afterStreamSequence = null,
         public readonly ?int               $afterGlobalSequence = null,
         public readonly ?DateTimeImmutable $afterDateUtc = null,
 
         // end (until …), pick at most one
-        public readonly ?int               $toAggregateSequence = null,
+        public readonly ?int               $toStreamSequence = null,
         public readonly ?int               $toGlobalSequence = null,
         public readonly ?DateTimeImmutable $toDateUtc = null,
     )
     {
     }
 
-    public static function afterAggSeq(int $seq): self
+    public static function afterStreamSeq(int $seq): self
     {
-        return new self(afterAggregateSequence: $seq);
+        return new self(afterStreamSequence: $seq);
     }
 
     public static function afterGlobalSeq(int $seq): self
@@ -37,9 +37,9 @@ final class EventWindow
         return new self(afterDateUtc: $utc);
     }
 
-    public static function toAggSeq(int $seq): self
+    public static function toStreamSeq(int $seq): self
     {
-        return new self(toAggregateSequence: $seq);
+        return new self(toStreamSequence: $seq);
     }
 
     public static function toGlobalSeq(int $seq): self
@@ -52,9 +52,9 @@ final class EventWindow
         return new self(toDateUtc: $utc);
     }
 
-    public static function betweenAggSeq(int $after, int $to): self
+    public static function betweenStreamSeq(int $after, int $to): self
     {
-        return new self(afterAggregateSequence: $after, toAggregateSequence: $to);
+        return new self(afterStreamSequence: $after, toStreamSequence: $to);
     }
 
     public static function unbounded(): self

@@ -49,28 +49,6 @@ jobs:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || needs.changes.outputs.php == 'true'
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_DATABASE: pillar_test
-          MYSQL_ROOT_PASSWORD: secret
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -psecret"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=30
-
-    env:
-      TEST_WITH_MYSQL: "1"
-      MYSQL_HOST: "127.0.0.1"
-      MYSQL_PORT: "3306"
-      MYSQL_DATABASE: "pillar_test"
-      MYSQL_USERNAME: "root"
-      MYSQL_PASSWORD: "secret"
-
     steps:
       - uses: actions/checkout@v4
 

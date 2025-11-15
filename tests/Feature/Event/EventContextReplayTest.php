@@ -1,5 +1,6 @@
 <?php
 
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\EventContext;
 use Pillar\Event\EventReplayer;
 use Pillar\Facade\Pillar;
@@ -36,7 +37,8 @@ it('sets correlation id and timestamp in EventContext during replay', function (
     $replayer->registerProjector(DocumentRenamed::class, ContextProbeProjector::class);
 
     // Replay and let the probe capture EventContext values
-    $replayer->replay($id);
+    $streamId = app(AggregateRegistry::class)->toStreamName($id);
+    $replayer->replay($streamId);
 
     // Extract what the projector saw
     $seenCorr = array_map(fn($row) => $row['corr'], ContextProbeProjector::$seen);

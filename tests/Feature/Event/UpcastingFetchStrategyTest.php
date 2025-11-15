@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\DB;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\Upcaster;
 use Pillar\Event\UpcasterRegistry;
+use Pillar\Aggregate\AggregateRegistry;
 use Tests\Fixtures\Document\DocumentId;
 
 // A tiny event that REQUIRES 'b' to exist at construction time.
@@ -40,28 +41,29 @@ it('uses upcaster path in mapToStoredEvents (toArray → upcast → fromArray �
     app()->forgetInstance(EventFetchStrategyResolver::class);
 
     // Create a stream row that would FAIL to deserialize without upcasting (missing "b")
-    $id = DocumentId::new();
-    $table = config('pillar.stream_resolver.options.default', 'events');
+    $id       = DocumentId::new();
+    $streamId = app(AggregateRegistry::class)->toStreamName($id);
+    $table    = 'events';
 
-    $nextSeq   = (int) DB::table($table)->max('sequence') + 1;
-    $nextAgg   = 1;
-    $occurred  = now('UTC')->format('Y-m-d H:i:s');
+    $nextSeq      = (int) DB::table($table)->max('sequence') + 1;
+    $nextStream   = 1;
+    $occurred     = now('UTC')->format('Y-m-d H:i:s');
 
     DB::table($table)->insert([
-        'sequence'           => $nextSeq,
-        'aggregate_id'       => $id->value(),
-        'aggregate_sequence' => $nextAgg,
-        'event_type'         => RequiresUpcastEvent::class,
+        'sequence'        => $nextSeq,
+        'stream_id'       => $streamId,
+        'stream_sequence' => $nextStream,
+        'event_type'      => RequiresUpcastEvent::class,
         // Intentionally missing "b"; upcaster will add it
-        'event_data'         => json_encode(['a' => 'hello'], JSON_THROW_ON_ERROR),
-        'event_version'      => 1,
-        'occurred_at'        => $occurred,
-        'correlation_id'     => 'C-1',
+        'event_data'      => json_encode(['a' => 'hello'], JSON_THROW_ON_ERROR),
+        'event_version'   => 1,
+        'occurred_at'     => $occurred,
+        'correlation_id'  => 'C-1',
     ]);
 
     // Fetch via resolver → strategy → mapToStoredEvents (else branch)
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
-    $events   = iterator_to_array($strategy->load($id));
+    $events   = iterator_to_array($strategy->streamFor($id));
 
     expect($events)->toHaveCount(1);
 

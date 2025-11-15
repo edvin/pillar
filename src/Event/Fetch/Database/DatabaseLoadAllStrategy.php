@@ -9,7 +9,7 @@ use Pillar\Event\Fetch\EventFetchStrategy;
 
 class DatabaseLoadAllStrategy extends AbstractDatabaseFetchStrategy implements EventFetchStrategy
 {
-    public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
+    public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
     {
         $qb = $this->perAggregateBase($id);
         $this->applyPerAggregateWindow($qb, $window);
@@ -18,25 +18,14 @@ class DatabaseLoadAllStrategy extends AbstractDatabaseFetchStrategy implements E
         yield from $this->mapToStoredEvents($qb->get());
     }
 
-    public function all(?AggregateRootId $aggregateId = null, ?EventWindow $window = null, ?string $eventType = null): Generator
+    public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
     {
-        if ($aggregateId) {
-            // Per-aggregate path
-            $qb = $this->perAggregateBase($aggregateId);
-            $this->applyPerAggregateWindow($qb, $window);
-
-            if ($eventType) {
-                $qb->where('event_type', $eventType);
-            }
-
-            $qb = $this->orderPerAggregateAsc($qb);
-            yield from $this->mapToStoredEvents($qb->get());
-            return;
-        }
-
-        // Global path
+        // Global path: scan across the entire store using global sequence ordering.
         $qb = $this->globalBase();
-        $this->applyGlobalWindow($qb, $window);
+
+        if ($window) {
+            $this->applyGlobalWindow($qb, $window);
+        }
 
         if ($eventType) {
             $qb->where('event_type', $eventType);

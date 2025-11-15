@@ -4,11 +4,12 @@ namespace Pillar\Event\Fetch\Database;
 
 use Generator;
 use Illuminate\Container\Attributes\Config;
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Aggregate\AggregateRootId;
+use Pillar\Event\DatabaseEventMapper;
 use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventWindow;
 use Pillar\Event\Fetch\EventFetchStrategy;
-use Pillar\Event\Stream\StreamResolver;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Serialization\ObjectSerializer;
 
@@ -17,30 +18,33 @@ class DatabaseChunkedFetchStrategy extends AbstractDatabaseFetchStrategy impleme
     private int $chunkSize;
 
     public function __construct(
-        ObjectSerializer         $serializer,
-        EventAliasRegistry       $aliases,
-        UpcasterRegistry         $upcasters,
-        protected StreamResolver $streamResolver,
+        ObjectSerializer    $serializer,
+        EventAliasRegistry  $aliases,
+        UpcasterRegistry    $upcasters,
+        DatabaseEventMapper $mapper,
+        AggregateRegistry   $aggregates,
+        #[Config('pillar.event_store.options.tables.events', 'events')]
+        protected string    $eventsTable,
         #[Config('pillar.fetch_strategies.available.db_chunked.options.chunk_size', 1000)]
-        int                      $chunkSize,
+        int                 $chunkSize,
     )
     {
-        parent::__construct($serializer, $aliases, $upcasters, $streamResolver);
+        parent::__construct($serializer, $aliases, $upcasters, $mapper, $aggregates, $eventsTable);
         $this->chunkSize = $chunkSize;
     }
 
-    public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
+    public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
     {
-        $after = $window?->afterAggregateSequence ?? 0;
-        $toAgg = $window?->toAggregateSequence;
+        $after = $window?->afterStreamSequence ?? 0;
+        $toAgg = $window?->toStreamSequence;
         $toGlob = $window?->toGlobalSequence;
         $toDate = $window?->toDateUtc;
 
         while (true) {
             // Build a per-page window starting after the moving cursor
             $pageWindow = new EventWindow(
-                afterAggregateSequence: $after,
-                toAggregateSequence: $toAgg,
+                afterStreamSequence: $after,
+                toStreamSequence: $toAgg,
                 toGlobalSequence: $toGlob,
                 toDateUtc: $toDate,
             );
@@ -56,7 +60,7 @@ class DatabaseChunkedFetchStrategy extends AbstractDatabaseFetchStrategy impleme
 
             foreach ($this->mapToStoredEvents($rows) as $stored) {
                 yield $stored;
-                $after = $stored->aggregateSequence; // advance cursor
+                $after = $stored->streamSequence; // advance cursor
             }
 
             if ($rows->count() < $this->chunkSize) {
@@ -69,22 +73,16 @@ class DatabaseChunkedFetchStrategy extends AbstractDatabaseFetchStrategy impleme
         }
     }
 
-    public function all(?AggregateRootId $aggregateId = null, ?EventWindow $window = null, ?string $eventType = null):
-Generator
+    public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
     {
-        // Page forward using keyset pagination; use per-aggregate or global column depending on filter.
+        // Page forward using keyset pagination over the global sequence.
         $cursor = 0;
-        $perAgg = $aggregateId !== null;
 
         while (true) {
-            $qb = $perAgg ? $this->perAggregateBase($aggregateId) : $this->globalBase();
+            $qb = $this->globalBase();
 
             if ($window) {
-                if ($perAgg) {
-                    $this->applyPerAggregateWindow($qb, $window);
-                } else {
-                    $this->applyGlobalWindow($qb, $window);
-                }
+                $this->applyGlobalWindow($qb, $window);
             }
 
             if ($eventType) {
@@ -92,10 +90,10 @@ Generator
             }
 
             if ($cursor > 0) {
-                $qb->where($perAgg ? 'aggregate_sequence' : 'sequence', '>', $cursor);
+                $qb->where('sequence', '>', $cursor);
             }
 
-            $qb = $perAgg ? $this->orderPerAggregateAsc($qb) : $this->orderGlobalAsc($qb);
+            $qb   = $this->orderGlobalAsc($qb);
             $rows = $qb->limit($this->chunkSize)->get();
 
             if ($rows->isEmpty()) {
@@ -104,7 +102,7 @@ Generator
 
             foreach ($this->mapToStoredEvents($rows) as $stored) {
                 yield $stored;
-                $cursor = $perAgg ? $stored->aggregateSequence : $stored->sequence; // advance cursor
+                $cursor = $stored->sequence; // advance cursor along the global sequence
             }
 
             if ($rows->count() < $this->chunkSize) {

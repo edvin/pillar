@@ -18,12 +18,25 @@ final class RegistryEditor
         $this->insertArrayItemIntoMethod($registry, 'queries', $this->lineFor($plan));
     }
 
+    public function registerAggregateRootId(object $registry, object $plan): void
+    {
+        $this->insertArrayItemIntoMethod($registry, 'aggregateRootIds', $this->lineForAggregateRootId($plan));
+    }
+
     /**
      * Builds: FQCN::class => HandlerFQCN::class,
      */
     private function lineFor(object $plan): string
     {
         return sprintf('%s::class => %s::class,', $plan->messageClass, $plan->handlerClass);
+    }
+
+    /**
+     * Builds: IdFQCN::class,
+     */
+    private function lineForAggregateRootId(object $plan): string
+    {
+        return sprintf('%s::class,', $plan->idClass);
     }
 
     /**

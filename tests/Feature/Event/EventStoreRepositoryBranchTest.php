@@ -12,26 +12,14 @@ use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 
 it('throws when aggregateClass is not an EventSourcedAggregateRoot', function () {
-    // Snapshot store returns no snapshot
+    // Snapshot store is never consulted when the aggregate class is invalid
     $snapshots = Mockery::mock(SnapshotStore::class);
-    $snapshots->shouldReceive('load')->once()->andReturn(null);
 
     $policy = Mockery::mock(SnapshotPolicy::class);
 
     // Minimal stub EventStore that returns an empty iterator for load()
     $events = new class implements EventStore {
         public function append($id, object $event, ?int $expectedSequence = null): int { return 0; }
-        public function resolveAggregateIdClass(string $aggregateId): ?string { return null; }
-
-        public function all(?AggregateRootId $aggregateId = null, ?EventWindow $window = null, ?string $eventType = null): Generator
-        {
-            yield null;
-        }
-
-        public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
-        {
-            yield null;
-        }
 
         public function getByGlobalSequence(int $sequence): ?StoredEvent
         {
@@ -41,6 +29,20 @@ it('throws when aggregateClass is not an EventSourcedAggregateRoot', function ()
         public function recent(int $limit): array
         {
             return [];
+        }
+
+        public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
+        {
+            if (false) {
+                yield;
+            }
+        }
+
+        public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
+        {
+            if (false) {
+                yield;
+            }
         }
     };
 
@@ -55,7 +57,7 @@ it('throws when aggregateClass is not an EventSourcedAggregateRoot', function ()
     // ID that resolves to a non-event-sourced aggregate (stdClass)
     $badId = new readonly class(Str::uuid()) extends GenericAggregateId {
         public function __construct(string $raw) { parent::__construct($raw); }
-        public static function aggregateClass(): string { return \stdClass::class; }
+        public static function aggregateClass(): string { return stdClass::class; }
     };
 
     expect(fn () => $repo->find($badId))->toThrow(LogicException::class);

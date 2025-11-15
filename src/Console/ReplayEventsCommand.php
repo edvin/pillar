@@ -7,8 +7,6 @@ use Carbon\CarbonImmutable;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
-use InvalidArgumentException;
-use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\EventReplayer;
 use Throwable;
 
@@ -20,7 +18,7 @@ use function Laravel\Prompts\spin;
 final class ReplayEventsCommand extends Command
 {
     protected $signature = 'pillar:replay-events
-                            {aggregate_id? : Aggregate ID (UUID) to filter by, or "null" for all}
+                            {stream_id? : Stream ID to filter by, or "null" for all}
                             {event_type? : Fully-qualified event class to filter by}
                             {--from-seq= : Only replay events with global sequence >= this}
                             {--to-seq= : Only replay events with global sequence <= this}
@@ -36,7 +34,7 @@ final class ReplayEventsCommand extends Command
 
     public function handle(): int
     {
-        $aggregateArg = $this->argument('aggregate_id');
+        $streamArg = $this->argument('stream_id');
         $eventType    = $this->argument('event_type') ?: null;
 
         $fromSeq  = $this->option('from-seq') !== null ? (int) $this->option('from-seq') : null;
@@ -44,7 +42,7 @@ final class ReplayEventsCommand extends Command
         $fromDate = $this->option('from-date') ? (string) $this->option('from-date') : null;
         $toDate   = $this->option('to-date') ? (string) $this->option('to-date') : null;
 
-        $needsWizard = $aggregateArg === null
+        $needsWizard = $streamArg === null
             && $eventType === null
             && $fromSeq === null
             && $toSeq === null
@@ -56,21 +54,23 @@ final class ReplayEventsCommand extends Command
                 label: 'Replay scope',
                 options: [
                     'all'        => 'All events',
-                    'aggregate'  => 'By aggregate ID',
+                    'aggregate'  => 'By stream ID',
                     'event'      => 'By event type (FQCN)',
-                    'both'       => 'Aggregate + Event type',
+                    'both'       => 'Stream ID + Event type',
                 ],
                 default: 'all',
                 hint: 'Pick what subset of events to replay.'
             );
 
             if ($scope === 'aggregate' || $scope === 'both') {
-                $aggregateArg = text(
-                    label: 'Aggregate ID (UUID) or "null" for all',
+                $streamArg = text(
+                    label: 'Stream ID or "null" for all',
                     default: 'null',
                     validate: function (string $v) {
-                        if (strtolower($v) === 'null') return null;
-                        return Str::isUuid($v) ? null : 'Please enter a valid UUID or "null".';
+                        if (strtolower($v) === 'null') {
+                            return null;
+                        }
+                        return $v !== '' ? null : 'Please enter a non-empty stream id or "null".';
                     }
                 );
             }
@@ -114,16 +114,10 @@ final class ReplayEventsCommand extends Command
             }
         }
 
-        // Normalize aggregate id
-        $aggregateId = null;
-        if ($aggregateArg !== null && strtolower((string) $aggregateArg) !== 'null') {
-            $uuid = (string) $aggregateArg;
-            try {
-                $aggregateId = new GenericAggregateId($uuid);
-            } catch (InvalidArgumentException $invalidUuid) {
-                $this->error($invalidUuid->getMessage());
-                return self::FAILURE;
-            }
+        // Normalize stream id: treat as opaque stream name, with "null" as sentinel for global replay.
+        $streamId = null;
+        if ($streamArg !== null && strtolower((string) $streamArg) !== 'null') {
+            $streamId = (string) $streamArg;
         }
 
         // Normalize dates to UTC CarbonImmutable
@@ -131,8 +125,8 @@ final class ReplayEventsCommand extends Command
         $toDateUtc   = $toDate ? CarbonImmutable::parse($toDate)->utc() : null;
 
         $scope = match (true) {
-            $aggregateId !== null && $eventType !== null => "aggregate {$aggregateId->value()} and event $eventType",
-            $aggregateId !== null => "aggregate {$aggregateId->value()}",
+            $streamId !== null && $eventType !== null => "stream {$streamId} and event $eventType",
+            $streamId !== null => "stream {$streamId}",
             $eventType !== null => "event $eventType",
             default => 'all events',
         };
@@ -149,9 +143,8 @@ final class ReplayEventsCommand extends Command
 
         try {
             spin(
-                callback: function () use ($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateUtc, $toDateUtc) {
-                    // Let exceptions bubble to outer catch so we can format the error consistently.
-                    $this->replayer->replay($aggregateId, $eventType, $fromSeq, $toSeq, $fromDateUtc, $toDateUtc);
+                callback: function () use ($streamId, $eventType, $fromSeq, $toSeq, $fromDateUtc, $toDateUtc) {
+                    $this->replayer->replay($streamId, $eventType, $fromSeq, $toSeq, $fromDateUtc, $toDateUtc);
                 },
                 message: 'Replaying events…'
             );

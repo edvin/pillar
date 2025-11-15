@@ -222,8 +222,8 @@ All routes are nested under the configured `path` and namespaced `pillar.ui.*`.
 When you click **Time travel** next to an event, the UI asks the backend to rebuild the aggregate **up to and including
 ** that event. Under the hood we use an `EventWindow` bound:
 
-- `toAggregateSequence = N` (inclusive)
-- plus an `afterAggregateSequence` cursor set by the repository to your latest **snapshot** (if any), for efficiency
+- `toStreamSequence = N` (inclusive)
+- plus an `afterStreamSequence` cursor set by the repository to your latest **snapshot** (if any), for efficiency
 
 This gives you the **exact state after event N**—useful for debugging and audits.
 

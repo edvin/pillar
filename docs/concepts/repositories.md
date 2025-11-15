@@ -48,7 +48,7 @@ $repo     = $resolver->forId($id);
 $latest = $repo->find($id);
 
 // As of aggregate version
-$atVersion = $repo->find($id, EventWindow::toAggSeq(5));
+$atVersion = $repo->find($id, EventWindow::toStreamSeq(5));
 
 // As of global sequence
 $atGlobal  = $repo->find($id, EventWindow::toGlobalSeq(12_345));

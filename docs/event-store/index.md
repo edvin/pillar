@@ -2,7 +2,8 @@
 
 Pillar’s event store is a **pluggable abstraction** that supports streaming domain events efficiently using PHP generators.  
 The default implementation, `DatabaseEventStore`, persists domain events in a database table — but you can replace it
-with any backend (Kafka, DynamoDB, S3, …).
+with any backend (KurrentDB, Kafka, DynamoDB, S3, …).  
+Events are grouped into **streams**; in Pillar, a stream corresponds to a single aggregate root instance (e.g. `order-1234`).
 
 ---
 
@@ -12,42 +13,51 @@ with any backend (Kafka, DynamoDB, S3, …).
 interface EventStore
 {
     /**
-     * Append an event and return the assigned per-aggregate version (aggregate_sequence).
+     * Append an event and return the assigned per-stream version (stream_sequence).
      * If $expectedSequence is provided, the append only succeeds when the current
-     * per-aggregate version matches; otherwise a ConcurrencyException is thrown.
+     * per-stream version matches; otherwise a ConcurrencyException is thrown.
      */
     public function append(AggregateRootId $id, object $event, ?int $expectedSequence = null): int;
 
     /**
-     * Load events for a single aggregate, optionally bounded by an EventWindow.
+     * Stream events for a single stream (aggregate), optionally bounded by an EventWindow.
      *
-     * @return Generator<StoredEvent>
+     * Implementations MUST yield events in ascending per-stream sequence order.
+     *
+     * @return Generator&lt;StoredEvent&gt;
      */
-    public function load(AggregateRootId $id, ?EventWindow $window = null): Generator;
+    public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator;
 
-    /** @return Generator<StoredEvent> */
-    public function all(?AggregateRootId $aggregateId = null, ?string $eventType = null): Generator;
+    /**
+     * Scan events across the whole store in global order.
+     *
+     * Implementations MUST yield events in ascending global sequence order.
+     * Implementations MAY apply additional filtering by $eventType.
+     *
+     * @return Generator&lt;StoredEvent&gt;
+     */
+    public function stream(?EventWindow $window = null, ?string $eventType = null): Generator;
 }
 ```
 
-Instead of returning arrays, `load()` and `all()` yield `StoredEvent` instances as **generators** — allowing **true streaming** of large event streams with minimal memory use.
+Instead of returning arrays, `streamFor()` and `stream()` yield `StoredEvent` instances as **generators** — allowing **true streaming** of large event streams with minimal memory use.
 
 ### Point‑in‑time & bounded reads (EventWindow)
 
-Use `EventWindow` to cap a read at a specific boundary — by aggregate version, by global sequence, or by UTC time. This lets you **inspect history** or rebuild state _as of_ some moment.
+Use `EventWindow` to cap a read at a specific boundary — by per-stream version, by global sequence, or by UTC time. This lets you **inspect history** or rebuild state _as of_ some moment.
 
 ```php
 use Pillar\Event\EventWindow;
 
-// Up to a specific per-aggregate version
-$win = EventWindow::toAggSeq(42);
-foreach ($eventStore->load($id, $win) as $e) {
-    // events with aggregate_sequence <= 42
+// Up to a specific per-stream version
+$win = EventWindow::toStreamSeq(42);
+foreach ($eventStore->streamFor($id, $win) as $e) {
+    // events with stream_sequence <= 42
 }
 
 // Up to a wall‑clock time (UTC)
 $win = EventWindow::toDateUtc(new DateTimeImmutable('2025-01-01T00:00:00Z'));
-foreach ($eventStore->load($id, $win) as $e) {
+foreach ($eventStore->streamFor($id, $win) as $e) {
     // events that occurred on/before that timestamp
 }
 
@@ -72,23 +82,23 @@ When implementing a store, `append()` must throw a `ConcurrencyException` if `$e
 ## Reading & writing
 
 ```php
-// Append; returns new per-aggregate sequence
+// Append; returns new per-stream sequence
 $seq = $eventStore->append($id, new DocumentCreated($title), $expectedSeq);
 
-// Load one aggregate’s events (unbounded stream)
-foreach ($eventStore->load($id) as $stored) {
-    // $stored->event, $stored->aggregateId, $stored->aggregateSequence, $stored->occurredAt, ...
+// Stream one aggregate’s events (unbounded stream)
+foreach ($eventStore->streamFor($id) as $stored) {
+    // $stored->event, $stored->streamId, $stored->streamSequence, $stored->occurredAt, ...
 }
 
-// Load events up to a boundary
+// Stream events up to a boundary
 use Pillar\Event\EventWindow;
-$win = EventWindow::toAggSeq(100); // or ::toDateUtc($ts), ::toGlobalSeq($n)
-foreach ($eventStore->load($id, $win) as $stored) {
+$win = EventWindow::toStreamSeq(100); // or ::toDateUtc($ts), ::toGlobalSeq($n)
+foreach ($eventStore->streamFor($id, $win) as $stored) {
     // project ‘as of’ this boundary
 }
 
-// Load all events (optionally filter)
-foreach ($eventStore->all(/* aggregateId */ null, /* eventType */ DocumentRenamed::class) as $stored) {
+// Stream all events (optionally filter by type)
+foreach ($eventStore->stream(window: null, eventType: DocumentRenamed::class) as $stored) {
     // project, analyze, export…
 }
 ```
@@ -108,7 +118,7 @@ Built-in strategies:
 | `db_chunked`   | `DatabaseChunkedFetchStrategy`               | Loads events in chunks (default 1000). Balanced for most use cases.        |
 | `db_streaming` | `DatabaseCursorFetchStrategy`                | Uses a DB cursor to stream without buffering. Best for very large streams. |
 
-Custom strategies implement:
+Custom strategies implement a lower-level interface that `DatabaseEventStore` uses internally to power `streamFor()` and `stream()`:
 
 ```php
 interface EventFetchStrategy
@@ -149,44 +159,6 @@ Configure defaults and overrides in `config/pillar.php`:
 ```
 
 > **Database convenience:** `DatabaseEventStore` also exposes `getByGlobalSequence(int $seq): ?StoredEvent` to look up a single event quickly by its global sequence number.
-
----
-
-## Stream resolver
-
-For advanced setups (multi-tenancy, sharding, per-aggregate tables), a **Stream Resolver** maps an aggregate ID to a logical stream/table.
-
-Default resolver (database):
-
-- Global default (e.g. `events`)
-- Per aggregate type mapping
-- Optional per aggregate ID stream naming:
-  - `default_id` → `{default}_{aggregateId}`
-  - `type_id` → `{AggregateBaseName}_{aggregateId}`
-
-```php
-'stream_resolver' => [
-    'class' => \Pillar\Event\Stream\DatabaseStreamResolver::class,
-    'options' => [
-        'default' => 'events',
-        'per_aggregate_type' => [
-            // \Context\Document\Domain\Aggregate\Document::class => 'document_events',
-        ],
-        'per_aggregate_id' => false,
-        'per_aggregate_id_format' => 'type_id', // or 'default_id'
-    ],
-],
-```
-
-Roll your own by implementing:
-
-```php
-interface StreamResolver
-{
-    /** Return the stream name/identifier for a given aggregate root ID (or default if null). */
-    public function resolve(?AggregateRootId $id): string;
-}
-```
 
 ---
 

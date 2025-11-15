@@ -4,7 +4,7 @@ namespace Pillar\Event;
 
 use Carbon\CarbonImmutable;
 use Generator;
-use Pillar\Aggregate\AggregateRootId;
+use Pillar\Aggregate\AggregateRegistry;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -48,7 +48,7 @@ final class EventReplayer
      *
      * Bounds are inclusive. Date strings are parsed as UTC (ISO-8601 or anything Carbon parses).
      *
-     * @param AggregateRootId|null $aggregateId Restrict to a single aggregate (or null for all).
+     * @param string|null $streamId Restrict to a single stream_id (or null for all).
      * @param string|null $eventType Restrict to a single event class (FQCN), or null for all.
      * @param int|null $fromSequence Lower bound on global sequence (inclusive).
      * @param int|null $toSequence Upper bound on global sequence (inclusive).
@@ -59,19 +59,19 @@ final class EventReplayer
      * @throws Throwable if a listener throws during replay.
      */
     public function replay(
-        ?AggregateRootId $aggregateId = null,
-        ?string          $eventType = null,
-        ?int             $fromSequence = null,
-        ?int             $toSequence = null,
-        ?string          $fromDate = null,
-        ?string          $toDate = null
+        ?string $streamId = null,
+        ?string $eventType = null,
+        ?int    $fromSequence = null,
+        ?int    $toSequence = null,
+        ?string $fromDate = null,
+        ?string $toDate = null
     ): void
     {
         $this->validateRanges($fromSequence, $toSequence, $fromDate, $toDate);
 
-        $events = $this->eventStore->all($aggregateId, null, $eventType);
+        $events   = $this->baseStream($streamId, $eventType);
         $filtered = $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
-        $count = $this->replayEvents($filtered);
+        $count    = $this->replayEvents($filtered);
 
         if ($count === 0) {
             throw new RuntimeException('No events found for replay.');
@@ -81,7 +81,7 @@ final class EventReplayer
     /**
      * Stream events matching optional filters. Bounds are inclusive; dates are parsed as UTC.
      *
-     * @param AggregateRootId|null $aggregateId Restrict to a single aggregate (or null for all).
+     * @param string|null $streamId Restrict to a single stream_id (or null for all).
      * @param string|null $eventType Restrict to a single event class (FQCN), or null for all.
      * @param int|null $fromSequence Lower bound on global sequence (inclusive).
      * @param int|null $toSequence Upper bound on global sequence (inclusive).
@@ -91,16 +91,16 @@ final class EventReplayer
      * @return Generator<StoredEvent>
      */
     public function stream(
-        ?AggregateRootId $aggregateId = null,
-        ?string          $eventType = null,
-        ?int             $fromSequence = null,
-        ?int             $toSequence = null,
-        ?string          $fromDate = null,
-        ?string          $toDate = null
+        ?string $streamId = null,
+        ?string $eventType = null,
+        ?int    $fromSequence = null,
+        ?int    $toSequence = null,
+        ?string $fromDate = null,
+        ?string $toDate = null
     ): Generator
     {
         $this->validateRanges($fromSequence, $toSequence, $fromDate, $toDate);
-        $events = $this->eventStore->all($aggregateId, null, $eventType);
+        $events = $this->baseStream($streamId, $eventType);
         return $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
     }
 
@@ -168,6 +168,51 @@ final class EventReplayer
             }
 
             yield $e;
+        }
+    }
+
+    /**
+     * Resolve the base event stream from the store, choosing between per-stream and global streaming.
+     * When a streamId is provided, we use streamFor(); otherwise we use the global stream().
+     * If both streamId and eventType are provided, we apply the type filter in-memory.
+     *
+     * @param string|null $streamId
+     * @param string|null $eventType
+     * @return iterable<StoredEvent>
+     */
+    private function baseStream(?string $streamId, ?string $eventType): iterable
+    {
+        if ($streamId !== null) {
+            /** @var AggregateRegistry $registry */
+            $registry    = app(AggregateRegistry::class);
+            $aggregateId = $registry->idFromStreamName($streamId);
+
+            $events = $this->eventStore->streamFor($aggregateId);
+
+            if ($eventType !== null) {
+                return $this->filterByEventType($events, $eventType);
+            }
+
+            return $events;
+        }
+
+        // Global scan; the store can natively optimize by event type.
+        return $this->eventStore->stream(null, $eventType);
+    }
+
+    /**
+     * Filter a stream of stored events by event type (FQCN or alias).
+     *
+     * @param iterable<StoredEvent> $events
+     * @param string                $eventType
+     * @return Generator<StoredEvent>
+     */
+    private function filterByEventType(iterable $events, string $eventType): Generator
+    {
+        foreach ($events as $storedEvent) {
+            if ($storedEvent->eventType === $eventType || $storedEvent->event::class === $eventType) {
+                yield $storedEvent;
+            }
         }
     }
 

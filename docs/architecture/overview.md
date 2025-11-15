@@ -62,8 +62,8 @@ flowchart LR
 
 - **EventWindow — load “as of” a point in time**  
   All aggregate loads can be bounded using an optional `EventWindow`:
-  - `afterAggregateSequence`: start strictly *after* this per‑aggregate version (the repository sets this to the snapshot version automatically).
-  - `toAggregateSequence`: stop at a per‑aggregate version.
+  - `afterStreamSequence`: start strictly *after* this per‑aggregate version (the repository sets this to the snapshot version automatically).
+  - `toStreamSequence`: stop at a per‑aggregate version.
   - `toGlobalSequence`: stop at a specific global sequence.
   - `toDateUtc`: stop at a timestamp (UTC).
   

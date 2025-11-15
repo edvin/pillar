@@ -25,6 +25,6 @@ it('commits multiple events in order with contiguous aggregate versions', functi
     $events = iterator_to_array(Pillar::events($id));
     expect($events)->toHaveCount(3);
 
-    $seqs = array_map(fn($e) => $e->aggregateSequence, $events);
+    $seqs = array_map(fn($e) => $e->streamSequence, $events);
     expect($seqs)->toBe([1, 2, 3]); // created=1, rename=2, rename=3
 });

@@ -5,9 +5,13 @@ namespace Pillar\Http\Controllers\UI;
 
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use JsonSerializable;
+use Pillar\Aggregate\AggregateRootId;
 use Pillar\Aggregate\GenericAggregateId;
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
+use Pillar\Snapshot\Snapshottable;
 use Throwable;
 use function array_reverse;
 use function array_shift;
@@ -21,56 +25,52 @@ final class AggregateController extends Controller
 {
     public function __construct(
         private readonly EventStore           $events,
-        private readonly EventStoreRepository $repo
+        private readonly EventStoreRepository $repo,
+        private readonly AggregateRegistry    $aggregates,
     )
     {
     }
 
     /**
-     * Resolve the typed AggregateRootId plus ID class and aggregate type from a raw string.
-     * Falls back to GenericAggregateId when the store cannot resolve the class.
+     * Resolve the typed AggregateRootId plus ID class and aggregate type from a stream name.
+     * Falls back to GenericAggregateId when the registry cannot resolve the prefix.
      *
-     * @return array{0: \Pillar\Aggregate\AggregateRootId, 1: ?string, 2: ?string}
+     * @return array{0: AggregateRootId, 1: ?string, 2: ?string}
      */
-    private function resolveIdMeta(string $rawId): array
+    private function resolveIdMeta(string $streamName): array
     {
-        $idClass = $rawId !== '' ? $this->events->resolveAggregateIdClass($rawId) : null;
 
-        $aggregateType = null;
-        if (is_string($idClass)) {
-            try {
-                /** @var class-string $idClass */
-                $aggregateType = $idClass::aggregateClass();
-                $aggregateId = $idClass::from($rawId);
-            } catch (\Throwable) {
-                $aggregateType = null;
-                $aggregateId = GenericAggregateId::from($rawId);
-            }
-        } else {
-            $aggregateId = GenericAggregateId::from($rawId);
+        try {
+            $id = $this->aggregates->idFromStreamName($streamName);
+            $idClass = $id::class;
+            /** @var class-string $idClass */
+            $aggregateType = $idClass::aggregateClass();
+            return [$id, $idClass, $aggregateType];
+        } catch (Throwable) {
+            // Unknown prefix or invalid stream name; fall back to a generic ID wrapper.
+            $generic = GenericAggregateId::from($streamName);
+            return [$generic, null, null];
         }
-
-        return [$aggregateId, $idClass, $aggregateType];
     }
 
     public function show(Request $request)
     {
-        $rawId = (string)$request->query('id', '');
+        $streamName = (string)$request->query('id', '');
 
-        [$_typedId, $idClass, $aggregateType] = $this->resolveIdMeta($rawId);
+        [$_typedId, $idClass, $aggregateType] = $this->resolveIdMeta($streamName);
 
         return view('pillar-ui::aggregate', [
-            'id' => $rawId,
+            'id' => $streamName,
             'aggregate_id_class' => $idClass,
             'aggregate_type' => $aggregateType,
         ]);
     }
 
-    // JSON: paged backward by global sequence for a single aggregate
+    // JSON: paged backward by global sequence for a single stream (aggregate)
     public function events(Request $request)
     {
-        $rawId = (string)$request->query('id', '');
-        if ($rawId === '') {
+        $streamName = (string)$request->query('id', '');
+        if ($streamName === '') {
             return response()->json(['error' => '"id" is required.'], 422);
         }
 
@@ -88,12 +88,17 @@ final class AggregateController extends Controller
             $window = EventWindow::toGlobalSeq($b);
         }
 
-        $aggregateId = GenericAggregateId::from($rawId);
+        try {
+            $aggregateId = $this->aggregates->idFromStreamName($streamName);
+        } catch (Throwable) {
+            // If the stream name is unknown, fall back to a generic ID; this will simply yield no events.
+            $aggregateId = GenericAggregateId::from($streamName);
+        }
 
         // Stream ASC, keep a rolling buffer of the last N; use $seen to decide has_more.
         $buffer = [];
         $seen = 0;
-        foreach ($this->events->load($aggregateId, $window) as $stored) {
+        foreach ($this->events->streamFor($aggregateId, $window) as $stored) {
             $seen++;
             $buffer[] = $stored;
             if (count($buffer) > $limit) {
@@ -114,7 +119,7 @@ final class AggregateController extends Controller
         foreach (array_reverse($buffer) as $e) {
             $items[] = [
                 'sequence' => $e->sequence,
-                'aggregate_sequence' => $e->aggregateSequence,
+                'stream_sequence' => $e->streamSequence,
                 'occurred_at' => $e->occurredAt,
                 'type' => $e->eventType,
                 'event' => $e->event,
@@ -143,12 +148,12 @@ final class AggregateController extends Controller
      */
     public function state(Request $request)
     {
-        $rawId = (string)$request->query('id', '');
-        if ($rawId === '') {
+        $streamName = (string)$request->query('id', '');
+        if ($streamName === '') {
             return response()->json(['error' => '"id" is required.'], 422);
         }
 
-        [$aggregateId, $_idClass, $_aggregateType] = $this->resolveIdMeta($rawId);
+        [$aggregateId, $_idClass, $_aggregateType] = $this->resolveIdMeta($streamName);
 
         // Build an optional window from query params (pick the first provided)
         $window = null;
@@ -158,7 +163,7 @@ final class AggregateController extends Controller
         $toDate = $request->query('to_date');
 
         if ($toAgg !== null && $toAgg !== '') {
-            $window = EventWindow::toAggSeq((int)$toAgg);
+            $window = EventWindow::toStreamSeq((int)$toAgg);
         } elseif ($toGlob !== null && $toGlob !== '') {
             $window = EventWindow::toGlobalSeq((int)$toGlob);
         } elseif ($toDate !== null && $toDate !== '') {
@@ -179,7 +184,7 @@ final class AggregateController extends Controller
         $state = $this->normalizeAggregate($aggregate);
 
         return response()->json([
-            'id' => $rawId,
+            'id' => $streamName,
             'aggregate_class' => get_class($aggregate),
             'version' => $loaded->version,
             'window' => [
@@ -197,12 +202,11 @@ final class AggregateController extends Controller
      */
     private function normalizeAggregate(object $aggregate): array
     {
-        if (method_exists($aggregate, 'toArray')) {
-            $out = $aggregate->toArray();
-            return is_array($out) ? $out : (array)$out;
+        if ($aggregate instanceof Snapshottable) {
+            return $aggregate->toSnapshot();
         }
 
-        if ($aggregate instanceof \JsonSerializable) {
+        if ($aggregate instanceof JsonSerializable) {
             $out = $aggregate->jsonSerialize();
             return is_array($out) ? $out : (array)$out;
         }

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\EventReplayer;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
@@ -12,8 +13,9 @@ it('throws when replay finds no events (zero after filtering)', function () {
     // Fresh aggregate id with no events in store
     $id = DocumentId::from(Str::uuid()->toString());
 
+    $streamId = app(AggregateRegistry::class)->toStreamName($id);
     // Valid range but no events for that aggregate → should throw
-    expect(fn () => app(EventReplayer::class)->replay($id, null, 999, 1000))
+    expect(fn () => app(EventReplayer::class)->replay($streamId, null, 999, 1000))
         ->toThrow(RuntimeException::class, 'No events found for replay.');
 });
 
@@ -38,7 +40,7 @@ it('stream skips earlier events when fromSequence is set', function () {
 
     // Ask replayer to start from sequence 3 → first two will be "continued" (skipped)
     $events = iterator_to_array(app(EventReplayer::class)->stream(
-        aggregateId: $id,
+        streamId: app(AggregateRegistry::class)->toStreamName($id),
         fromSequence: 3
     ));
 
@@ -64,7 +66,7 @@ it('stream skips earlier events when fromDate is set', function () {
 
     // fromDate between the two events → first will be "continued" (skipped)
     $events = iterator_to_array(app(EventReplayer::class)->stream(
-        aggregateId: $id,
+        streamId: app(AggregateRegistry::class)->toStreamName($id),
         fromDate: '2025-01-01T00:00:05Z',
         toDate: null
     ));

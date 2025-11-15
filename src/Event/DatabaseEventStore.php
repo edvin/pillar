@@ -4,100 +4,96 @@ namespace Pillar\Event;
 
 use Carbon\Carbon;
 use Generator;
+use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\DB;
-use Pillar\Support\HandlesDatabaseDriverSpecifics;
 use Pillar\Aggregate\AggregateRootId;
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
-use Pillar\Event\Stream\StreamResolver;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
 use Pillar\Serialization\ObjectSerializer;
-use RuntimeException;
 
 class DatabaseEventStore implements EventStore
 {
-    use HandlesDatabaseDriverSpecifics;
-
     public function __construct(
-        private StreamResolver             $streamResolver,
+        private AggregateRegistry          $aggregates,
         private ObjectSerializer           $serializer,
         private EventAliasRegistry         $aliases,
         private EventFetchStrategyResolver $strategyResolver,
         private PublicationPolicy          $publicationPolicy,
         private Outbox                     $outbox,
-        private Partitioner                $partitioner
+        private Partitioner                $partitioner,
+        private DatabaseEventMapper        $mapper,
+        #[Config('pillar.event_store.options.tables.events', 'events')]
+        private string                     $eventsTable = 'events',
     )
     {
     }
 
-    protected function driver(): string
-    {
-        return DB::connection()->getDriverName();
-    }
-
     public function append(AggregateRootId $id, object $event, ?int $expectedSequence = null): int
     {
-        $eventsTable = $this->streamResolver->resolve($id);
-        $aggregateId = $id->value();
-        $aggregateIdClass = $id::class;
+        $streamId = $this->aggregates->toStreamName($id);
 
-        return DB::transaction(callback: function () use ($eventsTable, $aggregateId, $aggregateIdClass, $event, $expectedSequence) {
-            // Ensure a counter row exists for this aggregate (portable across drivers)
-            DB::table('aggregate_versions')->insertOrIgnore([
-                'aggregate_id' => $aggregateId,
-                'aggregate_id_class' => $aggregateIdClass,
-                'last_sequence' => 0,
-            ]);
+        return DB::transaction(function () use ($streamId, $event, $expectedSequence) {
+            // Lock this stream's rows and determine the current last per-stream sequence
+            $lastSequence = DB::table($this->eventsTable)
+                ->where('stream_id', $streamId)
+                ->lockForUpdate()
+                ->max('stream_sequence');
 
-            $driver = $this->driver();
-            $nextAggregateSequence = match ($driver) {
-                'mysql' => $this->advanceSequenceMysql($aggregateId, $expectedSequence),
-                'pgsql', 'sqlite' => $this->advanceSequencePgsqlSqlite($aggregateId, $expectedSequence),
-                default => $this->advanceSequenceGeneric($aggregateId, $expectedSequence),
-            };
+            $lastSequence = $lastSequence ?? 0;
 
-            $insertedSequence = DB::table($eventsTable)->insertGetId([
-                'aggregate_id' => $aggregateId,
-                'aggregate_sequence' => $nextAggregateSequence,
+            if ($expectedSequence !== null && $lastSequence !== $expectedSequence) {
+                throw new ConcurrencyException(
+                    sprintf(
+                        'Concurrency conflict for stream %s (expected %d, actual %d).',
+                        $streamId,
+                        $expectedSequence,
+                        $lastSequence
+                    )
+                );
+            }
+
+            $nextStreamSequence = $lastSequence + 1;
+
+            $insertedSequence = DB::table($this->eventsTable)->insertGetId([
+                'stream_id' => $streamId,
+                'stream_sequence' => $nextStreamSequence,
                 'event_type' => $this->aliases->resolveAlias($event::class) ?? $event::class,
                 'event_version' => ($event instanceof VersionedEvent) ? $event::version() : 1,
                 'correlation_id' => EventContext::correlationId(),
                 'event_data' => $this->serializer->serialize($event),
+                // 'metadata' can be populated later when we decide what to store there
                 'occurred_at' => Carbon::now('UTC')->format('Y-m-d H:i:s'),
             ], 'sequence');
 
             if ($this->publicationPolicy->shouldPublish($event)) {
-                $partition = $this->partitioner->partitionKeyForAggregate($aggregateId);
+                $partition = $this->partitioner->partitionKeyForAggregate($streamId);
                 $this->outbox->enqueue($insertedSequence, $partition);
             }
 
-            return $nextAggregateSequence;
+            return $nextStreamSequence;
         });
     }
 
-    public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
+    public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
     {
-        return $this->strategyResolver->resolve($id)->load($id, $window);
+        return $this->strategyResolver->resolve($id)->streamFor($id, $window);
     }
 
-    public function all(?AggregateRootId $aggregateId = null, ?EventWindow $window = null, ?string $eventType =
-    null): Generator
+    public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
     {
-        return $this->strategyResolver->resolve($aggregateId)->all($aggregateId, $window, $eventType);
+        return $this->strategyResolver->resolve()->stream(null, $window, $eventType);
     }
 
     public function getByGlobalSequence(int $sequence): ?StoredEvent
     {
-        // NOTE: This assumes a single default events stream/table. If you route
-        // events to multiple tables, we must consider adding a cross-stream locator.
-        $eventsTable = $this->streamResolver->resolve(null);
-
-        $row = DB::table($eventsTable)
+        $row = DB::table($this->eventsTable)
             ->where('sequence', $sequence)
             ->first([
                 'sequence',
-                'aggregate_id',
-                'aggregate_sequence',
+                'stream_id',
+                'stream_sequence',
                 'event_type',
                 'event_version',
                 'event_data',
@@ -109,156 +105,34 @@ class DatabaseEventStore implements EventStore
             return null;
         }
 
-        // Resolve event class from alias or accept fully-qualified class names
-        $type = (string)$row->event_type;
-        $class = $this->aliases->resolveClass($type) ?? $type;
-
-        // event_data may arrive as string (JSON) or as decoded array/stdClass from the driver
-        $raw = $row->event_data;
-        $wire = is_string($raw) ? $raw : json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-        $event = $this->serializer->deserialize($class, $wire);
-
-        return new StoredEvent(
-            event: $event,
-            sequence: (int)$row->sequence,
-            aggregateSequence: (int)$row->aggregate_sequence,
-            aggregateId: (string)$row->aggregate_id,
-            eventType: $type,
-            storedVersion: (int)$row->event_version,
-            eventVersion: (int)$row->event_version,
-            occurredAt: (string)$row->occurred_at,
-            correlationId: $row->correlation_id ?? null
-        );
+        return $this->mapper->map($row);
     }
-
-    /**
-     * MySQL/MariaDB: atomically advance aggregate version via LAST_INSERT_ID trick.
-     * @throws ConcurrencyException
-     */
-    private function advanceSequenceMysql(string $aggregateId, ?int $expectedSequence): int
-    {
-        if ($expectedSequence === null) {
-            $updated = DB::update(
-                'UPDATE aggregate_versions
-                 SET last_sequence = LAST_INSERT_ID(last_sequence + 1)
-                 WHERE aggregate_id = ?',
-                [$aggregateId]
-            );
-        } else {
-            $updated = DB::update(
-                'UPDATE aggregate_versions
-                 SET last_sequence = LAST_INSERT_ID(last_sequence + 1)
-                 WHERE aggregate_id = ? AND last_sequence = ?',
-                [$aggregateId, $expectedSequence]
-            );
-        }
-
-        if ($expectedSequence !== null && $updated === 0) {
-            throw new ConcurrencyException(
-                sprintf('Concurrency conflict for aggregate %s (expected %d).', $aggregateId, $expectedSequence)
-            );
-        }
-
-        return (int)DB::getPdo()->lastInsertId();
-    }
-
-    /**
-     * PostgreSQL & SQLite: UPDATE ... RETURNING last_sequence.
-     * @throws ConcurrencyException
-     */
-    private function advanceSequencePgsqlSqlite(string $aggregateId, ?int $expectedSequence): int
-    {
-        $sql = 'UPDATE aggregate_versions SET last_sequence = last_sequence + 1 WHERE aggregate_id = ?';
-        $params = [$aggregateId];
-        if ($expectedSequence !== null) {
-            $sql .= ' AND last_sequence = ?';
-            $params[] = $expectedSequence;
-        }
-        $sql .= ' RETURNING last_sequence';
-
-        $rows = DB::select($sql, $params);
-
-        if ($expectedSequence !== null && empty($rows)) {
-            throw new ConcurrencyException(
-                sprintf('Concurrency conflict for aggregate %s (expected %d).', $aggregateId, $expectedSequence)
-            );
-        }
-
-        // @codeCoverageIgnoreStart
-        if (empty($rows)) {
-            throw new RuntimeException('Failed to advance aggregate version');
-        }
-        // @codeCoverageIgnoreEnd
-
-        return (int)($rows[0]->last_sequence ?? 0);
-    }
-
-    /**
-     * Generic portable fallback: conditional UPDATE then SELECT last_sequence.
-     * @throws ConcurrencyException
-     */
-    private function advanceSequenceGeneric(string $aggregateId, ?int $expectedSequence): int
-    {
-        $q = DB::table('aggregate_versions')->where('aggregate_id', $aggregateId);
-        if ($expectedSequence !== null) {
-            $q->where('last_sequence', $expectedSequence);
-        }
-        $updated = $q->update(['last_sequence' => DB::raw('last_sequence + 1')]);
-
-        if ($expectedSequence !== null && $updated === 0) {
-            throw new ConcurrencyException(
-                sprintf('Concurrency conflict for aggregate %s (expected %d).', $aggregateId, $expectedSequence)
-            );
-        }
-
-        return (int)DB::table('aggregate_versions')
-            ->where('aggregate_id', $aggregateId)
-            ->value('last_sequence');
-    }
-
-    public function resolveAggregateIdClass(string $aggregateId): ?string
-    {
-        return DB::table('aggregate_versions')
-            ->where('aggregate_id', $aggregateId)
-            ->value('aggregate_id_class') ?: null;
-    }
-
     public function recent(int $limit): array
     {
         if ($limit <= 0) {
             return [];
         }
 
-        // NOTE: Like getByGlobalSequence, this currently assumes a single default
-        // events stream/table. If you route events to multiple tables, we'll need
-        // a cross-stream strategy here as well.
-        $eventsTable = $this->streamResolver->resolve(null);
+        $latestPerStream = DB::table($this->eventsTable)
+            ->select('stream_id', DB::raw('MAX(sequence) as max_sequence'))
+            ->groupBy('stream_id');
 
-        // We consider "most recently updated aggregates" to be the aggregates whose
-        // latest *per-aggregate* event (aggregate_sequence = last_sequence) have
-        // the highest global sequence.
-        //
-        // We can obtain that by joining the events table with aggregate_versions
-        // on (aggregate_id, aggregate_sequence = last_sequence), then ordering
-        // those rows by the global sequence and applying the limit.
-        $rows = DB::table($eventsTable . ' as e')
-            ->join('aggregate_versions as av', function ($join) {
-                $join->on('av.aggregate_id', '=', 'e.aggregate_id')
-                    ->on('av.last_sequence', '=', 'e.aggregate_sequence');
+        $rows = DB::table($this->eventsTable . ' as e')
+            ->joinSub($latestPerStream, 'latest', function ($join) {
+                $join->on('e.stream_id', '=', 'latest.stream_id')
+                    ->on('e.sequence', '=', 'latest.max_sequence');
             })
             ->orderByDesc('e.sequence')
             ->limit($limit)
             ->get([
                 'e.sequence',
-                'e.aggregate_id',
-                'e.aggregate_sequence',
+                'e.stream_id',
+                'e.stream_sequence',
                 'e.event_type',
                 'e.event_version',
                 'e.event_data',
                 'e.occurred_at',
                 'e.correlation_id',
-                'av.aggregate_id_class',
             ]);
 
         if ($rows->isEmpty()) {
@@ -268,31 +142,7 @@ class DatabaseEventStore implements EventStore
         $out = [];
 
         foreach ($rows as $row) {
-            // Resolve event class from alias or accept fully-qualified class names
-            $type = (string) $row->event_type;
-            $class = $this->aliases->resolveClass($type) ?? $type;
-
-            // event_data may arrive as string (JSON) or as decoded array/stdClass
-            // from the driver. Normalize to a JSON string before deserializing.
-            $raw = $row->event_data;
-            $wire = is_string($raw)
-                ? $raw
-                : json_encode($raw, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-            $event = $this->serializer->deserialize($class, $wire);
-
-            $out[] = new StoredEvent(
-                event: $event,
-                sequence: (int) $row->sequence,
-                aggregateSequence: (int) $row->aggregate_sequence,
-                aggregateId: (string) $row->aggregate_id,
-                eventType: $type,
-                storedVersion: (int) $row->event_version,
-                eventVersion: (int) $row->event_version,
-                occurredAt: (string) $row->occurred_at,
-                correlationId: $row->correlation_id ?? null,
-                aggregateIdClass: $row->aggregate_id_class ?: null,
-            );
+            $out[] = $this->mapper->map($row);
         }
 
         return $out;

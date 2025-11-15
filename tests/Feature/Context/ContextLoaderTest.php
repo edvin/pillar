@@ -70,8 +70,12 @@ final class _BusRegistry implements ContextRegistry
 
     public function events(): EventMapBuilder
     {
-        // No events here; this test focuses on the ->map branches.
         return EventMapBuilder::create();
+    }
+
+    public function aggregateRootIds(): array
+    {
+        return [];
     }
 }
 
@@ -153,6 +157,11 @@ final class _EventsRegistry implements ContextRegistry
             ->event(_DummyEvent::class)
             ->alias('dummy.event')
             ->upcasters([_DummyUpcaster::class]);
+    }
+
+    public function aggregateRootIds(): array
+    {
+        return [];
     }
 }
 

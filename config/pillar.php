@@ -46,7 +46,7 @@ return [
     | The default implementation stores events in your database using Eloquent’s
     | query builder, but any EventStore implementation can be swapped in.
     |
-    | Example alternative: KafkaEventStore, DynamoDbEventStore, KurrentDBEventStore, etc..
+    | Example alternative: KurrentDBEventStore, KafkaEventStore, DynamoDbEventStore, etc..
     |
     | Default fetch strategy is configured under 'fetch_strategies.default'.
     |
@@ -58,6 +58,9 @@ return [
             // will pass the aggregate's current version as expected_sequence to the
             // EventStore. When false, no expected check is performed.
             'optimistic_locking' => true,
+            'tables' => [
+                'events' => 'events',
+            ]
         ],
     ],
 
@@ -86,64 +89,6 @@ return [
     */
     'publication_policy' => [
         'class' => \Pillar\Event\DefaultPublicationPolicy::class,
-    ],
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | 🧭 Stream Resolver
-    |--------------------------------------------------------------------------
-    |
-    | Controls how the stream/table name is chosen for an aggregate's events.
-    |
-    | Default behavior (DatabaseStreamResolver):
-    |   • All events go to the global "events" table/stream.
-    |
-    | Resolution order when resolving a stream:
-    |   1) If the Aggregate ID is null  → use 'default'.
-    |   2) If the aggregate class has an explicit mapping in 'per_aggregate_type'
-    |      → use that mapping.
-    |   3) If 'per_aggregate_id' is true → build a per-instance stream name using
-    |      'per_aggregate_id_format'.
-    |   4) Otherwise → fall back to 'default'.
-    |
-    | Notes:
-    |   • 'per_aggregate_id_format' is only consulted when 'per_aggregate_id' is true.
-    |   • In 'type_id' format, the "type" part is the PHP class base name
-    |     (e.g. Document → "Document_123"). If you later enable lowercasing in the
-    |     resolver, this would become "document_123".
-    |   • If you use a database-backed store, make sure the corresponding tables
-    |     exist for any custom names you declare here.
-    |
-    | To provide a different naming strategy, implement
-    | Pillar\Event\Stream\StreamResolver and swap the 'class' below.
-    */
-    'stream_resolver' => [
-        'class' => \Pillar\Event\Stream\DatabaseStreamResolver::class,
-        'options' => [
-            // Global fallback stream/table. Used when the Aggregate ID is null
-            // or when no other rule matches.
-            'default' => 'events',
-
-            // Explicit per-type mapping (takes precedence over per_aggregate_id).
-            // Example:
-            //   \Context\Document\Domain\Aggregate\Document::class => 'document_events',
-            'per_aggregate_type' => [
-                // Aggregate-specific mappings go here.
-            ],
-
-            // If true (and no per-type mapping applies), generate a unique stream
-            // per aggregate instance according to 'per_aggregate_id_format'.
-            'per_aggregate_id' => false,
-
-            // Format used when 'per_aggregate_id' is true. Allowed values:
-            //   - 'default_id' → "{default}_{aggregateId}"  e.g. "events_123"
-            //   - 'type_id'    → "{aggregateClassBaseName}_{aggregateId}" e.g. "document_123"
-
-            // Aggregate IDs are inserted verbatim; if your backend has naming restrictions,
-            // ensure your IDs (and chosen format) produce valid names.
-            'per_aggregate_id_format' => 'default_id',
-        ],
     ],
 
     /*

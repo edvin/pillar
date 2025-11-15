@@ -5,6 +5,7 @@ namespace Pillar\Event\Fetch;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Contracts\Container\Container;
 use Pillar\Aggregate\AggregateRootId;
+use Pillar\Event\Fetch\Database\DatabaseLoadAllStrategy;
 
 class EventFetchStrategyResolver
 {

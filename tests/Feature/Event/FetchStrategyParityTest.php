@@ -30,7 +30,7 @@ it('db_chunked and db_load_all return identical events', function () {
     app()->forgetInstance(DatabaseEventStore::class);
     app()->forgetInstance(EventReplayer::class);
     $chunked = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
         iterator_to_array(Pillar::events($id))
     );
 
@@ -44,12 +44,12 @@ it('db_chunked and db_load_all return identical events', function () {
     // Also exercise the per-aggregate load() path to cover DatabaseLoadAllStrategy::load()
     $store = app(DatabaseEventStore::class);
     $viaLoad = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
+        iterator_to_array($store->streamFor($id, EventWindow::afterStreamSeq(0)))
     );
 
     $all = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
         iterator_to_array(Pillar::events($id))
     );
 
@@ -85,12 +85,12 @@ it('db_cursor and db_load_all return identical events', function () {
     // Exercise per-aggregate load() to cover DatabaseCursorFetchStrategy::load()
     $store = app(DatabaseEventStore::class);
     $cursorViaLoad = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
+        iterator_to_array($store->streamFor($id, EventWindow::afterStreamSeq(0)))
     );
 
     $cursor = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
         iterator_to_array(Pillar::events($id))
     );
 
@@ -106,7 +106,7 @@ it('db_cursor and db_load_all return identical events', function () {
     expect($strategy)->toBeInstanceOf(DatabaseLoadAllStrategy::class);
 
     $all = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
         iterator_to_array(Pillar::events($id))
     );
 
@@ -114,7 +114,7 @@ it('db_cursor and db_load_all return identical events', function () {
         ->and(count($all))->toBeGreaterThan(2);
 });
 
-it('db_chunked load() and all() produce identical sequences', function () {
+it('db_chunked streamFor() and stream() produce identical sequences', function () {
     $id  = DocumentId::new();
     $s   = Pillar::session();
     $s->attach(Document::create($id, 'v0'));
@@ -141,20 +141,20 @@ it('db_chunked load() and all() produce identical sequences', function () {
     // load() path (per-aggregate)
     $store = app(DatabaseEventStore::class);
     $viaLoad = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
+        iterator_to_array($store->streamFor($id, EventWindow::afterStreamSeq(0)))
     );
 
-    // all() path (explicitly on the concrete strategy)
+    // global stream() path (explicitly on the concrete strategy)
     $viaAll = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($strategy->all($id, null))
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
+        iterator_to_array($strategy->stream(null, null))
     );
 
-    // Also get the all() stream via the EventStore to verify resolver path
+    // Also get the global stream() via the EventStore to verify resolver path
     $storeAll = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->all($id, null))
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
+        iterator_to_array($store->stream(null, null))
     );
 
     // If the parity assertion fails, dump full arrays for diagnosis
@@ -171,7 +171,7 @@ it('db_chunked load() and all() produce identical sequences', function () {
     }
 });
 
-it('db_load_all load() and all() produce identical sequences', function () {
+it('db_load_all streamFor() and stream() produce identical sequences', function () {
     $id  = DocumentId::new();
     $s   = Pillar::session();
     $s->attach(Document::create($id, 'v0'));
@@ -195,20 +195,20 @@ it('db_load_all load() and all() produce identical sequences', function () {
 
     $store = app(DatabaseEventStore::class);
     $viaLoad = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
+        iterator_to_array($store->streamFor($id, EventWindow::afterStreamSeq(0)))
     );
 
     $viaAll = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($strategy->all($id, null))
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
+        iterator_to_array($strategy->stream(null, null))
     );
 
     expect($viaLoad)->toEqual($viaAll)
         ->and(count($viaAll))->toBeGreaterThan(2);
 });
 
-it('db_streaming load() and all() produce identical sequences', function () {
+it('db_streaming streamFor() and stream() produce identical sequences', function () {
     $id  = DocumentId::new();
     $s   = Pillar::session();
     $s->attach(Document::create($id, 'v0'));
@@ -232,13 +232,13 @@ it('db_streaming load() and all() produce identical sequences', function () {
 
     $store = app(DatabaseEventStore::class);
     $viaLoad = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($store->load($id, EventWindow::afterAggSeq(0)))
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
+        iterator_to_array($store->streamFor($id, EventWindow::afterStreamSeq(0)))
     );
 
     $viaAll = array_map(
-        fn($e) => [$e->sequence, $e->aggregateSequence, $e->eventType],
-        iterator_to_array($strategy->all($id, null))
+        fn($e) => [$e->sequence, $e->streamSequence, $e->eventType],
+        iterator_to_array($strategy->stream(null, null))
     );
 
     expect($viaLoad)->toEqual($viaAll)
