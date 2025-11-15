@@ -5,7 +5,7 @@
         <h1 class="text-2xl font-semibold mb-4">Event Streams</h1>
 
         <form class="flex gap-2 mb-6" onsubmit="location.href='{{ route('pillar.ui.aggregate.show') }}?id='+encodeURIComponent(this.id.value); return false;">
-            <input id="agg-id-input" data-1p-ignore name="id" type="text" placeholder="Aggregate ID Search" autofocus class="w-full flex-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-300/70 dark:border-slate-600/60 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 placeholder-slate-400 shadow-sm" />
+            <input id="agg-id-input" data-1p-ignore name="id" type="text" placeholder="Stream ID Search" autofocus class="w-full flex-1 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-300/70 dark:border-slate-600/60 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 placeholder-slate-400 shadow-sm" />
             <button class="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-indigo-700 to-blue-800 hover:from-indigo-800 hover:to-blue-900 active:from-indigo-900 active:to-blue-950 text-white px-4 py-2.5 shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500/60">
               <span>Open</span>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" class="w-4 h-4" stroke="currentColor" stroke-width="2">
@@ -14,7 +14,7 @@
             </button>
         </form>
 
-        <h2 class="font-medium mb-2">Recently updated aggregates</h2>
+        <h2 class="font-medium mb-2">Recently updated streams</h2>
         <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
             <table class="min-w-full text-sm">
                 <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300">
@@ -51,20 +51,20 @@
                     if (!Array.isArray(rows)) rows = [];
 
                     if (rows.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-4 text-slate-500 dark:text-slate-400">No recent aggregates.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-4 text-slate-500 dark:text-slate-400">No recent streams.</td></tr>`;
                         return;
                     }
 
                     tbody.innerHTML = rows.map(r => {
                         const seq       = r.last_seq ?? r.sequence ?? null;
-                        const aggSeq    = r.aggregate_seq ?? r.aggregate_sequence ?? null;
+                        const aggSeq    = r.stream_sequence ?? r.aggregate_seq ?? r.aggregate_sequence ?? null;
                         const eventType = r.last_event_type ?? r.event_type ?? null;
                         const idClass   = r.aggregate_id_class ?? null;
                         const aggTypeFull = r.aggregate_type ?? (idClass || null);
                         const aggType = aggTypeFull ? aggTypeFull.split('\\').pop() : null;
                         const when      = r.last_at ?? r.occurred_at ?? null;
                         const eventLabelShort = humanizeEvent(eventType);
-                        const href = `{{ route('pillar.ui.aggregate.show') }}?id=${encodeURIComponent(r.aggregate_id)}`;
+                        const href = `{{ route('pillar.ui.aggregate.show') }}?id=${encodeURIComponent(r.stream_id ?? r.aggregate_id)}`;
 
                         return `
 <tr class="group cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800" onclick="location.href='${href}'">
@@ -80,8 +80,8 @@
       <div class="leading-tight">
         <div class="font-medium text-slate-700 dark:text-slate-200">${aggType ?? 'Unknown'}</div>
         <div class="flex items-center gap-2 font-mono text-xs text-slate-500 dark:text-slate-400">
-          <span>${r.aggregate_id}</span>
-          <button type="button" class="inline-flex items-center opacity-70 hover:opacity-100" title="Copy aggregate ID" onclick="event.stopPropagation(); copyToClipboard('${r.aggregate_id.replace(/'/g, "&#39;")}', 'Aggregate ID')">
+          <span>${r.stream_id ?? r.aggregate_id}</span>
+          <button type="button" class="inline-flex items-center opacity-70 hover:opacity-100" title="Copy stream ID" onclick="event.stopPropagation(); copyToClipboard('${(r.stream_id ?? r.aggregate_id).replace(/'/g, "&#39;")}', 'Stream ID')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4">
               <rect x="9" y="7" width="10" height="14" rx="2" ry="2"></rect>
               <rect x="5" y="3" width="10" height="14" rx="2" ry="2"></rect>
@@ -103,7 +103,7 @@
                     }).join('');
                 })
                 .catch(() => {
-                    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-4 text-slate-500 dark:text-slate-400">No recent aggregates.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-4 text-slate-500 dark:text-slate-400">No recent streams.</td></tr>`;
                 });
         })();
 

@@ -2,9 +2,9 @@
 
 A built‑in, batteries‑included UI for exploring your event store:
 
-- Browse **recently updated aggregates**
+- Browse **recently updated streams**
 - Inspect **event payloads** (with upcasters applied)
-- **Time‑travel** an aggregate to see its exact state **as of a given event**
+- **Time‑travel** a stream to see its exact state **as of a given event**
 
 The Stream Browser can be used during local development and production. It respects your app’s authentication and adds
 an opt‑in authorization check tailored for Pillar.
@@ -19,7 +19,7 @@ an opt‑in authorization check tailored for Pillar.
 
 #### Stream timeline with event data explorer:
 
-![Aggregate events](/timeline.png)
+![Stream events](/timeline.png)
 
 #### Time travel to show full aggregate state at the selected event:
 
@@ -181,7 +181,7 @@ Everything lives under `pillar.ui` in `config/pillar.php`:
     | 📜 Pagination & lists
     |--------------------------------------------------------------------------
     | page_size:     events per API page (server may cap this)
-    | recent_limit:  how many “recent aggregates” to show on the landing page
+    | recent_limit:  how many “recent streams” to show on the landing page
     */
     'page_size' => 100,
     'recent_limit' => 20,
@@ -202,15 +202,15 @@ All routes are nested under the configured `path` and namespaced `pillar.ui.*`.
 
 - **Stream page (HTML)**
     - `GET /{path}/aggregate` → route name: `pillar.ui.aggregate.show`  
-      Shows timeline for `?id=AGG_ID`.
+      Shows timeline for `?id=STREAM_ID`.
 
 - **API**
     - Recent overview: `GET /{path}/api/recent` → `pillar.ui.api.recent`  
-      Returns the latest events per aggregate (includes resolved aggregate type when available).
+      Returns the latest events per stream (includes resolved aggregate type when available).
     - Events for one stream: `GET /{path}/api/aggregate/events?stream_id=STREAM_ID[&before_seq=N&limit=M]`  
       → `pillar.ui.api.aggregate.events`
     - Time travel (state as of event):  
-      `GET /{path}/api/aggregate/state?stream_id=STREAM_ID&to_agg_seq=N`  
+      `GET /{path}/api/aggregate/state?stream_id=STREAM_ID&to_stream_seq=N`  
       → `pillar.ui.api.aggregate.state`
 
 > These APIs are used by the UI, but you can also script against them for tooling.

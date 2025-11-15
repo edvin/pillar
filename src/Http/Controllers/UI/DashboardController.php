@@ -50,11 +50,13 @@ final class DashboardController extends Controller
             }
 
             return [
-                'aggregate_id'       => $e->streamId,
+                'stream_id'          => $e->streamId,
+                'aggregate_id'       => $e->streamId,           // backward-compat alias
                 'aggregate_id_class' => $idClass,
                 'aggregate_type'     => $aggType,
                 'last_seq'           => $e->sequence,
-                'aggregate_seq'      => $e->streamSequence,
+                'stream_sequence'    => $e->streamSequence,     // new, stream-centric name
+                'aggregate_seq'      => $e->streamSequence,     // backward-compat alias
                 'last_at'            => $e->occurredAt,
                 'event_type'         => $e->eventType,
             ];
