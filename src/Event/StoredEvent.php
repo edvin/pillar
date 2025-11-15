@@ -18,7 +18,6 @@ final class StoredEvent
         public readonly int     $eventVersion,
         public readonly string  $occurredAt,
         public readonly ?string $correlationId = null,
-        public readonly ?string $aggregateIdClass = null,
         public readonly ?array  $upcasters = null,
     )
     {

@@ -7,13 +7,14 @@ use Illuminate\Support\Facades\Facade;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Aggregate\GenericAggregateId;
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\ConcurrencyException;
+use Pillar\Event\DatabaseEventMapper;
 use Pillar\Event\DatabaseEventStore;
 use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\PublicationPolicy;
-use Pillar\Facade\Pillar;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
 use Pillar\Repository\EventStoreRepository;
@@ -25,13 +26,13 @@ use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Document\DocumentRenamed;
 use Tests\Fixtures\Encryption\DummyEvent;
 
-it('append() advances last_sequence when expectedSequence matches (portable path)', function () {
+it('append() advances stream_sequence when expectedSequence matches (portable path)', function () {
     /** @var EventStore $store */
     $store = app(EventStore::class);
 
     $id = DocumentId::new();
 
-    // 1) First append – no expectedSequence → creates aggregate_versions row and returns 1
+    // 1) First append – no expectedSequence → returns per-stream sequence 1
     $seq1 = $store->append($id, new DocumentCreated($id, 't0'));
     expect($seq1)->toBe(1);
 
@@ -39,20 +40,15 @@ it('append() advances last_sequence when expectedSequence matches (portable path
     $seq2 = $store->append($id, new DocumentRenamed($id, 't1'), 1);
     expect($seq2)->toBe(2);
 
-    // Sanity-check backing state
-    $last = DB::table('aggregate_versions')
-        ->where('aggregate_id', $id->value())
-        ->value('last_sequence');
+    // Sanity-check backing state via the events table
+    $streamId = app(AggregateRegistry::class)->toStreamName($id);
 
-    expect((int)$last)->toBe(2);
-
-    // And events are there with contiguous aggregate_sequence
     $rows = DB::table('events')
-        ->select('aggregate_sequence', 'event_type')
-        ->where('aggregate_id', $id->value())
-        ->orderBy('aggregate_sequence')
+        ->select('stream_sequence', 'event_type')
+        ->where('stream_id', $streamId)
+        ->orderBy('stream_sequence')
         ->get()
-        ->map(fn($r) => [(int)$r->aggregate_sequence, $r->event_type])
+        ->map(fn($r) => [(int)$r->stream_sequence, $r->event_type])
         ->all();
 
     expect($rows)->toEqual([
@@ -61,37 +57,45 @@ it('append() advances last_sequence when expectedSequence matches (portable path
     ]);
 });
 
-it('creates aggregate_versions on first append and advances on subsequent appends', function () {
+it('increments per-stream sequence on subsequent appends without expectedSequence', function () {
     /** @var EventStore $store */
     $store = app(EventStore::class);
 
     $id = DocumentId::new();
 
-    // First append seeds aggregate_versions with last_sequence = 1
-    $store->append($id, new DocumentCreated($id, 'seed'));
-    $last1 = (int)DB::table('aggregate_versions')
-        ->where('aggregate_id', $id->value())
-        ->value('last_sequence');
+    $s1 = $store->append($id, new DocumentCreated($id, 'seed'));
+    $s2 = $store->append($id, new DocumentRenamed($id, 'next'));
 
-    // Second append with no expectedSequence (last-write-wins mode) → last_sequence increments
-    $store->append($id, new DocumentRenamed($id, 'next'));
-    $last2 = (int)DB::table('aggregate_versions')
-        ->where('aggregate_id', $id->value())
-        ->value('last_sequence');
+    expect($s1)->toBe(1)
+        ->and($s2)->toBe(2);
 
-    expect($last1)->toBe(1)
-        ->and($last2)->toBe(2);
+    $streamId = app(AggregateRegistry::class)->toStreamName($id);
+
+    $rows = DB::table('events')
+        ->select('stream_sequence', 'event_type')
+        ->where('stream_id', $streamId)
+        ->orderBy('stream_sequence')
+        ->get()
+        ->map(fn($r) => [(int)$r->stream_sequence, $r->event_type])
+        ->all();
+
+    expect($rows)->toEqual([
+        [1, Tests\Fixtures\Document\DocumentCreated::class],
+        [2, Tests\Fixtures\Document\DocumentRenamed::class],
+    ]);
 });
 
 it('uses the portable path for unsupported drivers and still persists correctly', function () {
     // Force "unsupported" driver by overriding driver() via a test subclass
     $store = new class(
+        app(AggregateRegistry::class),
         app(ObjectSerializer::class),
         app(EventAliasRegistry::class),
         app(EventFetchStrategyResolver::class),
         app(PublicationPolicy::class),
         app(Outbox::class),
         app(Partitioner::class),
+        app(DatabaseEventMapper::class),
     ) extends DatabaseEventStore {
         protected function driver(): string
         {
@@ -111,18 +115,14 @@ it('uses the portable path for unsupported drivers and still persists correctly'
         expect($s1)->toBe(1)
             ->and($s2)->toBe(2);
 
-        $last = (int)DB::table('aggregate_versions')
-            ->where('aggregate_id', $id->value())
-            ->value('last_sequence');
-
-        expect($last)->toBe(2);
+        $streamId = app(AggregateRegistry::class)->toStreamName($id);
 
         $rows = DB::table('events')
-            ->select('aggregate_sequence', 'event_type')
-            ->where('aggregate_id', $id->value())
-            ->orderBy('aggregate_sequence')
+            ->select('stream_sequence', 'event_type')
+            ->where('stream_id', $streamId)
+            ->orderBy('stream_sequence')
             ->get()
-            ->map(fn($r) => [(int)$r->aggregate_sequence, $r->event_type])
+            ->map(fn($r) => [(int)$r->stream_sequence, $r->event_type])
             ->all();
 
         expect($rows)->toEqual([
@@ -139,12 +139,14 @@ it('uses the portable path for unsupported drivers and still persists correctly'
 
 it('enforces expectedSequence on the portable path (conflict throws ConcurrencyException)', function () {
     $store = new class(
+        app(AggregateRegistry::class),
         app(ObjectSerializer::class),
         app(EventAliasRegistry::class),
         app(EventFetchStrategyResolver::class),
         app(PublicationPolicy::class),
         app(Outbox::class),
         app(Partitioner::class),
+        app(DatabaseEventMapper::class),
     ) extends DatabaseEventStore {
         protected function driver(): string
         {
@@ -202,24 +204,16 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
     try {
         // Minimal schema on MySQL
         Schema::connection('it_mysql')->dropIfExists('events');
-        Schema::connection('it_mysql')->dropIfExists('aggregate_versions');
-
-        Schema::connection('it_mysql')->create('aggregate_versions', function (Blueprint $t) {
-            $t->string('aggregate_id')->primary();
-            $t->string('aggregate_id_class')->nullable()->index();
-            $t->unsignedBigInteger('last_sequence')->default(0);
-        });
-
         Schema::connection('it_mysql')->create('events', function (Blueprint $t) {
             $t->bigIncrements('sequence');
-            $t->string('aggregate_id');
-            $t->unsignedBigInteger('aggregate_sequence');
+            $t->string('stream_id');
+            $t->unsignedBigInteger('stream_sequence');
             $t->string('event_type');
             $t->unsignedInteger('event_version')->default(1);
             $t->string('correlation_id')->nullable();
             $t->longText('event_data');
             $t->dateTime('occurred_at');
-            $t->index(['aggregate_id', 'aggregate_sequence']);
+            $t->index(['stream_id', 'stream_sequence']);
         });
 
         /** @var EventStore $store */
@@ -233,12 +227,14 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
 
         expect($s1)->toBe(1)->and($s2)->toBe(2);
 
+        $streamId = app(AggregateRegistry::class)->toStreamName($id);
+
         $rows = DB::table('events')
-            ->select('aggregate_sequence', 'event_type')
-            ->where('aggregate_id', $id->value())
-            ->orderBy('aggregate_sequence')
+            ->select('stream_sequence', 'event_type')
+            ->where('stream_id', $streamId)
+            ->orderBy('stream_sequence')
             ->get()
-            ->map(fn($r) => [(int)$r->aggregate_sequence, $r->event_type])
+            ->map(fn($r) => [(int)$r->stream_sequence, $r->event_type])
             ->all();
 
         expect($rows)->toEqual([
@@ -248,10 +244,9 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
             ->and(fn() => $store->append($id, new DocumentRenamed($id, 'should-fail'), 999))
             ->toThrow(ConcurrencyException::class);
 
-        $count = DB::table('events')->where('aggregate_id', $id->value())->count();
-        $last = (int)DB::table('aggregate_versions')->where('aggregate_id', $id->value())->value('last_sequence');
+        $count = DB::table('events')->where('stream_id', $streamId)->count();
 
-        expect($count)->toBe(2)->and($last)->toBe(2);
+        expect($count)->toBe(2);
     } finally {
         // Restore original default connection & tear down MySQL
         config()->set('database.default', $original);
@@ -259,7 +254,6 @@ it('executes the MySQL-optimized branch when connected to real MySQL', function 
         // Drop the MySQL tables to avoid leaking state
         try {
             Schema::connection('it_mysql')->dropIfExists('events');
-            Schema::connection('it_mysql')->dropIfExists('aggregate_versions');
         } catch (Throwable $e) {
             // ignore if connection is gone
         }
@@ -285,27 +279,26 @@ it('returns null when no event exists at the given global sequence', function ()
 });
 
 it('returns a StoredEvent by global sequence (FQCN event_type)', function () {
-    $id = GenericAggregateId::new();
-    $ser = new JsonObjectSerializer();
+    $store = app(DatabaseEventStore::class);
+
+    $id  = DocumentId::new();
     $now = Carbon::now('UTC')->format('Y-m-d H:i:s');
 
-    // Insert a single event and capture its global sequence (PK)
-    $seq = DB::table('events')->insertGetId([
-        'aggregate_id' => $id->value(),
-        'aggregate_sequence' => 1,
-        'event_type' => DummyEvent::class, // FQCN is fine; alias resolution will no-op
-        'event_version' => 1,
-        'correlation_id' => null,
-        'event_data' => $ser->serialize(new DummyEvent('1', 'Hello')),
-        'occurred_at' => $now,
-    ]);
+    // Append via the store so we respect whatever mapping logic is in place
+    $store->append($id, new DummyEvent('1', 'Hello'));
 
-    $store = app(DatabaseEventStore::class);
+    $streamId = app(AggregateRegistry::class)->toStreamName($id);
+
+    // Fetch the global sequence from the events table
+    $seq = (int) DB::table('events')
+        ->where('stream_id', $streamId)
+        ->value('sequence');
+
     $e = $store->getByGlobalSequence($seq);
 
     expect($e)->not->toBeNull()
         ->and($e->sequence)->toBe($seq)
-        ->and($e->streamId)->toBe($id->value())
+        ->and($e->streamId)->toBe($streamId)
         ->and($e->streamSequence)->toBe(1)
         ->and($e->eventType)->toBe(DummyEvent::class)
         ->and($e->eventVersion)->toBe(1)
@@ -354,21 +347,16 @@ it('wraps repository save in its own transaction when called outside a transacti
         expect(DB::transactionLevel())->toBe(0);
 
         // Minimal schema for this connection
-        Schema::create('aggregate_versions', function (Blueprint $t) {
-            $t->string('aggregate_id')->primary();
-            $t->string('aggregate_id_class')->nullable()->index();
-            $t->unsignedBigInteger('last_sequence')->default(0);
-        });
         Schema::create('events', function (Blueprint $t) {
             $t->bigIncrements('sequence');
-            $t->string('aggregate_id');
-            $t->unsignedBigInteger('aggregate_sequence');
+            $t->string('stream_id');
+            $t->unsignedBigInteger('stream_sequence');
             $t->string('event_type');
             $t->unsignedInteger('event_version')->default(1);
             $t->string('correlation_id')->nullable();
             $t->longText('event_data');
             $t->dateTime('occurred_at');
-            $t->index(['aggregate_id', 'aggregate_sequence']);
+            $t->index(['stream_id', 'stream_sequence']);
         });
 
         /** @var EventStoreRepository $repo */
@@ -382,12 +370,14 @@ it('wraps repository save in its own transaction when called outside a transacti
         $repo->save($doc);
 
         // Assert: events were persisted atomically for this aggregate id
+        $streamId = app(AggregateRegistry::class)->toStreamName($id);
+
         $rows = DB::table('events')
-            ->select('aggregate_sequence', 'event_type')
-            ->where('aggregate_id', $id->value())
-            ->orderBy('aggregate_sequence')
+            ->select('stream_sequence', 'event_type')
+            ->where('stream_id', $streamId)
+            ->orderBy('stream_sequence')
             ->get()
-            ->map(fn($r) => [(int)$r->aggregate_sequence, $r->event_type])
+            ->map(fn($r) => [(int)$r->stream_sequence, $r->event_type])
             ->all();
 
         expect($rows)->toEqual([
@@ -398,7 +388,6 @@ it('wraps repository save in its own transaction when called outside a transacti
         // Tear down the temp connection and restore the original default
         try {
             Schema::dropIfExists('events');
-            Schema::dropIfExists('aggregate_versions');
         } catch (Throwable $e) {
             // ignore
         }
@@ -415,27 +404,4 @@ it('wraps repository save in its own transaction when called outside a transacti
         // Refresh app to clear any singletons bound to the temp connection
         test()->refreshApplication();
     }
-});
-
-it('returns the aggregate id class for a known aggregate id', function () {
-    $id = DocumentId::new();
-
-    // Produce a persisted aggregate (writes to events + aggregate_versions)
-    $s = Pillar::session();
-    $s->attach(Document::create($id, 'v0'));
-    $s->commit();
-
-    /** @var DatabaseEventStore $store */
-    $store = app(DatabaseEventStore::class);
-
-    expect($store->resolveAggregateIdClass((string)$id))
-        ->toBe(DocumentId::class);
-});
-
-it('returns null for an unknown aggregate id', function () {
-    /** @var DatabaseEventStore $store */
-    $store = app(DatabaseEventStore::class);
-
-    expect($store->resolveAggregateIdClass('00000000-0000-0000-0000-000000000000'))
-        ->toBeNull();
 });

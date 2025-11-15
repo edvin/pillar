@@ -1,6 +1,7 @@
 <?php
 
 use Carbon\CarbonImmutable;
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\EventReplayer;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
@@ -75,7 +76,8 @@ it('it replays only the specified event type (DocumentRenamed)', function () {
     TitleListProjector::reset();
 
     // replay only renames
-    app(EventReplayer::class)->replay($id, DocumentRenamed::class);
+    $streamId = app(AggregateRegistry::class)->toStreamName($id);
+    app(EventReplayer::class)->replay($streamId, DocumentRenamed::class);
 
     expect(TitleListProjector::$seen)->toBe(['v1', 'v2']); // no 'v0'
 });

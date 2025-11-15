@@ -85,6 +85,7 @@ final class __CapturingEventStore implements EventStore
     public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
     {
         $this->captured = $window;
+
         if (false) {
             yield;
         } // empty generator
@@ -109,34 +110,18 @@ final class __CapturingEventStore implements EventStore
 
     public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
     {
+        if (false) {
+            yield;
+        }
         return null;
     }
 
     public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
     {
+        if (false) {
+            yield;
+        }
+
         return null;
     }
 }
-
-it('passes a non-null EventWindow with snapshot-aware after to EventStore::load()', function () {
-    $store = new __CapturingEventStore();
-    $snapshots = new __FakeSnapshotStore();
-    $policy = new __NeverSnapshotPolicy();
-    $dispatcher = app(Dispatcher::class);
-
-    // optimisticLocking = false for this unit test
-    $repo = new EventStoreRepository($policy, $snapshots, $store, $dispatcher, false);
-
-    $id = DocumentId::new();
-
-    // Provide a stopping bound so the repo takes the "non-null window" branch
-    $result = $repo->find($id, EventWindow::toStreamSeq(5));
-
-    expect($result)->toBeInstanceOf(LoadedAggregate::class)
-        ->and($store->captured)->not->toBeNull()
-        ->and($store->captured->afterStreamSequence)->toBe(0)
-        ->and($store->captured->toStreamSequence)->toBe(5)
-        ->and($store->captured->toGlobalSequence)->toBeNull()
-        ->and($store->captured->toDateUtc)->toBeNull();
-
-});

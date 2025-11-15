@@ -1,5 +1,6 @@
 <?php
 
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\EventReplayer;
 use Pillar\Facade\Pillar;
 use Tests\Fixtures\Document\Document;
@@ -52,7 +53,8 @@ it('replays into the TitleListProjector after clearing it', function () {
     // simulate rebuild: clear projector first
     TitleListProjector::reset();
 
-    app(EventReplayer::class)->replay($id);
+    $streamId = app(AggregateRegistry::class)->toStreamName($id);
+    app(EventReplayer::class)->replay($streamId);
 
     expect(TitleListProjector::$seen)->toBe(['v0', 'v1', 'v2']);
 });
