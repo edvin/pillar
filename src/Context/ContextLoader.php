@@ -2,6 +2,8 @@
 
 namespace Pillar\Context;
 
+use Pillar\Aggregate\AggregateRegistry;
+use Pillar\Aggregate\AggregateRootId;
 use Pillar\Bus\CommandBusInterface;
 use Pillar\Bus\QueryBusInterface;
 use Illuminate\Container\Attributes\Config;
@@ -31,6 +33,7 @@ final class ContextLoader
         private readonly UpcasterRegistry    $upcasters,
         private readonly Dispatcher          $events,
         private readonly EventReplayer       $replayer,
+        private readonly AggregateRegistry   $aggregates,
         #[Config('pillar.context_registries')]
         private readonly array               $registryClasses = []
     )
@@ -49,6 +52,7 @@ final class ContextLoader
             $this->registerCommands($registry);
             $this->registerQueries($registry);
             $this->registerEvents($registry);
+            $this->registerAggregateRootIds($registry);
         }
     }
 
@@ -104,6 +108,16 @@ final class ContextLoader
             foreach ($classes as $uc) {
                 $this->upcasters->register($eventClass, $this->app->make($uc));
             }
+        }
+    }
+
+    private function registerAggregateRootIds(ContextRegistry $registry): void
+    {
+        $ids = $registry->aggregateRootIds();
+
+        foreach ($ids as $idClass) {
+            /** @var class-string<AggregateRootId> $idClass */
+            $this->aggregates->register($idClass);
         }
     }
 }

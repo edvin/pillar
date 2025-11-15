@@ -2,6 +2,7 @@
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\EventReplayer;
 use Pillar\Event\StoredEvent;
@@ -32,23 +33,13 @@ it('pillar:replay-events replays into projectors', function () {
     TitleListProjector::reset();
 
     $exit = Artisan::call('pillar:replay-events', [
-        'aggregate_id' => $id->value(),
+        'stream_id' => app(AggregateRegistry::class)->toStreamName($id)
     ]);
 
     expect($exit)->toBe(0);
     expect(TitleListProjector::$seen)->toBe(['v0', 'v1']);
 });
 
-// 1) Invalid aggregate UUID → hits catch (InvalidArgumentException) and returns FAILURE.
-it('fails with an invalid aggregate_id and prints the validation error', function () {
-    $this->artisan('pillar:replay-events', [
-        'aggregate_id' => 'not-a-uuid',
-    ])
-        ->expectsOutputToContain('Invalid UUID')
-        ->assertExitCode(Command::FAILURE);
-});
-
-// 2) Parse --from-date/--to-date and succeed (drives Carbon parse branch)
 it('parses --from-date/--to-date options and succeeds', function () {
     // Seed one event so replay has something to do
     $id = DocumentId::new();
@@ -57,7 +48,7 @@ it('parses --from-date/--to-date options and succeeds', function () {
     $s->commit();
 
     $this->artisan('pillar:replay-events', [
-        'aggregate_id' => 'null', // all
+        'stream_id' => 'null', // all
         '--from-date' => '1970-01-01T00:00:00Z',
         '--to-date' => '2100-01-01T00:00:00Z',
     ])->assertExitCode(Command::SUCCESS);
@@ -65,30 +56,14 @@ it('parses --from-date/--to-date options and succeeds', function () {
 
 // 3) If the replayer throws, command prints error and returns FAILURE
 it('prints error and returns FAILURE when the replayer throws', function () {
-    // Fake EventStore whose all() throws on iteration but still satisfies Generator type
+    // Fake EventStore whose global stream() throws on iteration but still satisfies Generator type
     $throwingStore = new class implements EventStore {
         public function append(AggregateRootId $id, object $event, ?int $expectedSequence = null): int
         {
             return 0;
         }
 
-        public function load(AggregateRootId $id, ?EventWindow $window = null): Generator
-        {
-            if (false) { yield; } // empty generator
-        }
-
-        public function all(?AggregateRootId $aggregateId = null, ?EventWindow $window = null, ?string $eventType = null): Generator
-        {
-            throw new \RuntimeException('boom');
-            if (false) { yield; } // keep generator type
-        }
-
         public function getByGlobalSequence(int $sequence): ?StoredEvent
-        {
-            return null;
-        }
-
-        public function resolveAggregateIdClass(string $aggregateId): ?string
         {
             return null;
         }
@@ -97,6 +72,23 @@ it('prints error and returns FAILURE when the replayer throws', function () {
         {
             return [];
         }
+
+        public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
+        {
+            // Per-aggregate path: unused in this test, but must satisfy Generator type.
+            if (false) {
+                yield;
+            }
+        }
+
+        public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
+        {
+            // Global scan path: this is what EventReplayer will use for aggregate_id = 'null'.
+            throw new RuntimeException('boom');
+            if (false) {
+                yield;
+            }
+        }
     };
 
     // Rebind EventStore, then rebuild EventReplayer so it sees our fake
@@ -104,7 +96,7 @@ it('prints error and returns FAILURE when the replayer throws', function () {
     app()->forgetInstance(EventReplayer::class);
 
     $this->artisan('pillar:replay-events', [
-        'aggregate_id' => 'null',
+        'stream_id' => 'null',
     ])
         ->expectsOutputToContain('Replay failed: boom')
         ->assertExitCode(Command::FAILURE);
@@ -123,10 +115,12 @@ it('prints scope when both aggregate and event type are provided', function () {
     $a2->rename('v1'); // ensure at least one DocumentRenamed
     $s2->commit();
 
+    $streamId = app(AggregateRegistry::class)->toStreamName($id);
+
     $this->artisan('pillar:replay-events', [
-        'aggregate_id' => $id->value(),
+        'stream_id' => $streamId,
         'event_type'   => DocumentRenamed::class,
     ])
-        ->expectsOutputToContain("aggregate {$id->value()} and event " . DocumentRenamed::class)
+        ->expectsOutputToContain("stream $streamId and event " . DocumentRenamed::class)
         ->assertExitCode(Command::SUCCESS);
 });

@@ -79,6 +79,16 @@ final readonly class EventStoreRepository implements AggregateRepository
 
     public function find(AggregateRootId $id, ?EventWindow $window = null): ?LoadedAggregate
     {
+        $aggregateClass = $id::aggregateClass();
+
+        if (! is_subclass_of($aggregateClass, EventSourcedAggregateRoot::class)) {
+            throw new LogicException(sprintf(
+                '%s can only load EventSourcedAggregateRoot; got %s',
+                __CLASS__,
+                $aggregateClass,
+            ));
+        }
+
         $snapshot = $this->snapshots->load($id);
 
         $aggregate = null;
@@ -89,7 +99,7 @@ final readonly class EventStoreRepository implements AggregateRepository
         }
 
         // Caller’s requested starting cursor (defaults to 0)
-        $requestedAfter = $window?->afterAggregateSequence ?? 0;
+        $requestedAfter = $window?->afterStreamSequence ?? 0;
 
         // Use snapshot only if it is at/after the requested start; otherwise rebuild earlier state
         if ($snapshot && $snapshotVersion >= $requestedAfter) {
@@ -102,14 +112,14 @@ final readonly class EventStoreRepository implements AggregateRepository
         // Effective window: start after the chosen cursor, carry any upper bounds
         $effectiveWindow = $window
             ? new EventWindow(
-                afterAggregateSequence: $after,
-                toAggregateSequence: $window->toAggregateSequence,
+                afterStreamSequence: $after,
+                toStreamSequence: $window->toStreamSequence,
                 toGlobalSequence: $window->toGlobalSequence,
                 toDateUtc: $window->toDateUtc,
             )
-            : EventWindow::afterAggSeq($after);
+            : EventWindow::afterStreamSeq($after);
 
-        $events = $this->eventStore->load($id, $effectiveWindow);
+        $events = $this->eventStore->streamFor($id, $effectiveWindow);
 
         if (!$aggregate) {
             /** @var AggregateRoot $aggregate */
@@ -136,7 +146,7 @@ final readonly class EventStoreRepository implements AggregateRepository
                 reconstituting: true,
             );
             $aggregate->apply($storedEvent->event);
-            $lastSeq = $storedEvent->aggregateSequence;
+            $lastSeq = $storedEvent->streamSequence;
         }
 
         EventContext::clear();
@@ -151,7 +161,7 @@ final readonly class EventStoreRepository implements AggregateRepository
 
         // Only snapshot when building the latest (no upper bound)
         $isLatest = ($window === null)
-            || ($window->toAggregateSequence === null
+            || ($window->toStreamSequence === null
                 && $window->toGlobalSequence === null
                 && $window->toDateUtc === null);
 

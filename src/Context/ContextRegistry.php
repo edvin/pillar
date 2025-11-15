@@ -2,6 +2,8 @@
 
 namespace Pillar\Context;
 
+use Pillar\Aggregate\AggregateRootId;
+
 interface ContextRegistry
 {
     /**
@@ -55,6 +57,23 @@ interface ContextRegistry
      * @return EventMapBuilder
      */
     public function events(): EventMapBuilder;
+
+    /**
+     * Returns the list of AggregateRootId classes that belong to this bounded context.
+     *
+     * These are used by Pillar to:
+     * - resolve stream prefixes and stream names for aggregates
+     * - reconstitute aggregates for UI, projections, and diagnostics
+     *
+     * Example:
+     * [
+     *     \App\Document\Domain\DocumentId::class,
+     *     \App\Inventory\Domain\ProductId::class,
+     * ]
+     *
+     * @return array<class-string<AggregateRootId>>
+     */
+    public function aggregateRootIds(): array;
 
     /**
      * Returns a human-readable name or identifier for this bounded context.

@@ -5,6 +5,7 @@ namespace Pillar\Console;
 use Illuminate\Console\Command;
 use Pillar\Console\Scaffold\PlacementResolver;
 use Pillar\Console\Scaffold\RegistryFinder;
+use Pillar\Console\Scaffold\RegistryEditor;
 use Pillar\Console\Scaffold\PathStyle;
 use Pillar\Console\Scaffold\Scaffolder;
 use RuntimeException;
@@ -36,7 +37,8 @@ final class MakeAggregateCommand extends Command
     public function handle(
         RegistryFinder    $finder,
         PlacementResolver $resolver,
-        Scaffolder        $scaffolder
+        Scaffolder        $scaffolder,
+        RegistryEditor    $editor,
     ): int
     {
         $name = (string)($this->argument('name') ?? '');
@@ -112,14 +114,11 @@ final class MakeAggregateCommand extends Command
             $isEventSourced = false;
         } else {
             // Prompt only when running interactively; default to event-sourced
-            $isInteractive = method_exists($this->input, 'isInteractive') ? $this->input->isInteractive() : true;
-            $isEventSourced = $isInteractive
-                ? confirm(
+            $isInteractive = !method_exists($this->input, 'isInteractive') || $this->input->isInteractive();
+            $isEventSourced = !$isInteractive || confirm(
                     label: 'Create an event-sourced aggregate?',
-                    default: true,
                     hint: 'Event-sourced aggregates emit domain events. Choose “no” for a plain aggregate.'
-                )
-                : true;
+                );
         }
 
         // Resolve placement
@@ -143,6 +142,9 @@ final class MakeAggregateCommand extends Command
                 'event_sourced' => $isEventSourced,
             ]);
             $scaffolder->execute($plan, $force);
+
+            // Automatically register the new AggregateRootId in the ContextRegistry
+            $editor->registerAggregateRootId($registry, $plan);
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());
             return self::FAILURE;

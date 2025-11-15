@@ -10,6 +10,7 @@ use Pillar\Event\Fetch\Database\DatabaseCursorFetchStrategy;
 use Pillar\Event\Fetch\Database\DatabaseLoadAllStrategy;
 use Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
+use Pillar\Event\StoredEvent;
 use Pillar\Facade\Pillar;
 use Pillar\Serialization\JsonObjectSerializer;
 use Tests\Fixtures\Document\Document;
@@ -48,8 +49,8 @@ it('load() applies afterAggregateSequence filter', function (string $default, st
 
     // afterAggregateSequence = 2 → only 3,4
     $rows = array_map(
-        fn($e) => $e->aggregateSequence,
-        iterator_to_array($strategy->load($id, EventWindow::afterAggSeq(2)))
+        fn($e) => $e->streamSequence,
+        iterator_to_array($strategy->streamFor($id, EventWindow::afterStreamSeq(2)))
     );
 
     expect($rows)->toEqual([3, 4]);
@@ -79,19 +80,19 @@ it('all() applies eventType filter', function (string $default, string $expected
     expect($strategy)->toBeInstanceOf($expectedClass);
 
     // Filter to only DocumentRenamed
-    $renamed = iterator_to_array($strategy->all($id, null, DocumentRenamed::class));
+    $renamed = iterator_to_array($strategy->stream(null, DocumentRenamed::class));
     $types   = array_unique(array_map(fn($e) => $e->eventType, $renamed));
 
     expect($renamed)->toHaveCount(3)
         ->and($types)->toEqual([DocumentRenamed::class]);
 
     // Sanity: created-only is 1
-    $created = iterator_to_array($strategy->all($id, null, DocumentCreated::class));
+    $created = iterator_to_array($strategy->stream(null, DocumentCreated::class));
     expect($created)->toHaveCount(1)
         ->and($created[0]->eventType)->toBe(DocumentCreated::class);
 })->with('strategies');
 
-it('db_chunked stops at toAggregateSequence across chunks (hits early-break)', function () {
+it('db_chunked stops at toStreamSequence across chunks (hits early-break)', function () {
     // Force chunked strategy with very small chunk size so we span multiple chunks.
     config()->set('pillar.fetch_strategies.default', 'db_chunked');
     config()->set('pillar.fetch_strategies.available.db_chunked.options.chunk_size', 2);
@@ -128,14 +129,14 @@ it('db_chunked stops at toAggregateSequence across chunks (hits early-break)', f
     // chunk #1 -> seq 1,2 ; after=2 (<4)
     // chunk #2 -> seq 3,4 ; after=4 and the loop hits the early-break ($after >= toAgg)
     // This ensures we do not exit due to a short final chunk and actually exercise the branch.
-    $window = EventWindow::toAggSeq(4);
+    $window = EventWindow::toStreamSeq(4);
 
     // Resolve the strategy directly to guarantee we exercise the chunked branch
     $strategy = app(EventFetchStrategyResolver::class)->resolve($aggId);
     expect($strategy)->toBeInstanceOf(DatabaseChunkedFetchStrategy::class);
 
-    $got = iterator_to_array($strategy->load($aggId, $window));
-    $seqs = array_map(fn ($e) => $e->aggregateSequence, $got);
+    $got = iterator_to_array($strategy->streamFor($aggId, $window));
+    $seqs = array_map(fn (StoredEvent $e) => $e->streamSequence, $got);
 
     // We should only get 1,2,3,4 — and the early-break branch gets executed.
     expect($seqs)->toBe([1, 2, 3, 4]);
@@ -173,8 +174,8 @@ it('applyWindow caps by global sequence (toGlobalSequence)', function () {
     $window   = EventWindow::toGlobalSeq($cutoff);
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
 
-    $got  = iterator_to_array($strategy->load($id, $window));
-    $seqs = array_map(fn($e) => $e->aggregateSequence, $got);
+    $got  = iterator_to_array($strategy->streamFor($id, $window));
+    $seqs = array_map(fn($e) => $e->streamSequence, $got);
 
     expect($seqs)->toBe([1, 2, 3]);
 });
@@ -216,8 +217,8 @@ it('applyWindow caps by occurred_at timestamp (toDateUtc)', function () {
     $window = EventWindow::toDateUtc($cutAt);
 
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
-    $got  = iterator_to_array($strategy->load($id, $window));
-    $seqs = array_map(fn($e) => $e->aggregateSequence, $got);
+    $got  = iterator_to_array($strategy->streamFor($id, $window));
+    $seqs = array_map(fn($e) => $e->streamSequence, $got);
 
     expect($seqs)->toBe([1, 2]);
 
@@ -257,8 +258,8 @@ it('applyWindow starts after global sequence (afterGlobalSequence)', function ()
     $window   = EventWindow::afterGlobalSeq($after);
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
 
-    $got  = iterator_to_array($strategy->load($id, $window));
-    $seqs = array_map(fn($e) => $e->aggregateSequence, $got);
+    $got  = iterator_to_array($strategy->streamFor($id, $window));
+    $seqs = array_map(fn($e) => $e->streamSequence, $got);
 
     // Should strictly start AFTER the second event → [3,4]
     expect($seqs)->toBe([3, 4]);
@@ -301,8 +302,8 @@ it('applyWindow starts after occurred_at timestamp (afterDateUtc)', function () 
     $window = EventWindow::afterDateUtc($after);
 
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
-    $got  = iterator_to_array($strategy->load($id, $window));
-    $seqs = array_map(fn($e) => $e->aggregateSequence, $got);
+    $got  = iterator_to_array($strategy->streamFor($id, $window));
+    $seqs = array_map(fn($e) => $e->streamSequence, $got);
 
     expect($seqs)->toBe([3, 4]);
 
@@ -344,7 +345,7 @@ it('global all() respects afterGlobalSequence in applyGlobalWindow', function ()
     $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
     $window   = EventWindow::afterGlobalSeq($cutoff);
 
-    $got = iterator_to_array($strategy->all(null, $window));
+    $got = iterator_to_array($strategy->stream($window));
 
     // Expect the last two events only (A1, B1)
     expect(count($got))->toBe(2)
@@ -384,7 +385,7 @@ it('global all() respects toDateUtc in applyGlobalWindow', function () {
     $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
     $window   = EventWindow::toDateUtc($cutAt);
 
-    $got = iterator_to_array($strategy->all(null, $window));
+    $got = iterator_to_array($strategy->stream($window));
 
     // Expect the first two events only (A0, B0), capped at :01 inclusive
     expect(count($got))->toBe(2)
@@ -413,7 +414,7 @@ it('global all() with null window returns events (hits early-return)', function 
     $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
 
     // Passing null window triggers the early-return branch inside applyGlobalWindow()
-    $got = iterator_to_array($strategy->all(null, null));
+    $got = iterator_to_array($strategy->stream());
 
     expect(count($got))->toBeGreaterThanOrEqual(2);
 });
@@ -445,7 +446,7 @@ it('global all() caps at toGlobalSequence in applyGlobalWindow', function () {
     $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
     $window   = EventWindow::toGlobalSeq($cutoff);
 
-    $got = iterator_to_array($strategy->all(null, $window));
+    $got = iterator_to_array($strategy->stream($window));
 
     // Should include exactly the first 3 events globally, all with sequence <= cutoff
     expect(count($got))->toBe(3)
@@ -465,7 +466,7 @@ it('per-aggregate load populates aggregateIdClass', function () {
     $s->attach(Document::create($id, 'v0')); $s->commit();
 
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
-    $events   = iterator_to_array($strategy->load($id));
+    $events   = iterator_to_array($strategy->streamFor($id));
 
     expect($events)->not->toBeEmpty();
     foreach ($events as $e) {
@@ -488,7 +489,7 @@ it('global all() populates aggregateIdClass via join', function () {
     $s->attach(Document::create($b, 'B0')); $s->commit();
 
     $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
-    $events   = iterator_to_array($strategy->all(null));
+    $events   = iterator_to_array($strategy->stream(null));
 
     expect($events)->not->toBeEmpty();
     // Should be populated for all rows
@@ -518,7 +519,7 @@ it('cursor strategy hits the global scan branch', function () {
     expect($strategy)->toBeInstanceOf(\Pillar\Event\Fetch\Database\DatabaseCursorFetchStrategy::class);
 
     // Call the global path
-    $events = iterator_to_array($strategy->all(null, null, null));
+    $events = iterator_to_array($strategy->stream());
     expect($events)->not->toBeEmpty();
 
     // Ascending global sequence
@@ -555,14 +556,14 @@ it('global all() applies eventType filter (hits $qb->where("event_type", ...))',
     $strategy = app(EventFetchStrategyResolver::class)->resolve(null);
 
     // Filter to only DocumentCreated (should be exactly 1)
-    $created = iterator_to_array($strategy->all(null, null, \Tests\Fixtures\Document\DocumentCreated::class));
+    $created = iterator_to_array($strategy->stream(null, \Tests\Fixtures\Document\DocumentCreated::class));
     expect($created)->toHaveCount(1);
     foreach ($created as $e) {
         expect($e->eventType)->toBe(\Tests\Fixtures\Document\DocumentCreated::class);
     }
 
     // Filter to only DocumentRenamed (should be exactly 3)
-    $renamed = iterator_to_array($strategy->all(null, null, \Tests\Fixtures\Document\DocumentRenamed::class));
+    $renamed = iterator_to_array($strategy->stream(null, \Tests\Fixtures\Document\DocumentRenamed::class));
     expect($renamed)->toHaveCount(3);
     foreach ($renamed as $e) {
         expect($e->eventType)->toBe(\Tests\Fixtures\Document\DocumentRenamed::class);
@@ -594,10 +595,10 @@ it('db_chunked per-aggregate all() applies EventWindow (hits applyPerAggregateWi
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
     expect($strategy)->toBeInstanceOf(\Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy::class);
 
-    $window = EventWindow::toAggSeq(3); // inclusive cap at 3
-    $events = iterator_to_array($strategy->all($id, $window));
+    $window = EventWindow::toStreamSeq(3); // inclusive cap at 3
+    $events = iterator_to_array($strategy->streamFor($id, $window));
 
-    $seqs = array_map(fn($e) => $e->aggregateSequence, $events);
+    $seqs = array_map(fn($e) => $e->streamSequence, $events);
     expect($seqs)->toBe([1, 2, 3]);
 });
 
@@ -636,7 +637,7 @@ it('db_chunked global all() applies EventWindow (hits applyGlobalWindow)', funct
     expect($strategy)->toBeInstanceOf(\Pillar\Event\Fetch\Database\DatabaseChunkedFetchStrategy::class);
 
     $window = EventWindow::toGlobalSeq($cutoff);
-    $events = iterator_to_array($strategy->all(null, $window));
+    $events = iterator_to_array($strategy->stream(null, $window));
 
     // We should get exactly the first 3 events globally, all with sequence <= cutoff
     expect(count($events))->toBe(3)

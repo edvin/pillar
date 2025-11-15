@@ -11,6 +11,20 @@ abstract readonly class AggregateRootId implements Stringable, JsonSerializable
 {
     public abstract static function aggregateClass();
 
+    /**
+     * Prefix used in the stream name to identify this aggregate type.
+     *
+     * Default: lowercased short aggregate class name, e.g. "customer".
+     * Override in subclasses if you want full control.
+     */
+    public static function streamPrefix(): string
+    {
+        $class = static::aggregateClass();
+        $short = class_basename($class);
+
+        return strtolower($short);
+    }
+
     public function __construct(
         protected string $value
     )

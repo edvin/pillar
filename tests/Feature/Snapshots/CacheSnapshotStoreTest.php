@@ -33,7 +33,7 @@ it('load() returns null and skips cache when aggregate is not Snapshottable', fu
     Cache::spy();
 
     $store = new CacheSnapshotStore();
-    $result = $store->load($id);
+    $result = $store->streamFor($id);
 
     expect($result)->toBeNull();
     Cache::shouldNotHaveReceived('get');

@@ -61,7 +61,7 @@ it('uses upcaster path in mapToStoredEvents (toArray → upcast → fromArray �
 
     // Fetch via resolver → strategy → mapToStoredEvents (else branch)
     $strategy = app(EventFetchStrategyResolver::class)->resolve($id);
-    $events   = iterator_to_array($strategy->load($id));
+    $events   = iterator_to_array($strategy->streamFor($id));
 
     expect($events)->toHaveCount(1);
 

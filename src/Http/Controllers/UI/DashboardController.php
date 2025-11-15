@@ -6,14 +6,16 @@ namespace Pillar\Http\Controllers\UI;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Routing\Controller;
 use Pillar\Event\EventStore;
+use Pillar\Aggregate\AggregateRegistry;
 use Throwable;
 
 final class DashboardController extends Controller
 {
     public function __construct(
-        private EventStore $events,
+        private EventStore        $events,
+        private AggregateRegistry $aggregates,
         #[Config('pillar.ui.recent_limit')]
-        private int $recentLimit
+        private int               $recentLimit,
     )
     {
     }
@@ -35,22 +37,24 @@ final class DashboardController extends Controller
         // Map to lightweight payload enriched with (optional) id class and aggregate type
         $out = array_map(function ($e) {
             $aggType = null;
+            $idClass = null;
 
-            if (is_string($e->aggregateIdClass)) {
-                try {
-                    /** @var class-string $idClass */
-                    $aggType = $e->aggregateIdClass::aggregateClass();
-                } catch (Throwable) {
-                    // Best-effort enrichment only; ignore failures
-                }
+            try {
+                $id = $this->aggregates->idFromStreamName($e->streamId);
+                $idClass = $id::class;
+
+                /** @var class-string $idClass */
+                $aggType = $idClass::aggregateClass();
+            } catch (Throwable) {
+                // Best-effort enrichment only; ignore failures resolving registry or aggregate class.
             }
 
             return [
-                'aggregate_id'       => $e->aggregateId,
-                'aggregate_id_class' => $e->aggregateIdClass,
+                'aggregate_id'       => $e->streamId,
+                'aggregate_id_class' => $idClass,
                 'aggregate_type'     => $aggType,
                 'last_seq'           => $e->sequence,
-                'aggregate_seq'      => $e->aggregateSequence,
+                'aggregate_seq'      => $e->streamSequence,
                 'last_at'            => $e->occurredAt,
                 'event_type'         => $e->eventType,
             ];

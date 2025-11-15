@@ -3,17 +3,17 @@
 use Pillar\Event\EventWindow;
 
 it('builds afterAggSeq', function () {
-    $w = EventWindow::afterAggSeq(10);
-    expect($w->afterAggregateSequence)->toBe(10)
-        ->and($w->toAggregateSequence)->toBeNull()
+    $w = EventWindow::afterStreamSeq(10);
+    expect($w->afterStreamSequence)->toBe(10)
+        ->and($w->toStreamSequence)->toBeNull()
         ->and($w->toGlobalSequence)->toBeNull()
         ->and($w->toDateUtc)->toBeNull();
 });
 
 it('builds toAggSeq', function () {
-    $w = EventWindow::toAggSeq(42);
-    expect($w->toAggregateSequence)->toBe(42)
-        ->and($w->afterAggregateSequence)->toBeNull();
+    $w = EventWindow::toStreamSeq(42);
+    expect($w->toStreamSequence)->toBe(42)
+        ->and($w->afterStreamSequence)->toBeNull();
 });
 
 it('builds afterGlobalSeq', function () {
@@ -39,17 +39,17 @@ it('builds toDateUtc', function () {
 });
 
 it('builds betweenAggSeq', function () {
-    $w = EventWindow::betweenAggSeq(5, 15);
-    expect($w->afterAggregateSequence)->toBe(5)
-        ->and($w->toAggregateSequence)->toBe(15);
+    $w = EventWindow::betweenStreamSeq(5, 15);
+    expect($w->afterStreamSequence)->toBe(5)
+        ->and($w->toStreamSequence)->toBe(15);
 });
 
 it('builds unbounded', function () {
     $w = EventWindow::unbounded();
-    expect($w->afterAggregateSequence)->toBeNull()
+    expect($w->afterStreamSequence)->toBeNull()
         ->and($w->afterGlobalSequence)->toBeNull()
         ->and($w->afterDateUtc)->toBeNull()
-        ->and($w->toAggregateSequence)->toBeNull()
+        ->and($w->toStreamSequence)->toBeNull()
         ->and($w->toGlobalSequence)->toBeNull()
         ->and($w->toDateUtc)->toBeNull();
 });

@@ -4,10 +4,6 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Database\Events\TransactionBeginning;
-use Illuminate\Database\Events\TransactionCommitted;
-use Illuminate\Database\Events\TransactionRolledBack;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Aggregate\GenericAggregateId;
@@ -17,17 +13,16 @@ use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\PublicationPolicy;
-use Pillar\Event\Stream\StreamResolver;
 use Pillar\Facade\Pillar;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Serialization\JsonObjectSerializer;
 use Pillar\Serialization\ObjectSerializer;
+use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentCreated;
 use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Document\DocumentRenamed;
-use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Encryption\DummyEvent;
 
 it('append() advances last_sequence when expectedSequence matches (portable path)', function () {
@@ -91,7 +86,6 @@ it('creates aggregate_versions on first append and advances on subsequent append
 it('uses the portable path for unsupported drivers and still persists correctly', function () {
     // Force "unsupported" driver by overriding driver() via a test subclass
     $store = new class(
-        app(StreamResolver::class),
         app(ObjectSerializer::class),
         app(EventAliasRegistry::class),
         app(EventFetchStrategyResolver::class),
@@ -145,7 +139,6 @@ it('uses the portable path for unsupported drivers and still persists correctly'
 
 it('enforces expectedSequence on the portable path (conflict throws ConcurrencyException)', function () {
     $store = new class(
-        app(StreamResolver::class),
         app(ObjectSerializer::class),
         app(EventAliasRegistry::class),
         app(EventFetchStrategyResolver::class),
@@ -312,8 +305,8 @@ it('returns a StoredEvent by global sequence (FQCN event_type)', function () {
 
     expect($e)->not->toBeNull()
         ->and($e->sequence)->toBe($seq)
-        ->and($e->aggregateId)->toBe($id->value())
-        ->and($e->aggregateSequence)->toBe(1)
+        ->and($e->streamId)->toBe($id->value())
+        ->and($e->streamSequence)->toBe(1)
         ->and($e->eventType)->toBe(DummyEvent::class)
         ->and($e->eventVersion)->toBe(1)
         ->and($e->occurredAt)->toBe($now)

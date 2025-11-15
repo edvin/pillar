@@ -6,6 +6,7 @@ use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Bus\CommandBusInterface;
 use Pillar\Bus\QueryBusInterface;
 use Pillar\Console\InstallPillarCommand;
@@ -18,12 +19,12 @@ use Pillar\Console\OutboxPartitionSyncCommand;
 use Pillar\Console\OutboxWorkCommand;
 use Pillar\Console\ReplayEventsCommand;
 use Pillar\Context\ContextLoader;
+use Pillar\Event\DatabaseEventMapper;
 use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventReplayer;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\PublicationPolicy;
-use Pillar\Event\Stream\StreamResolver;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Http\Middleware\AuthorizePillarUI;
 use Pillar\Outbox\DatabaseOutbox;
@@ -54,7 +55,6 @@ class PillarServiceProvider extends ServiceProvider
         $this->app->singleton(EventStore::class, Config::get('pillar.event_store.class'));
         $this->app->singleton(CommandBusInterface::class, Config::get('pillar.buses.command.class'));
         $this->app->singleton(QueryBusInterface::class, Config::get('pillar.buses.query.class'));
-        $this->app->singleton(StreamResolver::class, Config::get('pillar.stream_resolver.class'));
         $this->app->singleton(PublicationPolicy::class, Config::get('pillar.publication_policy.class'));
         $this->app->singleton(Partitioner::class, Config::get('pillar.outbox.partitioner.class'));
 
@@ -68,7 +68,9 @@ class PillarServiceProvider extends ServiceProvider
         $this->app->singleton(EventFetchStrategyResolver::class);
         $this->app->singleton(EventStoreRepository::class);
         $this->app->singleton(EventAliasRegistry::class);
+        $this->app->singleton(DatabaseEventMapper::class);
         $this->app->singleton(UpcasterRegistry::class);
+        $this->app->singleton(AggregateRegistry::class);
         $this->app->singleton(EventReplayer::class);
         $this->app->singleton(ContextLoader::class);
     }

@@ -102,14 +102,19 @@ final class __CapturingEventStore implements EventStore
         return null;
     }
 
-    public function resolveAggregateIdClass(string $aggregateId): ?string
+    public function recent(int $limit): array
+    {
+        return [];
+    }
+
+    public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
     {
         return null;
     }
 
-    public function recent(int $limit): array
+    public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
     {
-        return [];
+        return null;
     }
 }
 
@@ -125,12 +130,12 @@ it('passes a non-null EventWindow with snapshot-aware after to EventStore::load(
     $id = DocumentId::new();
 
     // Provide a stopping bound so the repo takes the "non-null window" branch
-    $result = $repo->find($id, EventWindow::toAggSeq(5));
+    $result = $repo->find($id, EventWindow::toStreamSeq(5));
 
     expect($result)->toBeInstanceOf(LoadedAggregate::class)
         ->and($store->captured)->not->toBeNull()
-        ->and($store->captured->afterAggregateSequence)->toBe(0)
-        ->and($store->captured->toAggregateSequence)->toBe(5)
+        ->and($store->captured->afterStreamSequence)->toBe(0)
+        ->and($store->captured->toStreamSequence)->toBe(5)
         ->and($store->captured->toGlobalSequence)->toBeNull()
         ->and($store->captured->toDateUtc)->toBeNull();
 

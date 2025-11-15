@@ -270,7 +270,7 @@
                 seqTd.innerHTML = `
                   <div class="flex items-center justify-center gap-1">
                     <span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200">${event.sequence != null ? '#' + event.sequence : '—'}</span>
-                    ${event.aggregate_sequence != null ? `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">↳ ${event.aggregate_sequence}</span>` : ''}
+                    ${event.stream_sequence != null ? `<span class="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">↳ ${event.stream_sequence}</span>` : ''}
                   </div>`;
                 tr.appendChild(seqTd);
 
@@ -314,13 +314,13 @@
                   </svg>
                   <span>Time&nbsp;Travel</span>
                 `;
-                travelBtn.title = `Time travel to state after event #${event.aggregate_sequence}`;
+                travelBtn.title = `Time travel to state after event #${event.stream_sequence}`;
                 actionsTd.appendChild(travelBtn);
                 tr.appendChild(actionsTd);
 
                 travelBtn.addEventListener('click', e => {
                     e.stopPropagation();
-                    openModal(event.aggregate_sequence, event.occurred_at || '', event.type);
+                    openModal(event.stream_sequence, event.occurred_at || '', event.type);
                 });
 
                 // Toggle JSON preview on row click

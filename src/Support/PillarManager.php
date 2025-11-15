@@ -2,6 +2,7 @@
 
 namespace Pillar\Support;
 
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Aggregate\AggregateSession;
 use Pillar\Bus\CommandBusInterface;
 use Pillar\Bus\QueryBusInterface;
@@ -19,6 +20,7 @@ final class PillarManager
         private readonly CommandBusInterface $commands,
         private readonly QueryBusInterface $queries,
         private readonly EventReplayer $replayer,
+        private readonly AggregateRegistry $aggregates
     ) {}
 
     /**
@@ -70,7 +72,7 @@ final class PillarManager
     ): Generator
     {
         return $this->replayer->stream(
-            $aggregateId,
+            $aggregateId !== null ? $this->aggregates->toStreamName($aggregateId) : null,
             $eventType,
             $fromSequence,
             $toSequence,
