@@ -33,6 +33,8 @@ php artisan pillar:install
 - ⚡ **CQRS** — projectors and query bus for a fast, scalable read side
 - 🧰 **Facade + buses** for quick wiring
 - 🛠️ **Pillar Make**: Bounded Context/Command/Query/Event Scaffolding
+- 🧪 **First‑class testing** — Given/When/Then helpers for aggregates & commands, full isolation, exception capture, state inspection
+- 🧵 **Command & Aggregate Scenarios** — end‑to‑end command testing using the real bus & event store, or fast in‑memory aggregate testing
 
 ## Documentation
 
