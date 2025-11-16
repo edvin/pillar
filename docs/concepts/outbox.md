@@ -65,7 +65,7 @@ routes reads and writes to the correct partition transparently.
 
 In all cases, database time is used (portable helpers) to avoid clock skew between workers and the DB.
 
-Events are rehydrated from the [EventStore](/concepts/event-store/index).
+Events are rehydrated from the [EventStore](/concepts/event-store).
 
 ---
 
@@ -199,4 +199,4 @@ During replay, publication is disabled (`EventContext::isReplaying()`): outbox r
 - **Events & marker interfaces** → [Events](/concepts/events)
 - **Outbox Worker (CLI/UI)** → [Outbox Worker](/concepts/outbox-worker)
 - **Outbox** → [Outbox](/concepts/outbox)
-- **EventStore** → [EventStore](/concepts/event-store/index)
+- **EventStore** → [EventStore](/concepts/event-store)

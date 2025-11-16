@@ -158,7 +158,7 @@ As you scale, the projection approach wins on:
 
 - **[AggregateSession](/concepts/aggregate-sessions)** uses your configured **[Fetch Strategies](/concepts/fetch-strategies)** to stream events when rehydrating aggregates.
 - **EventReplayer** also uses fetch strategies and **[Event Windows](/concepts/event-window)** for efficient, scoped replays (see also [/reference/cli-replay](/reference/cli-replay)).
-- The **Stream Browser UI** inspects events and can “time travel” an aggregate using the same windowing. See **[Stream Browser](/concepts/event-store/#stream-browser-ui)**.
+- The **Stream Browser UI** inspects events and can “time travel” an aggregate using the same windowing. See **[Stream Browser UI](/ui/stream-browser)**.
 
 ---
 
