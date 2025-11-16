@@ -1,12 +1,29 @@
 ## 🧱 Repositories
 
-Repositories coordinate **load / save** of aggregate roots.  
-They handle snapshot lookup, event streaming, optimistic locking, and
-point‑in‑time rehydration.  
-Pillar resolves repositories **dynamically from configuration**, which means you
-can freely mix **event‑sourced** and **state‑backed** aggregates in one system.
+Repositories are Pillar’s **load/save boundary** for aggregates.
 
-Most apps rarely touch repositories directly. In handlers you typically work with the [AggregateSession](/concepts/aggregate-sessions), which opens a session, calls the repository’s `find(...)`, tracks recorded events on your aggregate, and invokes `save(...)` on commit. Reach for repositories when you are writing a custom repository or building low‑level tooling.
+They take care of the mechanics:
+
+- fetching snapshots  
+- streaming events from the Event Store  
+- applying `EventWindow` bounds  
+- coordinating optimistic concurrency  
+- writing snapshots when needed  
+
+Most applications **rarely talk to repositories directly**.  
+Instead, your handlers work through the [AggregateSession](/concepts/aggregate-sessions):
+
+- it opens a session  
+- asks the correct repository to `find(...)` your aggregate  
+- tracks recorded events  
+- commits everything with `save(...)`  
+
+You *reach for repositories* only when:
+
+- writing a custom repository for a state‑backed aggregate, or  
+- building low‑level tooling.
+
+Repositories are resolved dynamically from configuration, allowing you to freely mix **event‑sourced** and **state‑backed** aggregates in the same system.
 
 ### How repositories rehydrate aggregates
 

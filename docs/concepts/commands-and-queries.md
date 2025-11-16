@@ -7,6 +7,8 @@ Pillar keeps orchestration simple with **two buses**:
 
 This page shows how to model commands and queries in a clean, testable way using Pillar.
 
+For the underlying architectural split, see [CQRS](../concepts/cqrs.md).
+
 ---
 
 ## Concepts
@@ -98,7 +100,7 @@ final class FindDocumentHandler
 
 There are a few convenient ways to send commands and queries. Pick what fits your project style and testing needs:
 
-- **Facade (static)** — simplest to call from anywhere.
+- **[Facade (static)](../concepts/pillar-facade.md)** — simplest to call from anywhere.
 - **Injected buses** — explicit dependencies, easiest to mock in tests.
 - **Controller/service usage** — realistic end‑to‑end example, including commands that return values.
 
@@ -225,7 +227,7 @@ final class GetThingHandler
 
 ## Aggregate Session (Writes)
 
-Pillar’s `AggregateSession` scopes loading and committing aggregates. Typical flow:
+Pillar’s [`AggregateSession`](../concepts/aggregate-sessions.md) scopes loading and committing aggregates. Typical flow:
 
 1. Load by ID: `find(DocumentId::from($id))`
 2. Call behavior on the aggregate: `$doc->rename(...)`
@@ -335,7 +337,7 @@ final class SearchDocumentsHandler
 
 ---
 
-## Middleware (Cross‑cutting concerns)
+## [Middleware](../concepts/cqrs.md#middleware) (Cross‑cutting concerns)
 
 Both buses can run middleware around handlers for concerns like:
 
@@ -483,7 +485,8 @@ A: The **aggregate** records events; the session persists and publishes them on 
 ---
 
 ## See also
-- Aggregates & Sessions
-- Events & Outbox
-- Testing guide
-- Middleware cookbook
+- [Aggregate Sessions](../concepts/aggregate-sessions.md)
+- [Aggregates](../concepts/aggregate-roots.md)
+- [Events](../concepts/events.md) & [Outbox](../concepts/outbox.md)
+- [Testing guide](../guides/testing.md)
+- [Middleware](../concepts/cqrs.md#middleware)

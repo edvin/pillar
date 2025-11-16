@@ -1,5 +1,7 @@
 # Outbox Worker (CLI & TUI)
 
+This worker is responsible for delivering publishable events from the transactional outbox to your message bus with retries, leasing, and cooperative partition processing.
+
 The worker delivers publishable events from the [Transactional Outbox](/concepts/outbox) to your bus with retries.
 
 ---
@@ -31,6 +33,8 @@ When run in a TTY, the command renders a compact UI showing:
 - **Partitions**: desired (target), owned, lease attempts, released in the last tick.
 - **Recent errors**: a small rolling buffer of the latest failures (time, sequence, message).
 
+For a full overview of outbox concepts, see [/concepts/outbox-worker](/concepts/outbox-worker).
+
 > The UI adapts to terminal width: three columns (wide), two columns (medium), or stacked sections (narrow).
 
 ```bash
@@ -49,6 +53,10 @@ php artisan pillar:outbox:work
 - **Backoff**: when a tick processes nothing, the runner sleeps `idle_backoff_ms` before continuing (cooperative
   backoff).
 - **Purge stale**: stale worker rows are purged opportunistically (rate‑limited via cache).
+
+### Where this fits in Pillar
+The outbox worker is part of Pillar’s delivery pipeline: aggregate roots emit events → they land in the transactional outbox → the worker claims and publishes them → projectors and external systems receive them.  
+See: [/concepts/events](/concepts/events) and [/concepts/projectors](/concepts/projectors).
 
 ---
 
@@ -75,6 +83,8 @@ To claim outbox rows, the worker uses the most efficient path for your driver:
   and bumps `available_at`. The batch is fetched by that token. Despite two statements, this is still **very performant
   ** with proper indexes.
 
+> The outbox worker uses the same partitioning strategy as the event store (via `StreamPartitioner`), but **outbox partition keys are independent of stream IDs**. This ensures even distribution regardless of aggregate hotspots.
+
 > All paths use DB‑derived timestamps to avoid app clock drift between worker nodes.
 
 ### Claim vs. lease
@@ -89,6 +99,17 @@ To claim outbox rows, the worker uses the most efficient path for your driver:
 
 See the **full list of options** (partitioning, worker timings, table names, partitioner strategy) in the configuration
 docs: [/reference/configuration#outbox](/reference/configuration#outbox).
+
+---
+
+## Worker lifecycle
+A worker tick performs:
+1. Heartbeat renewal  
+2. Lease acquisition/renewal (if enabled)  
+3. Claiming batches  
+4. Publishing events  
+5. Backoff if idle  
+6. Optional purge of stale workers  
 
 ---
 
@@ -161,3 +182,4 @@ php artisan pillar:outbox:partitions:sync --prune
 ## Related docs
 
 - **Transactional Outbox** → [Outbox](/concepts/outbox)
+- **Worker leasing model** → [/concepts/outbox-worker](/concepts/outbox-worker)

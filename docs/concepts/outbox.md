@@ -10,6 +10,8 @@ Reliable, at‑least‑once publication for your domain events—without leaving
 - A worker claims rows and delivers events to your bus with retries.
 - This avoids dual‑write problems and keeps your write path consistent.
 
+See also [Events](/concepts/events) and [Outbox](/concepts/outbox).
+
 > **Scope**: Pillar’s outbox stores **pointers** (global event sequence) rather than duplicating payloads. The worker rehydrates events via the `EventStore` when delivering.
 
 ---
@@ -18,17 +20,17 @@ Reliable, at‑least‑once publication for your domain events—without leaving
 
 1. Your aggregate records events.
 2. On save, **all** events are persisted to the `events` table.
-3. Events that implement **`ShouldPublish`** are **enqueued** into the `outbox` table (same transaction), with an optional `partition_key` for sharding.
+3. Events that implement **`ShouldPublish`** are **enqueued** into the `outbox` table (same transaction), with an optional `partition_key` for sharding (see also [Aggregate Roots](/concepts/aggregate-roots) and [Events](/concepts/events)).
 4. A background worker periodically **claims** pending rows, **rehydrates** events via `EventStore::getByGlobalSequence($seq)`, **dispatches** them to the bus, and marks rows **published**.
 5. Failures increment `attempts`, capture `last_error`, and retry after `retry_backoff` seconds.
 
-**Delivery**: at‑least‑once. Make handlers idempotent.
+**Delivery**: at‑least‑once. Make handlers [idempotent](/concepts/projectors).
 
 ---
 
 ## Schema (reference)
 
-Your initial migration should create the outbox as a pointer table:
+Your initial migration should create the outbox as a pointer table (see also /event-store):
 
 ```php
 Schema::create('outbox', function (Blueprint $t) {
@@ -63,13 +65,15 @@ routes reads and writes to the correct partition transparently.
 
 In all cases, database time is used (portable helpers) to avoid clock skew between workers and the DB.
 
+Events are rehydrated from the [EventStore](/event-store/index).
+
 ---
 
 ## Partitioning (ordering & scale)
 
 - Configure `partition_count` (e.g., 16). Each outbox row may include a `partition_key` like `p07`.
 - Each partition is processed by **at most one worker at a time**, providing **ordering guarantees per partition**.
-- The default **CRC32** partitioner maps an aggregate or stream id to a bucket label `pNN`.
+- The default **CRC32** [partitioner](/concepts/outbox) maps an aggregate or stream id to a bucket label `pNN`.
 - You can swap the partitioner to route by tenant, context, or any business key that matters for ordering.
 
 When leasing is enabled, workers coordinate to divide partitions among themselves using a DB‑backed lease table.
@@ -117,7 +121,7 @@ Excerpt from `config/pillar.php`:
 
 ## Worker coordination (leasing)
 
-When `leasing = true`, workers share partitions via a DB table (e.g., `outbox_partitions`). A lease has:
+When [`leasing`](/concepts/outbox-worker) = true, workers share partitions via a DB table (e.g., `outbox_partitions`). A lease has:
 
 - `partition_key`, `lease_owner`, `lease_until`, `lease_epoch`, `updated_at`
 
@@ -194,3 +198,5 @@ During replay, publication is disabled (`EventContext::isReplaying()`): outbox r
 
 - **Events & marker interfaces** → [Events](/concepts/events)
 - **Outbox Worker (CLI/UI)** → [Outbox Worker](/concepts/outbox-worker)
+- **Outbox** → [Outbox](/concepts/outbox)
+- **EventStore** → [EventStore](/event-store/index)

@@ -1,6 +1,11 @@
 # CQRS
 
-**Command Query Responsibility Segregation (CQRS)** is a simple idea: _writes_ (commands) and _reads_ (queries) take different paths. In Pillar, your **write side** is an event‑sourced aggregate; your **read side** is one or more fast, purpose‑built projections that you query directly.
+**Command Query Responsibility Segregation (CQRS)** is a simple idea: _writes_ (commands) and _reads_ (queries) take different paths. In Pillar, your **write side** is usually an event‑sourced [aggregate](/concepts/aggregate-roots); your **read side** is one or more fast, purpose‑built projections that you query directly.
+
+CQRS in Pillar is **encouraged but not mandatory**:
+- You can absolutely start with a simple state‑based aggregate or even use an event‑sourced aggregate as a read model.
+- Since snapshot policies (by default) can capture the latest aggregate state, reading via aggregates is perfectly fine for smaller features or admin flows.
+- As things grow, you can introduce projections and queries where they provide the most value (lists, dashboards, reporting).
 
 Why this helps:
 
@@ -13,7 +18,7 @@ Why this helps:
 
 ## The read side: Projectors → Read models
 
-A **Projector** listens to stored events and updates a read model (usually normal tables in your app DB). Projectors must be:
+A **Projector** listens to stored events and updates a read model (usually normal tables in your app DB). Projectors (see [Projectors](/concepts/projectors)) must be:
 
 - **Idempotent** — running them again produces the same result.
 - **Side‑effect free** — they write only to read models (no external calls).
@@ -36,6 +41,8 @@ For background, see **[Projectors](/concepts/projectors)**.
 Your aggregates accept commands, enforce invariants, and produce events. You almost never query aggregates directly for read endpoints in production. Instead, the UI/API reads from the projection tables your projectors maintain.
 
 Under the hood, when you _do_ rehydrate aggregates (e.g. in a command handler), Pillar streams events using your configured **[Fetch Strategies](/concepts/fetch-strategies)**.
+
+With snapshotting enabled (see [Snapshotting](/concepts/snapshotting)), Pillar can persist and reload the latest aggregate state efficiently. That’s what makes it feasible to use aggregates not only for writes, but also for small, focused read flows when projections would be overkill.
 
 ---
 
@@ -131,11 +138,13 @@ Both routes call the same underlying bus. Choose whichever suits your wiring sty
 
 ## Skipping projections (sometimes fine)
 
-For small features or admin tooling, you can read by **rehydrating** an aggregate and computing a result in memory. That’s OK when:
+For small features or admin tooling, you can read by **rehydrating** an aggregate and computing a result in memory. Pillar does **not** force you into strict CQRS everywhere—especially with snapshotting in place, using aggregates for reads is a valid and often practical choice. This is OK when:
 
 - Result volume is tiny and doesn’t need filtering/pagination.
 - Latency isn’t critical.
 - You won’t run it for lists across many aggregates.
+
+With a snapshot policy such as the default `AlwaysSnapshotPolicy`, most rehydrations are effectively “load latest snapshot + a short tail of events”, which keeps read‑via‑aggregate patterns fast for small, focused scenarios.
 
 As you scale, the projection approach wins on:
 
@@ -147,9 +156,9 @@ As you scale, the projection approach wins on:
 
 ## How Pillar ties it together
 
-- **AggregateSession** uses your configured **[Fetch Strategies](/concepts/fetch-strategies)** to stream events when rehydrating aggregates. See **[Aggregate Sessions](/concepts/aggregate-sessions)**.
-- **EventReplayer** also uses fetch strategies and **[Event Windows](/event-store/)** for efficient, scoped replays.
-- The **Stream Browser UI** inspects events and can “time travel” an aggregate using the same windowing. See **[Stream Browser](/ui/stream-browser)**.
+- **[AggregateSession](/concepts/aggregate-sessions)** uses your configured **[Fetch Strategies](/concepts/fetch-strategies)** to stream events when rehydrating aggregates.
+- **EventReplayer** also uses fetch strategies and **[Event Windows](/concepts/event-window)** for efficient, scoped replays (see also [/reference/cli-replay](/reference/cli-replay)).
+- The **Stream Browser UI** inspects events and can “time travel” an aggregate using the same windowing. See **[Stream Browser](/event-store/#stream-browser-ui)**.
 
 ---
 
@@ -179,5 +188,5 @@ As you scale, the projection approach wins on:
 - **[Aggregate Sessions](/concepts/aggregate-sessions)**
 - **[Projectors](/concepts/projectors)**
 - **[Fetch Strategies](/concepts/fetch-strategies)**
-- **[Event Store](/event-store/)**
+- **[Event Store](/concepts/event-store)**
 - **[CLI: Replay events](/reference/cli-replay)**

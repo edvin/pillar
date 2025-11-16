@@ -24,15 +24,15 @@ export default withMermaid(defineConfig({
             {
                 text: 'Concepts', items: [
                     {text: 'Aggregate roots', link: '/concepts/aggregate-roots'},
+                    {text: 'Events', link: '/concepts/events'},
+                    {text: 'Event Store', link: '/concepts/event-store'},
+                    {text: 'Event Window', link: '/concepts/event-window'},
                     {text: 'Aggregate IDs', link: '/concepts/aggregate-ids'},
                     {text: 'Aggregate sessions', link: '/concepts/aggregate-sessions'},
-                    {text: 'Event Store', link: '/event-store/'},
-                    {text: 'Event Window', link: '/concepts/event-window'},
                     {text: 'Fetch strategies', link: '/concepts/fetch-strategies'},
                     {text: 'Repositories', link: '/concepts/repositories'},
                     {text: 'Snapshotting', link: '/concepts/snapshotting'},
                     {text: 'Projectors', link: '/concepts/projectors'},
-                    {text: 'Events', link: '/concepts/events'},
                     {text: 'Outbox', link: '/concepts/outbox'},
                     {text: 'Outbox Worker', link: '/concepts/outbox-worker'},
                     {
@@ -42,11 +42,11 @@ export default withMermaid(defineConfig({
                     },
                     {text: 'Context registries', link: '/concepts/context-registries'},
                     {text: 'CQRS', link: '/concepts/cqrs'},
+                    {text: 'Commands & Queries', link: '/concepts/commands-and-queries'},
                     {text: 'Event aliases', link: '/concepts/event-aliases'},
                     {text: 'Versioned events', link: '/concepts/versioned-events'},
                     {text: 'Event upcasters', link: '/concepts/event-upcasters'},
                     {text: 'Pillar facade', link: '/concepts/pillar-facade'},
-                    {text: 'Commands & Queries', link: '/concepts/commands-and-queries'}
                 ]
             },
             {
@@ -68,7 +68,7 @@ export default withMermaid(defineConfig({
                 text: 'Reference', items: [
                     {text: 'Configuration', link: '/reference/configuration'},
                     {text: 'CLI — Replay events', link: '/reference/cli-replay'},
-                    {text: 'CLI — Make (scaffolding)', link: '/reference/cli-make'},
+                    {text: 'CLI — Make', link: '/reference/cli-make'},
                 ]
             },
             {

@@ -89,6 +89,6 @@ flowchart LR
 - [Aggregate sessions](/concepts/aggregate-sessions)
 - [Aggregate roots](/concepts/aggregate-roots)
 - [Snapshotting](/concepts/snapshotting)
-- [Event Store](/event-store/)
+- [Event Store](/concepts/event-store)
 - [Serialization → Payload encryption](/concepts/serialization#payload-encryption)
 - [CLI — Replay events](/reference/cli-replay)

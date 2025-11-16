@@ -4,7 +4,12 @@
 They transform old event payloads into their latest structure during deserialization — before your aggregates or
 projectors ever see them.
 
-This makes it safe to refactor your events or add new fields without rewriting your event store.
+:::info Related Reading
+- [Events](../concepts/events.md)
+- [Versioned Events](../concepts/versioned-events.md)
+- [Serialization](../concepts/serialization.md)
+- [Context Registries](../concepts/context-registries.md)
+:::
 
 ### Example
 
@@ -34,7 +39,7 @@ final class DocumentCreatedV1ToV2Upcaster implements Upcaster
 
 ### Registration
 
-Each upcaster is registered in its `ContextRegistry` using the `EventMapBuilder`:
+Each upcaster is registered in its context's [`ContextRegistry`](../concepts/context-registries.md) using the `EventMapBuilder`:
 
 ```php
 public function events(): EventMapBuilder
@@ -49,35 +54,47 @@ public function events(): EventMapBuilder
 
 ### How It Works
 
-- Upcasters are registered globally in the **UpcasterRegistry** during application boot via the `ContextLoader`.
-- When events are loaded from the event store, Pillar checks the stored event version and the current version declared
-  by the event (see “Versioned Events” below).
-- If the stored version is lower, Pillar applies upcasters sequentially (v1 → v2 → v3 → …) until the payload matches the
-  current version.
-- Each upcaster declares the event class it handles and the version it upgrades from via `fromVersion()`.
-
----
-
-### ✅ Benefits
-
-- Seamless **schema evolution** for persisted events
-- Fully **backward compatible** without modifying existing data
-- **Composable transformations** — multiple upcasters can chain together
-- Zero impact on aggregate or projector code
+- Upcasters are registered per bounded context via each context's `ContextRegistry`, then aggregated into the global
+  **UpcasterRegistry** at boot time by the `ContextLoader`.
+- When events are loaded from the event store, Pillar compares the stored `event_version` with the current version
+  declared on the event class (see [Versioned Events](../concepts/versioned-events.md) below).
+- If the stored version is lower, Pillar invokes all upcasters for that event class starting from `fromVersion()`,
+  applying them sequentially (v1 → v2 → v3 → …) until the payload matches the current schema.
+- Each upcaster declares the event class it handles (`eventClass()`) and the version it upgrades *from* via
+  `fromVersion()` (e.g. a `fromVersion()` of 1 handles v1 → v2 transitions).
 
 ---
 
 ### ⚡ Optimized Serialization
 
-Pillar’s default `JsonObjectSerializer` automatically converts objects to and from JSON,
-using PHP reflection to reconstruct event and command objects during deserialization.
+Pillar's default `JsonObjectSerializer` automatically converts objects to and from JSON, using PHP reflection to
+reconstruct event and command objects during deserialization.
 
-To ensure high performance, **constructor parameter metadata is cached per class**.
-This avoids repeated reflection calls on hot paths, making event and command deserialization
-fast even at large scales.
+To ensure high performance, **constructor parameter metadata is cached per class**. This avoids repeated reflection
+calls on hot paths, keeping event and command deserialization fast even at larger scales.
 
-You can provide your own serializer by implementing the `ObjectSerializer` interface —
-for example, to integrate a binary format or custom encoding strategy.
+When upcasters are involved, the serializer simply receives the **already-upcast payload** and hydrates the latest
+version of the event class from it.
+
+You can provide your own serializer by implementing the `ObjectSerializer` interface—for example, to integrate a
+binary format or custom encoding strategy.
+
+### ⏱ Event timing & correlation during upcasting
+
+When events are rehydrated (whether live or during replay), Pillar also initializes the [`EventContext`](../concepts/events.md#event-context)
+with the original metadata from storage:
+
+- `EventContext::occurredAt()` — returns the UTC timestamp of **when the event actually happened**.
+- `EventContext::correlationId()` — returns the logical operation ID spanning all events in the same flow.
+- `EventContext::isReconstituting()` / `EventContext::isReplaying()` — let you detect replay vs. live handling.
+
+This means that even for **old events that have been upcasted** to a newer schema, your aggregates and projectors can
+still:
+
+- see the true historical time the event occurred, and
+- attach diagnostics or logs to the same correlation ID that was present when the event was first recorded.
+
+Upcasting transforms the **shape** of the payload; `EventContext` keeps the **when** and **why** intact.
 
 ---
 
@@ -114,3 +131,9 @@ final class DocumentCreated implements VersionedEvent
 upcaster for documentation clarity.
 
 ---
+
+### 📚 Related Reading
+- [Events](../concepts/events.md)
+- [Versioned Events](../concepts/versioned-events.md)
+- [Serialization](../concepts/serialization.md)
+- [Context Registries](../concepts/context-registries.md)

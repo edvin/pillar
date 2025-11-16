@@ -35,7 +35,7 @@ Dates accept ISO‑8601 (recommended) or anything Carbon parses. Always interpre
 - Streams events from the **Event Store** using your configured **fetch strategy**.
 - Dispatches each event to registered **Projectors** only (no command handlers / reactors).
 
-See: [Event Store](/event-store/) and [Fetch strategies](/concepts/fetch-strategies).
+See: [Event Store](/concepts/event-store) and [Fetch strategies](/concepts/fetch-strategies).
 
 
 ---

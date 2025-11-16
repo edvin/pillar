@@ -6,9 +6,10 @@ bounded context. It helps structure your application by grouping related domain 
 A ContextRegistry typically defines:
 
 - The **name** of the context
+- The **AggregateRootId classes** whose streams live in this context
 - The **commands** handled within the context
 - The **queries** supported by the context
-- The **events** produced, along with their listeners and optional aliases
+- The **events** produced, along with their listeners, optional aliases, and upcasters
 
 This registration enables Pillar to automatically wire up command and query buses, event dispatching, and alias
 management across your application.
@@ -18,12 +19,23 @@ management across your application.
 ```php
 use Pillar\Context\ContextRegistry;
 use Pillar\Context\EventMapBuilder;
+use App\Context\Document\Domain\Identifier\DocumentId;
 
 final class DocumentContextRegistry implements ContextRegistry
 {
     public function name(): string
     {
         return 'document';
+    }
+
+    /**
+     * All AggregateRootId implementations whose streams belong to this context.
+     */
+    public function aggregateRootIds(): array
+    {
+        return [
+            DocumentId::class,
+        ];
     }
 
     public function commands(): array
@@ -45,11 +57,11 @@ final class DocumentContextRegistry implements ContextRegistry
     {
         return EventMapBuilder::create()
             ->event(DocumentCreated::class)
-                ->alias('document_created')
+                ->alias('document.created')
                 ->upcasters([DocumentCreatedV1ToV2Upcaster::class])
                 ->listeners([DocumentCreatedProjector::class])
             ->event(DocumentRenamed::class)
-                ->alias('document_renamed')
+                ->alias('document.renamed')
                 ->listeners([DocumentRenamedProjector::class]);
     }
 }
@@ -57,8 +69,8 @@ final class DocumentContextRegistry implements ContextRegistry
 
 🧰 Registering Context Registries
 
-Each ContextRegistry must be registered in your application’s `config/pillar.php` file under the Each ContextRegistry
-must be registered in your application’s `config/pillar.php` file under the `context_registries` key:
+Each ContextRegistry must be registered in your application’s `config/pillar.php` file under the `context_registries`
+key:
 
 ```php
 'context_registries' => [
@@ -66,5 +78,8 @@ must be registered in your application’s `config/pillar.php` file under the `c
     \Context\UserManagement\Application\UserContextRegistry::class,
 ],
 ```
+
+You can scaffold contexts, registries, aggregates, commands, queries, and events using the `pillar:make:*` commands.
+See the CLI reference for details: [/reference/cli-make](/reference/cli-make).
 
 ---

@@ -2,16 +2,26 @@
 
 Pillar uses an **ObjectSerializer** to convert events/commands to and from storage.
 
+Serialization is used by the Event Store, upcasters, outbox, and replay pipeline to turn your **domain events** into
+stable payloads. For how events themselves are modeled, see [Events](../concepts/events.md).
+
+:::info Related Reading
+- [Events](../concepts/events.md)
+- [Versioned Events](../concepts/versioned-events.md)
+- [Event upcasters](../concepts/event-upcasters.md)
+- [Configuration](../reference/configuration.md)
+:::
+
 ## Default: JSON
 
-`JsonObjectSerializer` serializes objects to JSON and reconstructs them using constructor
-parameter metadata that is cached per class (fast, reflection cost amortized).
+`JsonObjectSerializer` serializes objects to JSON and reconstructs them using **cached constructor metadata per class**.
+This keeps reflection cost amortized on hot paths like aggregate rehydration and replay.
 
 ## Optional: MessagePack
 
 Pillar ships with `MessagePackObjectSerializer` as a compact binary serialization alternative. It implements the same
 `ObjectSerializer` contract (`serialize` / `deserialize` and `toArray` / `fromArray`), so your upcasters and payload
-encryption work unchanged. Expect higher performance and smaller payloads.
+encryption work unchanged. Expect higher performance and smaller payloads. You enable it via the `serializer.class` option in `config/pillar.php` (see [Configuration](../reference/configuration.md)).
 
 > **Requires** the PECL extension **ext-msgpack** to be installed and loaded.
 
@@ -31,6 +41,8 @@ encryption work unchanged. Expect higher performance and smaller payloads.
 ## Swap the serializer
 
 Implement `Pillar\Serialization\ObjectSerializer` and register it in `config/pillar.php`:
+
+This is configured under the `serializer` key in `config/pillar.php`, shared across the Event Store, outbox, and replay.
 
 ```php
 'serializer' => [
@@ -85,7 +97,9 @@ wrapper unwraps and feeds plaintext back to the base serializer. This works equa
   policy says the **class** should be encrypted.
 - **Read (arrays)**: `toArray($payload)` unwraps **only when encryption is enabled**, then normalizes via the base
   serializer. (This keeps the hot path cheap when disabled.)
-- **Metadata** (ids, alias/type, version, timestamps) remains **plaintext**; only the payload is encrypted.
+- **Metadata** (ids, alias/type, version, timestamps) remains **plaintext**; only the payload is encrypted. This ensures
+  features like `EventContext::occurredAt()` and `EventContext::correlationId()` still see the original values even for
+  encrypted events.
 - You can mix encrypted and plaintext events over time; reads are seamless when enabled for those classes.
 
 ### Swap the cipher
@@ -106,3 +120,12 @@ the serializer is agnostic.
 
 - Keep events as **simple value objects** (scalars/arrays) for long‑term compatibility.
 - Version payloads with `VersionedEvent` and use **Upcasters** to evolve shapes safely.
+
+---
+
+### 📚 Related Reading
+- [Events](../concepts/events.md)
+- [Versioned Events](../concepts/versioned-events.md)
+- [Event upcasters](../concepts/event-upcasters.md)
+- [Outbox](../concepts/outbox.md)
+- [Configuration](../reference/configuration.md)

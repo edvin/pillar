@@ -1,13 +1,14 @@
 # Getting started
 
 Pillar helps you build **rich domain models** in Laravel — with or without full event sourcing. You can adopt it
-incrementally: start with a single aggregate to gain audit trails and clean boundaries, or go all‑in with DDD patterns.
+incrementally: start with a single [aggregate](/concepts/aggregate-roots) to gain audit trails and clean boundaries,
+or go all‑in with [DDD patterns](/concepts/cqrs).
 If you want the “why”, see the short overview in [Philosophy](/about/philosophy).
 
 **What you’ll do on this page**
 
 - Install and publish Pillar
-- Create one tiny aggregate and persist it once manually
+- See what gets installed (migrations, tables, configuration) and how it fits into your app
 
 Follow the link at the bottom right of the page to jump to the tutorial.
 
@@ -27,10 +28,11 @@ In a Laravel project:
 composer require pillar/pillar
 php artisan pillar:install
 ```
+---
 
-The installer will publish migrations and config, then run the migrations.
+## ✅ After install: what you have
 
-You’ll get the following files:
+Once `pillar:install` has finished and migrations have run, you should see:
 
 | File                                                                        | Description                                                               |
 |-----------------------------------------------------------------------------|---------------------------------------------------------------------------|
@@ -40,104 +42,26 @@ You’ll get the following files:
 | `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_workers_table.php`     | Tracks connected outbox publishing workers                                |
 | `config/pillar.php`                                                         | Configure Pillar                                                          |
 
----
+These give you:
 
-## ✅ Hello Pillar
+- an `events` table for your domain’s event streams ([Event store](/event-store)),
+- a transactional outbox plus worker/partition metadata (used when you publish events) ([Outbox](/concepts/outbox), [Outbox worker](/concepts/outbox-worker)),
+- a central `config/pillar.php` file to tweak event store, snapshots, outbox and UI ([Configuration](/reference/configuration)).
 
-We’ll create a minimal **Document** aggregate with a single event and persist it using an **AggregateSession**. This
-keeps the first run simple by not introducing a command step yet; the tutorial adds command/query buses and registries
-later.
+Before writing any domain code, make sure:
 
-### 1) ID value object
+1. Your database connection is configured and the migrations have run.
+2. You’ve decided which **[bounded context](/concepts/context-registries)** you’ll start with (e.g. `Document`, `Billing`).
+3. You’re ready to register a [`ContextRegistry`](/concepts/context-registries) for that context (the tutorial walks you through this).
 
-```php
-// app/Context/Document/Domain/Identifier/DocumentId.php
-use Pillar\Aggregate\AggregateRootId;
-
-final readonly class DocumentId extends AggregateRootId
-{
-    public static function aggregateClass(): string
-    {
-        return Document::class;
-    }
-}
-```
-
-### 2) Event
-
-```php
-// app/Context/Document/Domain/Event/DocumentCreated.php
-use App\Context\Document\Domain\Identifier\DocumentId;
-
-final class DocumentCreated
-{
-    public function __construct(
-        public string $title,
-    ) {}
-}
-```
-
-### 3) Aggregate
-
-```php
-// app/Context/Document/Domain/Aggregate/Document.php
-use Pillar\Aggregate\EventSourcedAggregateRoot;
-use Pillar\Aggregate\RecordsEvents;
-use App\Context\Document\Domain\Event\DocumentCreated;
-use App\Context\Document\Domain\Identifier\DocumentId;
-
-final class Document implements EventSourcedAggregateRoot
-{
-    use RecordsEvents;
-    
-    private DocumentId $id;
-    private string $title;
-
-    public static function create(string $title): self
-    {
-        $self = new self();
-        $self->record(new DocumentCreated(DocumentId::new(), $title));
-        return $self;
-    }
-
-    protected function applyDocumentCreated(DocumentCreated $e): void
-    {
-        $this->id = $e->id;
-        $this->title = $e->title;
-    }
-
-    public function id(): DocumentId { return $this->id; }
-}
-```
-
-### 4) Persist once to prove it works
-
-```php
-// routes/web.php
-use Pillar\Facade\Pillar;
-use App\Context\Document\Domain\Identifier\DocumentId;
-use App\Context\Document\Domain\Aggregate\Document;
-
-Route::get('/pillar-hello', function () {
-    // Typically you would not create the aggregate directly, but dispatch a command instead
-    $doc = Document::create('Hello Pillar');
-
-    Pillar::session()->attach($doc)->commit();
-
-    return 'OK: ' . $id;
-});
-```
-
-Visit `/pillar-hello`, then check the `events` table — you’ll see a `DocumentCreated` row for your aggregate ID,
-and you can issue `Pillar::session()->find($id)` to load the aggregate.`
+From here, the next step is to put your first aggregate inside a bounded context, register its `AggregateRootId`, and
+wire up commands and projectors. The **Build a document service** tutorial does exactly that, end‑to‑end.
 
 ---
 
 ## Where to next
 
-- Add **commands & handlers**, aliases and
-  projectors → [/tutorials/build-a-document-service](/tutorials/build-a-document-service)
+- Add **commands & handlers**, aliases and projectors in a bounded context → [/tutorials/build-a-document-service](/tutorials/build-a-document-service)
 - Learn the **Aggregate session** lifecycle → [/concepts/aggregate-sessions](/concepts/aggregate-sessions)
-- Configure the **Event store** (fetch strategies, stream resolver) → [/event-store](/event-store/)
-- Optional: enable **payload encryption
-  ** → [/concepts/serialization#payload-encryption](/concepts/serialization#payload-encryption)
+- Configure the **Event store** (tables, fetch strategies, optimistic locking) → [/event-store](/concepts/event-store)
+- Optional: enable **payload encryption** → [/concepts/serialization#payload-encryption](/concepts/serialization#payload-encryption)

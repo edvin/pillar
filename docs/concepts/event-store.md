@@ -5,6 +5,15 @@ The default implementation, `DatabaseEventStore`, persists domain events in a da
 with any backend (KurrentDB, Kafka, DynamoDB, S3 etc).  
 Events are grouped into **streams**; in Pillar, a stream corresponds to a single aggregate root instance (e.g. `order-1234`).
 
+:::info Related Reading
+- [Events](/concepts/events.md)
+- [Event Window](/concepts/event-window.md)
+- [Fetch Strategies](/concepts/fetch-strategies.md)
+- [Repositories](/concepts/repositories.md)
+- [Aggregate Sessions](/concepts/aggregate-sessions.md)
+- [Configuration](/reference/configuration.md)
+:::
+
 ---
 
 ## Interface
@@ -71,6 +80,8 @@ Under the default `DatabaseEventStore`, events live in a single **stream-centric
 - `stream_id` – logical stream name (e.g. `"document-<uuid>"`)
 - `stream_sequence` – per‑stream version (1, 2, 3, …) for each `stream_id`
 - `event_type`, `event_version`, `event_data`, `occurred_at`, `correlation_id`
+
+On PostgreSQL, the `events` table can be range- or hash-partitioned (for example by `stream_id` or by time) without changing Pillar’s code. Partitioning is done entirely in your migrations/schema; the EventStore works against the logical table name.
 
 Two convenience methods help with diagnostics and dashboards:
 
@@ -263,3 +274,13 @@ See [/reference/cli-replay](/reference/cli-replay) for all flags and tips.
 
 - Use **versioned events** + **upcasters** for schema evolution. See [/concepts/versioned-events](/concepts/versioned-events) and [/concepts/event-upcasters](/concepts/event-upcasters).
 - For large aggregates, prefer `db_chunked` or `db_streaming` and consider **snapshotting**. See [/concepts/snapshotting](/concepts/snapshotting).
+
+---
+
+### 📚 Related Reading
+- [Events](/concepts/events.md)
+- [Event Window](/concepts/event-window.md)
+- [Fetch Strategies](/concepts/fetch-strategies.md)
+- [Repositories](/concepts/repositories.md)
+- [Aggregate Sessions](/concepts/aggregate-sessions.md)
+- [Configuration](/reference/configuration.md)

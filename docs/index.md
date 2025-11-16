@@ -31,7 +31,7 @@ features:
   - icon: "🗃️"
     title: "Event store"
     details: "Pluggable backend, optimistic locking, generator-based streams."
-    link: "/event-store/"
+    link: "/concepts/event-store"
 
   - icon: "🧵"
     title: "Fetch strategies"
@@ -39,9 +39,9 @@ features:
     link: "/concepts/fetch-strategies"
 
   - icon: "🧩"
-    title: "Stream resolver"
-    details: "Route events per type or ID — great for multi-tenancy."
-    link: "/event-store/"
+    title: "Aggregate IDs & streams"
+    details: "Strongly-typed UUID IDs with readable stream names (e.g. document-<uuid>)."
+    link: "/concepts/aggregate-ids"
 
   - icon: "🎭"
     title: "Event aliases"
@@ -62,6 +62,26 @@ features:
     title: "Snapshotting"
     details: "Always, cadence, or on-demand policies with pluggable store."
     link: "/concepts/snapshotting"
+
+  - icon: "⏱️"
+    title: "Event windows"
+    details: "Slice streams by stream seq, global seq, or time for partial loads and replays."
+    link: "/concepts/event-window"
+
+  - icon: "🖥️"
+    title: "Projectors"
+    details: "Build read models fed from event streams; safe to rebuild with replay."
+    link: "/concepts/projectors"
+
+  - icon: "🧭"
+    title: "Context registries"
+    details: "Per-context wiring for commands, queries, events, upcasters & aggregate IDs."
+    link: "/concepts/context-registries"
+
+  - icon: "✅"
+    title: "Testing"
+    details: "Patterns and helpers for testing aggregates, sessions, and projections."
+    link: "/guides/testing"
 
   - icon: "🧱"
     title: "Repositories"
@@ -106,7 +126,7 @@ features:
   - icon: "📊"
     title: "Stream Browser (UI)"
     details: "Browse event streams, inspect payloads, and time‑travel aggregate state."
-    link: "/ui/stream-browser"
+    link: "/stream-browser"
 
   - icon: "🏗️"
     title: "Architecture & Config"

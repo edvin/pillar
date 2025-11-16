@@ -114,6 +114,7 @@ This keeps replay pure and avoids side effects while still driving read models.
 
 ---
 
+
 ## Versioning, aliases, upcasting
 
 - **Versioning**: implement a `VersionedEvent` interface (if present in your app) so each stored row carries an
@@ -121,6 +122,30 @@ This keeps replay pure and avoids side effects while still driving read models.
 - **Aliases**: `EventAliasRegistry` can map short names to FQCNs in storage.
 - **StoredEvent**: when fetching by global sequence, you get a `StoredEvent` wrapper with metadata (sequence, aggregate
   id, occurred at, correlation id, etc.).
+
+## Event context (timestamps, correlation IDs, replay flags)
+
+Every event recorded or replayed in Pillar runs under an **EventContext**, which provides:
+
+- **occurredAt()** → the UTC timestamp when the event *actually* happened  
+  (during replay this is restored from event metadata).
+- **correlationId()** → a per-operation UUID used for tracing and log correlation.
+- **isReconstituting()** → true while rebuilding an aggregate from history.
+- **isReplaying()** → true while driving projectors in a replay (suppresses publication).
+
+EventContext is automatically set when:
+- A command begins (fresh correlation ID, fresh timestamp)
+- An event is appended (context timestamp is stored in the row)
+- An event is read back during replay (context timestamp is restored)
+
+Example:
+
+```php
+EventContext::occurredAt();     // CarbonImmutable timestamp
+EventContext::correlationId();  // UUID string
+```
+
+Because **occurredAt** survives replay, projectors can use actual historical timestamps—even long after the event occurred.
 
 ---
 

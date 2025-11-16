@@ -4,6 +4,7 @@ Projectors are special event listeners that build or update read models and are 
 marker interface `Projector`, and only projectors are invoked during event replay. This separation ensures that replays
 do not trigger side effects such as sending emails or other external actions.
 
+
 Example of a projector implementing the interface:
 
 ```php
@@ -17,6 +18,13 @@ final class DocumentCreatedProjector implements Projector
     }
 }
 ```
+
+👉 **Related concepts:**  
+- [Events](../concepts/events.md)  
+- [Versioned Events](../concepts/versioned-events.md)  
+- [Event Window](../concepts/event-window.md)  
+- [Aggregate Sessions](../concepts/aggregate-sessions.md)  
+- [Serialization](../concepts/serialization.md)
 
 Example of a listener that is not a projector and will not be invoked during replay:
 
@@ -35,6 +43,9 @@ final class SendDocumentCreatedNotification
 Projectors must be **pure and idempotent**.  
 They are re-invoked during event replays to rebuild read models, so applying the same event multiple times should never
 produce different results or duplicate data.
+
+When a projector runs during **replay**, it does so inside a special replay context.  
+You can detect this via `EventContext::isReplaying()`, which ensures projectors remain safe even when rebuilding large portions of your read model.
 
 For example, when updating a database, projectors should use *insert-or-update* logic instead of blindly inserting new
 records.

@@ -1,11 +1,11 @@
 ## 🆔 Aggregate IDs
 
-Aggregate IDs uniquely identify instances of aggregates within your domain. Pillar uses strongly-typed aggregate ID
+Aggregate IDs uniquely identify instances of [aggregates](/concepts/aggregate-roots) within your domain. Pillar uses strongly-typed aggregate ID
 classes to ensure type safety and clarity.
 
 ### Stream IDs
 
-Every Aggregate ID **is also the stream ID** used by the event store.
+Every Aggregate ID **is also the stream ID** used by the [event store](/event-store).
 
 Pillar derives the stream name directly from the ID’s string representation:
 
@@ -13,7 +13,7 @@ Pillar derives the stream name directly from the ID’s string representation:
 - `InvoiceId` → `invoice-{uuid}`
 - `DocumentId` → `document-{uuid}`
 
-This mapping is **automatic** and handled by `AggregateRegistry`.  
+This mapping is **automatic** and handled by `AggregateRegistry` (see [Context registries](/concepts/context-registries)).  
 No separate “stream resolver” or configuration is needed.
 
 #### Why this design?
@@ -27,8 +27,8 @@ No separate “stream resolver” or configuration is needed.
 
 The only requirement for a custom ID class is that it extends `AggregateRootId` and implements `aggregateClass()`.
 
-An aggregate ID is typically a value object implementing or extending `AggregateRootId`. These IDs are used to load,
-save, and track aggregates within the event store and repositories through the `aggregateClass()` method.
+An aggregate ID is typically a value object extending `AggregateRootId`. These IDs are used to load, save, and track
+aggregates within the [event store](/event-store) and [repositories](/concepts/repositories) via the `aggregateClass()` method.
 
 Example of a simple aggregate ID class:
 
@@ -48,9 +48,9 @@ final readonly class DocumentId extends AggregateRootId
 
 Aggregate IDs are used throughout Pillar APIs, including:
 
-- Finding aggregates in an `AggregateSession`
-- Appending events to the event store
-- Checking aggregate existence in repositories
+- Finding aggregates in an [`AggregateSession`](/concepts/aggregate-sessions)
+- Appending events to the [event store](/event-store)
+- Checking aggregate existence in [repositories](/concepts/repositories)
 
 Using strongly-typed IDs helps prevent mixing different aggregate types and improves code readability.
 

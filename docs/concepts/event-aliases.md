@@ -1,10 +1,12 @@
 ## 🎭 Event Aliases
 
 Pillar supports mapping **event classes to short aliases** to make stored event names more readable and stable over
-time.
+time. For details on how events are structured, see [Events](/concepts/events.md).
 
-Event aliases are defined in your `ContextRegistry` using the `EventMapBuilder`.  
+Event aliases are defined in your [Context Registry](/concepts/context-registries.md) using the `EventMapBuilder`.  
 This allows each bounded context to declare its own aliases alongside its event listeners:
+
+Aliases are declared inside the bounded context through its `ContextRegistry`.
 
 ```php
 public function events(): EventMapBuilder
@@ -34,6 +36,14 @@ and managed globally by the `EventAliasRegistry`, which is used internally by th
 
 ---
 
+### 🔄 How Aliases Are Resolved
+
+During deserialization, Pillar checks the global `EventAliasRegistry` to map stored aliases back to their full event classes.  
+If no alias exists, Pillar falls back to interpreting the stored value as a fully qualified class name.  
+This guarantees compatibility with legacy streams or events created before aliases were introduced.
+
+---
+
 ### ⚠️ Avoiding Alias Collisions
 
 Aliases must be **globally unique** because all events share a single alias registry. If two different events (even from
@@ -53,3 +63,8 @@ Using fully qualified, namespaced aliases helps maintain the integrity and reada
 bounded contexts.
 
 ---
+
+### 📚 Related Reading
+- [Events](/concepts/events.md)
+- [Context Registries](/concepts/context-registries.md)
+- [Serialization](/concepts/serialization.md)

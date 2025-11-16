@@ -4,7 +4,7 @@ Aggregates are the **core building blocks** of your domain model — they encaps
 event-driven or state-driven updates.
 
 In Pillar, all aggregates implement the interface `AggregateRoot`. If your aggregate is using event sourcing, instead
-implement the `EventSourcedAggregateRoot` interface and use the trait `RecordsEvents`, which provides a consistent pattern for **recording and applying domain events**.
+implement the `EventSourcedAggregateRoot` interface and use the trait `RecordsEvents`, which provides a consistent pattern for **recording and applying [domain events](/concepts/events)**.
 
 ---
 
@@ -57,14 +57,14 @@ final class Document implements EventSourcedAggregateRoot
 }
 ```
 
-This is the **event-sourced** approach — every state change is expressed as a **domain event**, persisted to the event
-store, and used to rebuild the aggregate’s state later.
+This is the **event-sourced** approach — every state change is expressed as a **[domain event](/concepts/events)**,
+persisted to the [event store](/event-store), and used to rebuild the aggregate’s state later.
 
 This model gives you:
 
 - 🔍 **Full auditability** of all domain changes over time
 - 🕰️ **Reproducibility** and replay capability
-- ⚙️ **Resilience** against schema evolution with versioned events and upcasters
+- ⚙️ **Resilience** against schema evolution with [versioned events](/concepts/versioned-events) and [upcasters](/concepts/event-upcasters)
 
 ---
 
@@ -77,7 +77,7 @@ You don’t record or apply events — you just mutate the state directly.
 
 ```php
 use Context\Document\Domain\Identifier\DocumentId;
-use Pillar\Aggregate\EventSourcedAggregateRoot;
+use Pillar\Aggregate\AggregateRoot;
 
 final class Document implements AggregateRoot
 {
@@ -109,12 +109,11 @@ This **state-based** model is ideal for:
 - ⚡ Domains that favor **direct persistence** over event sourcing
 - 🧰 Use cases where you want the same aggregate behavior API but backed by a simpler repository
 
-Both models work seamlessly with Pillar’s repository and session abstractions — you can mix and match them in the same
-application.
+Both models work seamlessly with Pillar’s [repository](/concepts/repositories) and [session](/concepts/aggregate-sessions) abstractions — you can mix and match them in the same application.
 
 #### Wiring a state‑based aggregate with Eloquent
 
-For state‑based aggregates, the repository persists fields directly (no events). Here’s a minimal Eloquent mapping:
+For state‑based aggregates, the [repository](/concepts/repositories) persists fields directly (no events). Here’s a minimal Eloquent mapping:
 
 ```php
 // app/Models/DocumentRecord.php
@@ -201,7 +200,7 @@ final class DocumentRepository implements AggregateRepository
 
 > **Optional — optimistic locking:** If you want optimistic concurrency for state‑based aggregates, add a `version`
 > column and fetch the row with `DocumentRecord::query()->whereKey($id)->lockForUpdate()->first()`, verify the current
-`version` matches the expected value, then bump it on update. This mirrors the event‑store’s concurrency check.
+`version` matches the expected value, then bump it on update. This mirrors the [event store](/event-store)’s concurrency check.
 
 Register the repository for this aggregate in `config/pillar.php`:
 
@@ -212,7 +211,7 @@ Register the repository for this aggregate in `config/pillar.php`:
 ],
 ```
 
-Now a command handler can load and save via the **AggregateSession** (no event store involved):
+Now a command handler can load and save via the [**AggregateSession**](/concepts/aggregate-sessions) (no [event store](/event-store) involved):
 
 ```php
 $doc = $session->find(DocumentId::from($id));

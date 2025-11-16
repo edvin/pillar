@@ -51,4 +51,4 @@ Use Pillar just for **auditing** or for **event‑driven islands** inside a conv
 
 - Start with the [Getting started](/getting-started/) guide.
 - Then read the core concepts in this order: **Aggregate roots → Aggregate IDs → Aggregate sessions**.
-- Explore the [Event Store](/event-store/) and [Snapshotting](/concepts/snapshotting) when you outgrow simple cases.
+- Explore the [Event Store](/concepts/event-store) and [Snapshotting](/concepts/snapshotting) when you outgrow simple cases.

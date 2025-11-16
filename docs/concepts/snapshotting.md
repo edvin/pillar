@@ -2,6 +2,14 @@
 
 Snapshotting lets you periodically capture an aggregate’s current state to avoid replaying a long event history on load.
 
+:::info Related Reading
+- [Aggregate Roots](../concepts/aggregate-roots.md)
+- [Aggregate IDs](../concepts/aggregate-ids.md)
+- [Aggregate Sessions](../concepts/aggregate-sessions.md)
+- [Event Window](../concepts/event-window.md)
+- [Repositories](../concepts/repositories.md)
+:::
+
 ### Opt-in with `Snapshottable`
 
 Aggregates **opt in** to snapshotting by implementing the `Snapshottable` interface and providing two methods:
@@ -67,26 +75,29 @@ Configure snapshotting in `config/pillar.php`:
     ],
     'ttl' => null, // Time-to-live in seconds (null = indefinitely)
 
-    // Delegating policy selects which policy to use per aggregate
+    // Global default policy
     'policy' => [
-        'default' => [
-            'class' => \Pillar\Snapshot\AlwaysSnapshotPolicy::class,
-        ],
-        'overrides' => [
-            // \App\Aggregates\BigAggregate::class => [
-            //     'class' => \Pillar\Snapshot\CadenceSnapshotPolicy::class,
-            //     'options' => ['threshold' => 500, 'offset' => 0],
-            // ],
-            // \App\Aggregates\Report::class => [
-            //     'class' => \Pillar\Snapshot\OnDemandSnapshotPolicy::class,
-            // ],
-        ],
+        'class' => \Pillar\Snapshot\AlwaysSnapshotPolicy::class,
+        'options' => [],
+    ],
+
+    // Per-aggregate overrides (keyed by aggregate root class)
+    'overrides' => [
+        // \App\Domain\Foo\FooAggregate::class => [
+        //     'class' => \Pillar\Snapshot\CadenceSnapshotPolicy::class,
+        //     'options' => ['threshold' => 500, 'offset' => 0],
+        // ],
+        // \App\Domain\Reports\ReportAggregate::class => [
+        //     'class' => \Pillar\Snapshot\OnDemandSnapshotPolicy::class,
+        //     'options' => [],
+        // ],
     ],
 ],
 ```
 
-Pillar binds `SnapshotPolicy` to a **delegating policy** that reads this config, instantiates the chosen policy, and
-applies any per-aggregate overrides.
+Pillar resolves a `SnapshotPolicy` by first using the global `snapshot.policy` as the default and then applying any
+per-aggregate overrides defined in `snapshot.overrides`. This lets you mix different snapshot behaviors for different
+aggregates while keeping a simple global default.
 
 ### Built-in policies
 
@@ -101,6 +112,16 @@ applies any per-aggregate overrides.
 - `$newSeq` — last persisted aggregate version *after* the commit
 - `$prevSeq` — aggregate version at load time (0 if new)
 - `$delta` — number of events persisted in this commit (`$newSeq - $prevSeq`)
+
+### Snapshots and read-side usage
+
+Snapshotting is what makes it practical to use aggregates for **small, focused read flows** as well as writes.
+
+- With a policy like `AlwaysSnapshotPolicy`, rehydration usually becomes “load latest snapshot + a short tail of events”.
+- This keeps command handlers fast even when a stream has many historical events.
+- For admin screens or one-off tools, it can be perfectly fine to read via aggregates instead of dedicated projections.
+
+For more on how this fits into the bigger picture, see [CQRS](../concepts/cqrs.md).
 
 ### Manual snapshots (On-Demand)
 
@@ -153,3 +174,11 @@ final class BigAggregatePolicy implements SnapshotPolicy
 Register it as the default or as an override in `snapshot.policy`.
 
 ---
+
+### 📚 Related Reading
+- [Aggregate Roots](../concepts/aggregate-roots.md)
+- [Aggregate IDs](../concepts/aggregate-ids.md)
+- [Aggregate Sessions](../concepts/aggregate-sessions.md)
+- [Event Window](../concepts/event-window.md)
+- [Repositories](../concepts/repositories.md)
+- [CQRS](../concepts/cqrs.md)

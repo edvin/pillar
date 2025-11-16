@@ -9,8 +9,7 @@ Fetch strategies control **how** Pillar streams events off your store (chunked p
 
 Choosing a different strategy does **not** change domain behavior—only the mechanics of reading (throughput, memory profile, and query shape). You can switch between them without changing application code.
 
-Pillar supports multiple ways to stream events from the store. You can choose the
-global default and override per aggregate.
+Pillar supports multiple ways to stream events from the store. You can choose the global default and override per aggregate.
 
 ```php
 // config/pillar.php

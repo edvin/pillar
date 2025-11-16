@@ -27,6 +27,20 @@ final class DocumentCreated implements VersionedEvent
 - You can register **multiple upcasters** for the same event (e.g. v1→v2, v2→v3). They are applied in ascending order of
   `fromVersion()`.
 
+#### EventContext and metadata
+
+When an event is being **upcast or replayed**, the **payload** that your upcaster or handler receives is the serialized body of the event at a given version. Pillar initializes the [`EventContext`](../concepts/events.md#event-context-timestamps-correlation-ids-replay-flags) from the stored row before upcasting and rehydration, so you can inspect timestamps and correlation IDs without changing the payload itself.
+
+During upcasting or replay you can read:
+
+- `EventContext::occurredAt()` — the original UTC timestamp when the event was recorded
+- `EventContext::correlationId()` — the correlation id for the logical operation
+- `EventContext::isReconstituting()` / `EventContext::isReplaying()` — to distinguish replay from live handling
+
+In most cases, upcasters should remain **pure payload transforms** (only reshaping the array). When you truly need to
+branch on metadata (for example, to handle a one-off legacy period differently), prefer using `EventContext` rather than
+baking metadata into the payload itself.
+
 **Tip:** If you refactor an event without changing its shape, you can simply bump the version and register a no-op
 upcaster for documentation clarity.
 

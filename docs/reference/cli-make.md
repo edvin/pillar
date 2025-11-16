@@ -4,6 +4,19 @@ Pillar ships with interactive generators to scaffold **bounded contexts**, **com
 
 ## At a glance
 
+The make commands are designed to get you from “empty project” to a working bounded context quickly. They create
+context registries, commands/queries + handlers, aggregates, and events wired into your configuration.
+
+:::info Related Reading
+- [Context Registries](../concepts/context-registries.md)
+- [Aggregate Roots](../concepts/aggregate-roots.md)
+- [Aggregate IDs](../concepts/aggregate-ids.md)
+- [Commands & Queries](../concepts/commands-and-queries.md)
+- [Aggregate Sessions](../concepts/aggregate-sessions.md)
+- [Configuration](../reference/configuration.md)
+- [Build a Document Service](../tutorials/build-a-document-service.md)
+:::
+
 ```bash
 # Context
 php artisan pillar:make:context Document
@@ -124,10 +137,14 @@ Context registries implement:
 
 ```php
 interface ContextRegistry {
-    public function commands(): array; // [CommandFQCN::class => HandlerFQCN::class]
-    public function queries(): array;  // [QueryFQCN::class => HandlerFQCN::class]
-    public function events(): EventMapBuilder;
     public function name(): string;
+
+    public function commands(): array;        // [CommandFQCN::class => HandlerFQCN::class]
+    public function queries(): array;         // [QueryFQCN::class => HandlerFQCN::class]
+    public function events(): EventMapBuilder;
+
+    /** @return list<class-string<AggregateRootId>> */
+    public function aggregateRootIds(): array;
 }
 ```
 
@@ -262,5 +279,14 @@ Attempts to derive placement from **existing files** in the selected bounded con
 ```
 
 ---
+
+### 📚 Related Reading
+- [Context Registries](../concepts/context-registries.md)
+- [Aggregate Roots](../concepts/aggregate-roots.md)
+- [Aggregate IDs](../concepts/aggregate-ids.md)
+- [Commands & Queries](../concepts/commands-and-queries.md)
+- [Aggregate Sessions](../concepts/aggregate-sessions.md)
+- [Configuration](../reference/configuration.md)
+- [Build a Document Service](../tutorials/build-a-document-service.md)
 
 **That’s it!** Use the makers to get the boring bits out of the way, then focus on your domain.

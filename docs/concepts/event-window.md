@@ -16,6 +16,14 @@ It is used by `EventStore::streamFor($id, ?EventWindow $window = null)`, by
 
 ## API
 
+::: info Related Reading
+- [Aggregate Sessions](../concepts/aggregate-sessions.md)
+- [Repositories](../concepts/repositories.md)
+- [Fetch Strategies](../concepts/fetch-strategies.md)
+- [Snapshotting](../concepts/snapshotting.md)
+- [Events](../concepts/events.md)
+:::
+
 ```php
 final class EventWindow
 {
@@ -70,6 +78,10 @@ new EventWindow(
 This behavior is intentional—it ensures that snapshots never cause you to miss events,
 while still avoiding unnecessary replay.
 
+### Using EventWindow with global scans
+
+When using `EventWindow` with global event scans (such as `EventStore::stream()`), **only the global bounds**—`toGlobalSequence` and `toDateUtc`—are applied. The per-stream bounds (`afterStreamSequence`, `toStreamSequence`) are ignored in this context. This ensures that global reads operate consistently across all streams. For more on this behavior, see [Fetch Strategies](../concepts/fetch-strategies.md).
+
 ## Examples
 
 ```php
@@ -85,6 +97,12 @@ foreach ($store->stream(EventWindow::toGlobalSeq($checkpoint)) as $e) {
 }
 ```
 
-> **Note:** When used with `EventStore::stream()`, only the *global* bounds of
-> the window (`toGlobalSequence`, `toDateUtc`) are applied; per-stream
-> bounds (`afterStreamSequence`, `toStreamSequence`) are ignored in global scans.
+
+
+### 📚 Related Reading
+
+- [Aggregate Sessions](../concepts/aggregate-sessions.md)
+- [Repositories](../concepts/repositories.md)
+- [Fetch Strategies](../concepts/fetch-strategies.md)
+- [Snapshotting](../concepts/snapshotting.md)
+- [Events](../concepts/events.md)

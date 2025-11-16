@@ -6,6 +6,15 @@ A built‑in, batteries‑included UI for exploring your event store:
 - Inspect **event payloads** (with upcasters applied)
 - **Time‑travel** a stream to see its exact state **as of a given event**
 
+:::info Related Reading
+- [Event Store](../concepts/event-store.md)
+- [Events](../concepts/events.md)
+- [Event Window](../concepts/event-window.md)
+- [Aggregate IDs](../concepts/aggregate-ids.md)
+- [Outbox](../concepts/outbox.md)
+- [Outbox Worker](../concepts/outbox-worker.md)
+:::
+
 The Stream Browser can be used during local development and production. It respects your app’s authentication and adds
 an opt‑in authorization check tailored for Pillar.
 
