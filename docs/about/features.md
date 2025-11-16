@@ -9,7 +9,7 @@ Pillar brings Domain‑Driven Design and Event Sourcing to Laravel with a compac
   → See [/concepts/pillar-facade](/concepts/pillar-facade)
 
 - 🧪 **Tinker superpowers** — automatic class aliases for Commands, Queries, and Aggregate IDs, plus rich aggregate casting for clean, human-readable inspection in `php artisan tinker`.  
-  → See [/concepts/tinker-support](/concepts/pillar-facade/#tinker-support)
+  → See [/concepts/tinker-support](/concepts/pillar-facade#tinker-support)
 
 - 🗃️ **Event store abstraction** — optimistic locking and generator‑based streams.  
   → See [/concepts/event-store](/concepts/event-store)
