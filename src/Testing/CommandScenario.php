@@ -37,6 +37,7 @@ use function is_subclass_of;
  */
 final class CommandScenario
 {
+    use TracksAssertions;
 
     private AggregateRootId $id;
 
@@ -177,6 +178,8 @@ final class CommandScenario
             );
         }
 
+        self::bumpAssertionCount();
+
         return $this;
     }
 
@@ -188,6 +191,8 @@ final class CommandScenario
                 'Expected no emitted events, got: ' . var_export($this->emitted, true),
             );
         }
+
+        self::bumpAssertionCount();
 
         return $this;
     }
@@ -207,6 +212,8 @@ final class CommandScenario
             ));
         }
 
+        self::bumpAssertionCount();
+
         return $this;
     }
 
@@ -220,6 +227,8 @@ final class CommandScenario
             ));
         }
 
+        self::bumpAssertionCount();
+
         return $this;
     }
 
@@ -232,6 +241,8 @@ final class CommandScenario
     {
         $aggregate = $this->aggregate();
         $assert($aggregate);
+
+        self::bumpAssertionCount();
 
         return $this;
     }

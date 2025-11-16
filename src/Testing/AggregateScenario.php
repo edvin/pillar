@@ -34,6 +34,8 @@ use Throwable;
  */
 final class AggregateScenario
 {
+    use TracksAssertions;
+
     private AggregateRootId $id;
 
     /** @var list<object> */
@@ -177,6 +179,8 @@ final class AggregateScenario
             );
         }
 
+        self::bumpAssertionCount();
+
         return $this;
     }
 
@@ -190,6 +194,8 @@ final class AggregateScenario
                 'Expected no emitted events, got: '.var_export($this->emitted, true),
             );
         }
+
+        self::bumpAssertionCount();
 
         return $this;
     }
@@ -211,6 +217,8 @@ final class AggregateScenario
             ));
         }
 
+        self::bumpAssertionCount();
+
         return $this;
     }
 
@@ -225,6 +233,8 @@ final class AggregateScenario
                 get_debug_type($this->thrown),
             ));
         }
+
+        self::bumpAssertionCount();
 
         return $this;
     }
@@ -244,6 +254,8 @@ final class AggregateScenario
     {
         $aggregate = $this->aggregate();
         $assert($aggregate);
+
+        self::bumpAssertionCount();
 
         return $this;
     }
