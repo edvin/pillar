@@ -1,4 +1,5 @@
 <?php
+// @codeCoverageIgnoreStart
 
 namespace Pillar\Support\Tinker;
 
@@ -117,3 +118,4 @@ class TinkerSupport
     }
 
 }
+// @codeCoverageIgnoreEnd

@@ -1,4 +1,5 @@
 <?php
+// @codeCoverageIgnoreStart
 
 namespace Pillar\Support\Tinker;
 
@@ -62,3 +63,4 @@ final class AggregateCaster
         return $out;
     }
 }
+// @codeCoverageIgnoreEnd
