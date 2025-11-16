@@ -11,21 +11,8 @@ final class {{Name}} implements EventSourcedAggregateRoot
 
     private {{Name}}Id $id;
 
-    public static function create({{Name}}Id $id): self
-    {
-        $self = new self();
-        // $self->record(new {{Name}}Created($id->value()));
-        return $self;
-    }
-
     public function id(): {{Name}}Id
     {
         return $this->id;
     }
-
-    // private function apply{{Name}}Created({{Name}}Created $e): void
-    // {
-    //     // $this->id = {{Name}}Id::from($e->id);
-    //     // mutate other state here
-    // }
 }

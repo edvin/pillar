@@ -141,6 +141,8 @@ final class Scaffolder
 
         $needsIdImport = ($aggNs !== $idNs);
         $idImport = $needsIdImport ? ('use ' . $idNs . '\\' . $name . 'Id;') : '';
+        $needsAggregateImport = ($aggNs !== $idNs);
+        $aggregateImport = $needsAggregateImport ? ('use ' . $aggNs . '\\' . $name . ';') : '';
 
         $aggPath = $basePath . '/' . $aggDir . '/' . $name . '.php';
         $idPath  = $basePath . '/' . $idDir  . '/' . $name . 'Id.php';
@@ -150,6 +152,7 @@ final class Scaffolder
             '{{aggregateNamespace}}'=> $aggNs,
             '{{idNamespace}}'       => $idNs,
             '{{idImport}}'           => $idImport,
+            '{{aggregateImport}}'    => $aggregateImport,
         ];
 
         return (object)[

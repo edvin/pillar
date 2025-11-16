@@ -24,19 +24,21 @@ final class RegistryEditor
     }
 
     /**
-     * Builds: FQCN::class => HandlerFQCN::class,
+     * Builds: \FQCN::class => \HandlerFQCN::class,
+     * Always uses leading backslashes, robust if already present.
      */
     private function lineFor(object $plan): string
     {
-        return sprintf('%s::class => %s::class,', $plan->messageClass, $plan->handlerClass);
+        return sprintf('\\%s::class => \\%s::class,', ltrim($plan->messageClass, '\\'), ltrim($plan->handlerClass, '\\'));
     }
 
     /**
-     * Builds: IdFQCN::class,
+     * Builds: \IdFQCN::class,
+     * Always uses leading backslash, robust if already present.
      */
     private function lineForAggregateRootId(object $plan): string
     {
-        return sprintf('%s::class,', $plan->idClass);
+        return sprintf('\\%s::class,', ltrim($plan->idClass, '\\'));
     }
 
     /**
@@ -96,8 +98,9 @@ final class RegistryEditor
         }
 
         // 5) Insert just before the closing bracket with indentation for array entries
-        $indent    = $this->guessIndentBefore($code, $returnPos) . '    '; // one level deeper
-        $insertion = $eol . $indent . $arrayItem;
+        $indent = $this->guessIndentBefore($code, $returnPos) . '    '; // one level deeper
+        $closingIndent = $this->guessIndentBefore($code, $closePos);
+        $insertion = $eol . $indent . $arrayItem . $eol . $closingIndent;
 
         $new = substr($code, 0, $closePos) . $insertion . substr($code, $closePos);
         file_put_contents($file, $new);

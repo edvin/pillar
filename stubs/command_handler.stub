@@ -5,7 +5,7 @@ namespace {{handlerNamespace}};
 use Pillar\Aggregate\AggregateSession;
 {{commandImport}}
 
-final class {{Name}}Handler
+final readonly class {{Name}}Handler
 {
     public function __construct(private AggregateSession $session) {}
 

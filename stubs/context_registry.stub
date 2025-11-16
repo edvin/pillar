@@ -37,4 +37,10 @@ final class {{Name}}ContextRegistry implements ContextRegistry
     {
         return '{{Name}}';
     }
+
+    public function aggregateRootIds(): array
+    {
+        return [];
+    }
+
 }

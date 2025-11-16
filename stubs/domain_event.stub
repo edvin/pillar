@@ -2,7 +2,7 @@
 
 namespace {{namespace}};
 
-final class {{Name}}
+final readonly class {{Name}}
 {
     public function __construct(
 

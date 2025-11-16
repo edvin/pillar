@@ -2,10 +2,9 @@
 
 namespace {{namespace}};
 
-final class {{Name}}Command
+final readonly class {{Name}}Command
 {
     public function __construct(
-        public string $id
     )
     {
     }

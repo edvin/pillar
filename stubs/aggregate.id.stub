@@ -3,9 +3,9 @@
 namespace {{idNamespace}};
 
 use Pillar\Aggregate\AggregateRootId;
-use {{aggregateNamespace}}\{{Name}};
+{{aggregateImport}}
 
-final class {{Name}}Id extends AggregateRootId
+final readonly class {{Name}}Id extends AggregateRootId
 {
     public static function aggregateClass(): string
     {
