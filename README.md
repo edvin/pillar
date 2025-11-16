@@ -35,6 +35,7 @@ php artisan pillar:install
 - 🛠️ **Pillar Make**: Bounded Context/Command/Query/Event Scaffolding
 - 🧪 **First‑class testing** — Given/When/Then helpers for aggregates & commands, full isolation, exception capture, state inspection
 - 🧵 **Command & Aggregate Scenarios** — end‑to‑end command testing using the real bus & event store, or fast in‑memory aggregate testing
+- 🧰 **Laravel Tinker integration** — automatic aliases for commands, queries & IDs, plus rich aggregate debugging
 
 ## Documentation
 

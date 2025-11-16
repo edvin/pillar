@@ -9,7 +9,32 @@ Your aggregates, projectors, and domain services should instead depend on the un
 - See [Commands & Queries](../concepts/commands-and-queries.md)  
 - See [CQRS](../concepts/cqrs.md)
 
+
 **Methods**
+
+### Tinker Support
+
+Pillar provides a rich developer experience inside `php artisan tinker`:
+
+- The **`Pillar` facade** is auto‑aliased — no `use` statement needed.
+- Commands, queries, and aggregate IDs from your registered Context Registries are also auto‑aliased.
+- Event‑sourced aggregates use a custom Tinker caster so they display meaningful state instead of `…3`.
+
+**Example**
+
+```php
+> $customer = Pillar::dispatch(new CreateCustomerCommand("Alex Developer"));
+[!] Aliasing 'CreateCustomerCommand' to 'App\Billing\Application\Command\CreateCustomerCommand' for this Tinker session.
+= App\Billing\Domain\Aggregate\Customer {#1234 …1}
+
+> $customer;
+= App\Billing\Domain\Aggregate\Customer {#1234
+    id: "a02a5f0c-9317-4c72-8bf0-2a6df3c64101",
+    name: "Alex Developer",
+  }
+```
+
+This makes Tinker perfect for interactively experimenting with your domain model, trying commands end‑to‑end, and inspecting aggregate state without writing temporary routes or scripts.
 
 - `Pillar::session(): AggregateSession` — returns a fresh [Aggregate Session](../concepts/aggregate-sessions.md) for loading and committing aggregates.
 - `Pillar::dispatch(object $command): void` — dispatches a command through the registered [Command Bus](../concepts/commands-and-queries.md#commands).

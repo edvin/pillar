@@ -40,6 +40,7 @@ use Pillar\Snapshot\DelegatingSnapshotPolicy;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Pillar\Support\PillarManager;
+use Pillar\Support\Tinker\TinkerSupport;
 use Pillar\Support\UI\UISettings;
 
 class PillarServiceProvider extends ServiceProvider
@@ -92,6 +93,11 @@ class PillarServiceProvider extends ServiceProvider
                 OutboxWorkCommand::class,
                 OutboxPartitionSyncCommand::class
             ]);
+
+            /** @var TinkerSupport $tinker */
+            $tinker = $this->app->make(TinkerSupport::class);
+            $tinker->registerTinkerAliases();
+            $tinker->registerTinkerCaster();
 
             $this->publishMigrations();
 
@@ -156,4 +162,7 @@ class PillarServiceProvider extends ServiceProvider
         }
         $this->publishes($publish, 'migrations');
     }
+
+
+
 }

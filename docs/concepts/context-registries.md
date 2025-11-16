@@ -11,6 +11,9 @@ A ContextRegistry typically defines:
 - The **queries** supported by the context
 - The **events** produced, along with their listeners, optional aliases, and upcasters
 
+In addition, Pillar uses your Context Registries to automatically register **Tinker aliases** for all commands, queries, and AggregateRootId classes.  
+This means that inside `php artisan tinker`, you can reference domain classes by their short name — for example, `CreateInvoiceCommand` — without manually typing full namespaces.
+
 This registration enables Pillar to automatically wire up command and query buses, event dispatching, and alias
 management across your application.
 
