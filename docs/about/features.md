@@ -12,10 +12,10 @@ Pillar brings Domain‑Driven Design and Event Sourcing to Laravel with a compac
   → See [/concepts/event-store](/concepts/event-store)
 
 - 🧵 **Event fetch strategies** — `db_load_all`, `db_chunked`, `db_streaming`, or plug in your own.  
-  → See [/concepts/event-store/#-fetch-strategies](/event-store/#-fetch-strategies)
+  → See [/concepts/event-store/#-fetch-strategies](/concepts/event-store/#-fetch-strategies)
 
 - 🧩 **Stream resolver** — route events per aggregate type or per ID (great for multi‑tenancy/sharding).  
-  → See [/concepts/event-store/#-stream-resolvers](/event-store/#-stream-resolvers)
+  → See [/concepts/event-store/#-stream-resolvers](/concepts/event-store/#-stream-resolvers)
 
 - 🎭 **Event aliases** — store stable, human‑readable names instead of class strings.  
   → See [/concepts/event-aliases](/concepts/event-aliases)

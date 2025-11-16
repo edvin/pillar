@@ -58,7 +58,7 @@ final class Document implements EventSourcedAggregateRoot
 ```
 
 This is the **event-sourced** approach — every state change is expressed as a **[domain event](/concepts/events)**,
-persisted to the [event store](/event-store), and used to rebuild the aggregate’s state later.
+persisted to the [event store](/concepts/event-store), and used to rebuild the aggregate’s state later.
 
 This model gives you:
 
@@ -200,7 +200,7 @@ final class DocumentRepository implements AggregateRepository
 
 > **Optional — optimistic locking:** If you want optimistic concurrency for state‑based aggregates, add a `version`
 > column and fetch the row with `DocumentRecord::query()->whereKey($id)->lockForUpdate()->first()`, verify the current
-`version` matches the expected value, then bump it on update. This mirrors the [event store](/event-store)’s concurrency check.
+`version` matches the expected value, then bump it on update. This mirrors the [event store](/concepts/event-store)’s concurrency check.
 
 Register the repository for this aggregate in `config/pillar.php`:
 
@@ -211,7 +211,7 @@ Register the repository for this aggregate in `config/pillar.php`:
 ],
 ```
 
-Now a command handler can load and save via the [**AggregateSession**](/concepts/aggregate-sessions) (no [event store](/event-store) involved):
+Now a command handler can load and save via the [**AggregateSession**](/concepts/aggregate-sessions) (no [event store](/concepts/event-store) involved):
 
 ```php
 $doc = $session->find(DocumentId::from($id));

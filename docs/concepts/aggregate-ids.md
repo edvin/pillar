@@ -5,7 +5,7 @@ classes to ensure type safety and clarity.
 
 ### Stream IDs
 
-Every Aggregate ID **is also the stream ID** used by the [event store](/event-store).
+Every Aggregate ID **is also the stream ID** used by the [event store](/concepts/event-store).
 
 Pillar derives the stream name directly from the ID’s string representation:
 
@@ -28,7 +28,7 @@ No separate “stream resolver” or configuration is needed.
 The only requirement for a custom ID class is that it extends `AggregateRootId` and implements `aggregateClass()`.
 
 An aggregate ID is typically a value object extending `AggregateRootId`. These IDs are used to load, save, and track
-aggregates within the [event store](/event-store) and [repositories](/concepts/repositories) via the `aggregateClass()` method.
+aggregates within the [event store](/concepts/event-store) and [repositories](/concepts/repositories) via the `aggregateClass()` method.
 
 Example of a simple aggregate ID class:
 
@@ -49,7 +49,7 @@ final readonly class DocumentId extends AggregateRootId
 Aggregate IDs are used throughout Pillar APIs, including:
 
 - Finding aggregates in an [`AggregateSession`](/concepts/aggregate-sessions)
-- Appending events to the [event store](/event-store)
+- Appending events to the [event store](/concepts/event-store)
 - Checking aggregate existence in [repositories](/concepts/repositories)
 
 Using strongly-typed IDs helps prevent mixing different aggregate types and improves code readability.

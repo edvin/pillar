@@ -44,7 +44,7 @@ Once `pillar:install` has finished and migrations have run, you should see:
 
 These give you:
 
-- an `events` table for your domain’s event streams ([Event store](/event-store)),
+- an `events` table for your domain’s event streams ([Event store](/concepts/event-store)),
 - a transactional outbox plus worker/partition metadata (used when you publish events) ([Outbox](/concepts/outbox), [Outbox worker](/concepts/outbox-worker)),
 - a central `config/pillar.php` file to tweak event store, snapshots, outbox and UI ([Configuration](/reference/configuration)).
 
