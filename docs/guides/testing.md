@@ -30,7 +30,7 @@ If you’re new to Pillar, it helps to skim these first:
 
 ---
 
-## 🧪 Test environment & database setup
+## 🧪 Test environment & database setup {#test-environment}
 
 In Pillar’s own test suite we use:
 
@@ -121,7 +121,7 @@ The exact DB backend doesn’t matter; Pillar happily runs on SQLite in tests an
 
 ---
 
-## 1. 🧩 Testing aggregates in isolation with `AggregateScenario`
+## 1. 🧩 Testing aggregates in isolation with `AggregateScenario` {#aggregate-scenario}
 
 `AggregateScenario` is a **pure domain helper**:
 
@@ -286,7 +286,7 @@ EventContext::isReplaying();
 
 ---
 
-## 2. 🚦 Testing command handlers with `CommandScenario`
+## 2. 🚦 Testing command handlers with `CommandScenario` {#command-scenario}
 
 `CommandScenario` tests a **full command pipeline** for a single aggregate:
 
@@ -379,7 +379,7 @@ Because it uses `EventStoreRepository` in `thenAggregate()`, your tests see the 
 
 ---
 
-## 3. 🧠 Testing projectors
+## 3. 🧠 Testing projectors {#projectors}
 
 Projectors should be **idempotent** and deterministic:
 
@@ -420,7 +420,7 @@ For more end‑to‑end projector tests, you can:
 
 ---
 
-## 4. 🌐 Multi‑aggregate / process tests
+## 4. 🌐 Multi‑aggregate / process tests {#multi-aggregate}
 
 Sometimes your business flow involves **multiple aggregates**:
 
@@ -498,7 +498,7 @@ You can freely **mix and match**:
 
 ---
 
-## 5. 🔁 Testing replays
+## 5. 🔁 Testing replays {#replays}
 
 Finally, you can test the replay CLI itself in a test database:
 
