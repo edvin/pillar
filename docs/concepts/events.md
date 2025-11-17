@@ -17,7 +17,7 @@
 
 ## Recording and applying
 
-Aggregates typically use `RecordsEvents` (or an equivalent) to mutate state:
+Aggregates typically use `record()` to mutate state:
 
 ```php
 $this->record(new TitleChanged('New title'));
