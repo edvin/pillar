@@ -1,5 +1,6 @@
 # 🧠 Pillar
 
+[![CI](https://github.com/edvin/pillar/actions/workflows/ci.yml/badge.svg)](https://github.com/edvin/pillar/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/edvin/pillar/branch/main/graph/badge.svg)](https://app.codecov.io/gh/edvin/pillar)
 [![Latest Version](https://img.shields.io/packagist/v/pillar/pillar.svg)](https://packagist.org/packages/pillar/pillar)
 [![Docs](https://img.shields.io/badge/docs-VitePress-informational)](https://edvin.github.io/pillar/)
