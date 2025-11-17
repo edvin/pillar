@@ -66,7 +66,7 @@ class TinkerSupport
 
             // Commands
             if (method_exists($registry, 'commands')) {
-                foreach ($registry->commands() as $commandClass) {
+                foreach ($registry->commands() as $commandClass => $handlerClass) {
                     if (!is_string($commandClass) || !class_exists($commandClass)) {
                         continue;
                     }
@@ -74,7 +74,7 @@ class TinkerSupport
                     $short = class_basename($commandClass);
 
                     if (class_exists($short) || interface_exists($short) || trait_exists($short)) {
-                        continue; // don’t override existing symbols
+                        continue;
                     }
 
                     $loader->alias($short, $commandClass);
@@ -83,7 +83,7 @@ class TinkerSupport
 
             // Queries
             if (method_exists($registry, 'queries')) {
-                foreach ($registry->queries() as $queryClass) {
+                foreach ($registry->queries() as $queryClass => $handlerClass) {
                     if (!is_string($queryClass) || !class_exists($queryClass)) {
                         continue;
                     }
