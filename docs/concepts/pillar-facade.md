@@ -48,8 +48,6 @@ or other framework-facing code.
 **Example**
 
 ```php
-use Pillar\Facade\Pillar;
-
 $session = Pillar::session();
 
 // Dispatch a command

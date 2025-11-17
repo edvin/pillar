@@ -12,7 +12,6 @@ use Pillar\Event\StoredEvent;
 use Pillar\Facade\CommandBus;
 use Pillar\Repository\EventStoreRepository;
 use Throwable;
-use function is_subclass_of;
 
 /**
  * Given / When / Then helper for testing command handlers end-to-end.
