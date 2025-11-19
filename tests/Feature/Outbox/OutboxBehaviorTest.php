@@ -6,6 +6,7 @@ use Mockery\MockInterface;
 use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\EventStore;
 use Pillar\Event\ShouldPublish;
+use Pillar\Metrics\Metrics;
 use Pillar\Outbox\DatabaseOutbox;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\OutboxMessage;
@@ -90,6 +91,7 @@ it('marks a message as failed and schedules a retry', function () {
         table: $table,
         claimTtl: 30,
         retryBackoff: 60,
+        metrics: app(Metrics::class),
     );
 
     $outbox->markFailed($message, $error);
@@ -110,21 +112,21 @@ it('claims pending messages using the generic strategy', function () {
     DB::table($table)->insert([
         [
             'global_sequence' => 1,
-            'attempts'        => 0,
-            'available_at'    => now()->subMinute(),
-            'published_at'    => null,
-            'partition_key'   => 'p1',
-            'claim_token'     => null,
-            'last_error'      => null,
+            'attempts' => 0,
+            'available_at' => now()->subMinute(),
+            'published_at' => null,
+            'partition_key' => 'p1',
+            'claim_token' => null,
+            'last_error' => null,
         ],
         [
             'global_sequence' => 2,
-            'attempts'        => 0,
-            'available_at'    => now()->addMinute(), // not yet available
-            'published_at'    => null,
-            'partition_key'   => 'p1',
-            'claim_token'     => null,
-            'last_error'      => null,
+            'attempts' => 0,
+            'available_at' => now()->addMinute(), // not yet available
+            'published_at' => null,
+            'partition_key' => 'p1',
+            'claim_token' => null,
+            'last_error' => null,
         ],
     ]);
 
@@ -133,6 +135,7 @@ it('claims pending messages using the generic strategy', function () {
         $table, // table
         30,     // claimTtl
         60,     // retryBackoff
+        app(Metrics::class)
     ])
         ->makePartial()
         ->shouldAllowMockingProtectedMethods();
@@ -178,6 +181,7 @@ it('returns an empty array when there are no pending messages for the generic st
         $table, // table
         30,     // claimTtl
         60,     // retryBackoff
+        app(Metrics::class)
     ])
         ->makePartial()
         ->shouldAllowMockingProtectedMethods();
@@ -200,7 +204,7 @@ it('returns an empty array when there are no pending messages for the generic st
 });
 
 it('uses the mysql-specific strategy when driver is mysql', function () {
-    $outbox = new class('outbox', 30, 60) extends DatabaseOutbox {
+    $outbox = new class('outbox', 30, 60, app(Metrics::class)) extends DatabaseOutbox {
         public ?array $calledWith = null;
 
         public function dbDriver(): string
@@ -239,7 +243,7 @@ it('uses the mysql-specific strategy when driver is mysql', function () {
 
 
 it('uses the pgsql-specific strategy when driver is pgsql', function () {
-    $outbox = new class('outbox', 30, 60) extends DatabaseOutbox {
+    $outbox = new class('outbox', 30, 60, app(Metrics::class)) extends DatabaseOutbox {
         public ?array $calledWith = null;
 
         public function dbDriver(): string
@@ -299,7 +303,7 @@ it('claims pending messages using the mysql-specific implementation', function (
         ->once()
         ->andReturn(1);
 
-    $outbox = new class($table, 30, 60) extends DatabaseOutbox {
+    $outbox = new class($table, 30, 60, app(Metrics::class)) extends DatabaseOutbox {
         public function callClaimPendingMysql(int $limit, array $partitions, string $token): array
         {
             return $this->claimPendingMysql($limit, $partitions, $token);
@@ -340,7 +344,7 @@ it('claims pending messages using the pgsql-specific implementation', function (
             ],
         ]);
 
-    $outbox = new class($table, 30, 60) extends DatabaseOutbox {
+    $outbox = new class($table, 30, 60, app(Metrics::class)) extends DatabaseOutbox {
         public function callClaimPendingPgsql(int $limit, array $partitions, string $token): array
         {
             return $this->claimPendingPgsql($limit, $partitions, $token);
@@ -362,5 +366,7 @@ it('claims pending messages using the pgsql-specific implementation', function (
  */
 final class TestPublishedForTick implements ShouldPublish
 {
-    public function __construct(public string $payload) {}
+    public function __construct(public string $payload)
+    {
+    }
 }

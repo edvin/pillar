@@ -12,9 +12,15 @@ use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
 use Pillar\Serialization\ObjectSerializer;
+use Pillar\Metrics\Metrics;
+use Pillar\Metrics\Counter;
 
 class DatabaseEventStore implements EventStore
 {
+    private Counter $eventStoreConflictsCounter;
+    private Counter $getBySequenceCounter;
+    private Counter $recentQueriesCounter;
+
     public function __construct(
         private AggregateRegistry          $aggregates,
         private ObjectSerializer           $serializer,
@@ -24,10 +30,25 @@ class DatabaseEventStore implements EventStore
         private Outbox                     $outbox,
         private Partitioner                $partitioner,
         private DatabaseEventMapper        $mapper,
+        Metrics                            $metrics,
         #[Config('pillar.event_store.options.tables.events', 'events')]
-        private string                     $eventsTable = 'events',
+        private string                     $eventsTable = 'events'
     )
     {
+        $this->eventStoreConflictsCounter = $metrics->counter(
+            'eventstore_conflicts_total',
+            ['stream_id']
+        );
+
+        $this->getBySequenceCounter = $metrics->counter(
+            'eventstore_get_by_sequence_total',
+            ['found']
+        );
+
+        $this->recentQueriesCounter = $metrics->counter(
+            'eventstore_recent_queries_total',
+            []
+        );
     }
 
     public function append(AggregateRootId $id, object $event, ?int $expectedSequence = null): int
@@ -44,6 +65,9 @@ class DatabaseEventStore implements EventStore
             $lastSequence = $lastSequence ?? 0;
 
             if ($expectedSequence !== null && $lastSequence !== $expectedSequence) {
+                $this->eventStoreConflictsCounter->inc(1, [
+                    'stream_id' => $streamId,
+                ]);
                 throw new ConcurrencyException(
                     sprintf(
                         'Concurrency conflict for stream %s (expected %d, actual %d).',
@@ -63,7 +87,6 @@ class DatabaseEventStore implements EventStore
                 'event_version' => ($event instanceof VersionedEvent) ? $event::version() : 1,
                 'correlation_id' => EventContext::correlationId(),
                 'event_data' => $this->serializer->serialize($event),
-                // 'metadata' can be populated later when we decide what to store there
                 'occurred_at' => Carbon::now('UTC')->format('Y-m-d H:i:s'),
             ], 'sequence');
 
@@ -101,17 +124,24 @@ class DatabaseEventStore implements EventStore
                 'correlation_id',
             ]);
 
+        $this->getBySequenceCounter->inc(1, [
+            'found' => $row ? 'true' : 'false',
+        ]);
+
         if (!$row) {
             return null;
         }
 
         return $this->mapper->map($row);
     }
+
     public function recent(int $limit): array
     {
         if ($limit <= 0) {
             return [];
         }
+
+        $this->recentQueriesCounter->inc();
 
         $latestPerStream = DB::table($this->eventsTable)
             ->select('stream_id', DB::raw('MAX(sequence) as max_sequence'))

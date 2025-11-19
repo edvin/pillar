@@ -35,6 +35,7 @@ export default withMermaid(defineConfig({
                     {text: 'Projectors', link: '/concepts/projectors'},
                     {text: 'Outbox', link: '/concepts/outbox'},
                     {text: 'Outbox Worker', link: '/concepts/outbox-worker'},
+                    {text: 'Metrics', link: '/concepts/metrics'},
                     {
                         text: 'Serialization', link: '/concepts/serialization', items: [
                             {text: 'Payload encryption', link: '/concepts/serialization#payload-encryption'},

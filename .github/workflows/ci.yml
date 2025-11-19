@@ -57,7 +57,7 @@ jobs:
         with:
           php-version: '8.4'
           coverage: pcov
-          extensions: sqlite3, pdo_sqlite, pdo_mysql, msgpack
+          extensions: sqlite3, pdo_sqlite, pdo_mysql, msgpack, redis
 
       - name: Install deps
         run: composer install --no-interaction --no-progress --prefer-dist

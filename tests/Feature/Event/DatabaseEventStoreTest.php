@@ -14,6 +14,7 @@ use Pillar\Event\EventAliasRegistry;
 use Pillar\Event\EventStore;
 use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\PublicationPolicy;
+use Pillar\Metrics\Metrics;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
 use Pillar\Repository\EventStoreRepository;
@@ -94,6 +95,7 @@ it('uses the portable path for unsupported drivers and still persists correctly'
         app(Outbox::class),
         app(Partitioner::class),
         app(DatabaseEventMapper::class),
+        app(Metrics::class),
     ) extends DatabaseEventStore {
         protected function driver(): string
         {
@@ -145,6 +147,7 @@ it('enforces expectedSequence on the portable path (conflict throws ConcurrencyE
         app(Outbox::class),
         app(Partitioner::class),
         app(DatabaseEventMapper::class),
+        app(Metrics::class),
     ) extends DatabaseEventStore {
         protected function driver(): string
         {
@@ -261,7 +264,7 @@ it('returns a StoredEvent by global sequence (FQCN event_type)', function () {
     $streamId = app(AggregateRegistry::class)->toStreamName($id);
 
     // Fetch the global sequence from the events table
-    $seq = (int) DB::table('events')
+    $seq = (int)DB::table('events')
         ->where('stream_id', $streamId)
         ->value('sequence');
 
@@ -376,3 +379,4 @@ it('wraps repository save in its own transaction when called outside a transacti
         test()->refreshApplication();
     }
 });
+

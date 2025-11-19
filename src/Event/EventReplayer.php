@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 use InvalidArgumentException;
+use Pillar\Metrics\Metrics;
+use Pillar\Metrics\Counter;
 
 /**
  * Replays historical domain events for rebuilding projections.
@@ -20,15 +22,31 @@ use InvalidArgumentException;
  */
 final class EventReplayer
 {
+    private Counter $replayStartedCounter;
+    private Counter $replayProcessedCounter;
+    private Counter $replayFailedCounter;
+
     /**
      * @param EventStore $eventStore The event store to stream events from.
      * @param array<class-string, array<class-string>> $projectors Mapping of event FQCN → list of projector class names (must implement Projector).
      */
     public function __construct(
         private readonly EventStore $eventStore,
-        private array               $projectors = []
+        Metrics                     $metrics,
+        private array               $projectors = [],
     )
     {
+        $this->replayStartedCounter = $metrics->counter(
+            'replay_started_total'
+        );
+
+        $this->replayProcessedCounter = $metrics->counter(
+            'replay_events_processed_total'
+        );
+
+        $this->replayFailedCounter = $metrics->counter(
+            'replay_failed_total'
+        );
     }
 
     /**
@@ -68,10 +86,11 @@ final class EventReplayer
     ): void
     {
         $this->validateRanges($fromSequence, $toSequence, $fromDate, $toDate);
+        $this->replayStartedCounter->inc();
 
-        $events   = $this->baseStream($streamId, $eventType);
+        $events = $this->baseStream($streamId, $eventType);
         $filtered = $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
-        $count    = $this->replayEvents($filtered);
+        $count = $this->replayEvents($filtered);
 
         if ($count === 0) {
             throw new RuntimeException('No events found for replay.');
@@ -184,7 +203,7 @@ final class EventReplayer
     {
         if ($streamId !== null) {
             /** @var AggregateRegistry $registry */
-            $registry    = app(AggregateRegistry::class);
+            $registry = app(AggregateRegistry::class);
             $aggregateId = $registry->idFromStreamName($streamId);
 
             $events = $this->eventStore->streamFor($aggregateId);
@@ -204,7 +223,7 @@ final class EventReplayer
      * Filter a stream of stored events by event type (FQCN or alias).
      *
      * @param iterable<StoredEvent> $events
-     * @param string                $eventType
+     * @param string $eventType
      * @return Generator<StoredEvent>
      */
     private function filterByEventType(iterable $events, string $eventType): Generator
@@ -229,6 +248,7 @@ final class EventReplayer
 
         foreach ($events as $storedEvent) {
             ++$count;
+            $this->replayProcessedCounter->inc();
 
             EventContext::initialize(
                 occurredAt: $storedEvent->occurredAt,
@@ -243,7 +263,14 @@ final class EventReplayer
             foreach ($listeners as $listenerClass) {
                 $listener = App::make($listenerClass);
                 Log::info("🎬 Replaying $storedEvent->eventType → $listenerClass");
-                $listener($storedEvent->event);
+                // @codeCoverageIgnoreStart
+                try {
+                    $listener($storedEvent->event);
+                } catch (\Throwable $e) {
+                    $this->replayFailedCounter->inc();
+                    throw $e;
+                }
+                // @codeCoverageIgnoreEnd
             }
 
             EventContext::clear();
