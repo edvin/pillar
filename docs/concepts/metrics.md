@@ -1,5 +1,3 @@
-
-
 # Metrics
 
 Pillar includes first‑class support for application‑level metrics. These metrics give you deep visibility into
@@ -13,6 +11,18 @@ scraping by Prometheus.
 ---
 
 ## Overview
+
+### Installing the Prometheus client
+
+To use the `prometheus` metrics driver, your application must install the
+Prometheus PHP client library:
+
+```bash
+composer require promphp/prometheus_client_php
+```
+
+If the library is not installed, Pillar will automatically fall back to the
+`none` driver at runtime and log a warning.
 
 Pillar exposes metrics through a pluggable `Metrics` interface with two drivers:
 
@@ -170,9 +180,18 @@ Pillar does not force you to expose metrics in any particular way. A typical Lar
 adds a route such as:
 
 ```php
-Route::get('/metrics', function () {
-    return response()->make(app(\Prometheus\RenderTextFormat::class)
-        ->render(app(\Prometheus\CollectorRegistry::class)->getMetricFamilySamples()));
+use Illuminate\Support\Facades\Route;
+use Pillar\Metrics\Prometheus\CollectorRegistryFactory;
+use Prometheus\RenderTextFormat;
+
+Route::get('/metrics', function (CollectorRegistryFactory $factory, RenderTextFormat $renderer) {
+    $registry = $factory->get();
+
+    return response(
+        $renderer->render($registry->getMetricFamilySamples()),
+        200,
+        ['Content-Type' => RenderTextFormat::MIME_TYPE],
+    );
 });
 ```
 
