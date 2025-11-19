@@ -132,4 +132,8 @@ features:
     title: "Architecture & Config"
     details: "How pieces fit together and how to configure them."
     link: "/architecture/overview"
----
+
+  - icon: "📈"
+    title: "Metrics"
+    details: "Prometheus metrics for event store, outbox, commands, queries and workers."
+    link: "/concepts/metrics"

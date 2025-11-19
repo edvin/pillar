@@ -4,6 +4,7 @@ use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
 use Pillar\Event\StoredEvent;
+use Pillar\Metrics\Metrics;
 use Pillar\Outbox\Worker\TickResult;
 use Pillar\Outbox\Worker\WorkerIdentity;
 use Pillar\Outbox\Worker\WorkerRegistry;
@@ -24,6 +25,7 @@ function makeWorkerRunnerForTest(string $workerId, int $partitionCount = 6): Wor
         app(Dispatcher::class),
         $workerId,
         app(Partitioner::class),
+        app(Metrics::class),
         false,
         $partitionCount,
         10,
@@ -43,6 +45,7 @@ function makeLeasingWorkerRunnerForTest(string $workerId, int $partitionCount = 
         app(Dispatcher::class),
         $workerId,
         app(Partitioner::class),
+        app(Metrics::class),
         true,
         $partitionCount,
         10,
@@ -389,6 +392,7 @@ it('records failed messages and trims lastErrors when dispatching throws', funct
         $dispatcher,
         'error-worker',
         app(Partitioner::class),
+        app(Metrics::class),
         false,   // leasing off – we don’t care about partitions here
         10,      // partition count (ignored by our fake outbox)
         10,      // batch size (>= 6 so we can process all messages)
@@ -497,6 +501,7 @@ it('marks messages as failed when stored event is missing', function () {
         $dispatcher,
         'missing-event-worker',
         app(Partitioner::class),
+        app(Metrics::class),
         false,   // leasing off
         10,
         10,
@@ -576,6 +581,7 @@ it('releases partitions we no longer desire', function () {
     $outbox = app(Outbox::class);      // not used in this test
     $eventStore = app(EventStore::class);  // not used in this test
     $dispatcher = app(Dispatcher::class);
+    $metrics = app(Metrics::class);
 
     $runner = new WorkerRunner(
         $registry,
@@ -585,6 +591,7 @@ it('releases partitions we no longer desire', function () {
         $dispatcher,
         'worker-a',
         $partitioner,
+        $metrics,
         true,   // leasing enabled
         2,      // small partition count: 0 and 1
         10,

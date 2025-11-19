@@ -6,11 +6,18 @@ use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Pillar\Support\HandlesDatabaseDriverSpecifics;
+use Pillar\Metrics\Metrics;
+use Pillar\Metrics\Counter;
 use Throwable;
 
 class DatabaseOutbox implements Outbox
 {
     use HandlesDatabaseDriverSpecifics;
+
+    private Counter $outboxEnqueuedCounter;
+    private Counter $outboxClaimedCounter;
+    private Counter $outboxPublishedCounter;
+    private Counter $outboxFailedCounter;
 
     public function __construct(
         #[Config('pillar.outbox.tables.outbox', 'outbox')]
@@ -18,9 +25,29 @@ class DatabaseOutbox implements Outbox
         #[Config('pillar.outbox.worker.claim_ttl', 15)]
         private readonly int    $claimTtl,
         #[Config('pillar.outbox.worker.retry_backoff', 60)]
-        private readonly int    $retryBackoff
+        private readonly int    $retryBackoff,
+        Metrics $metrics
     )
     {
+        $this->outboxEnqueuedCounter = $metrics->counter(
+            'outbox_enqueued_total',
+            ['partition']
+        );
+
+        $this->outboxClaimedCounter = $metrics->counter(
+            'outbox_claimed_total',
+            ['partition']
+        );
+
+        $this->outboxPublishedCounter = $metrics->counter(
+            'outbox_published_total',
+            ['partition']
+        );
+
+        $this->outboxFailedCounter = $metrics->counter(
+            'outbox_failed_total',
+            ['partition']
+        );
     }
 
     public function enqueue(int $globalSequence, ?string $partition = null): void
@@ -29,6 +56,9 @@ class DatabaseOutbox implements Outbox
             'global_sequence' => $globalSequence,
             'available_at' => $this->dbNow(),
             'partition_key' => $partition,
+        ]);
+        $this->outboxEnqueuedCounter->inc(1, [
+            'partition' => $partition ?? '',
         ]);
     }
 
@@ -52,12 +82,20 @@ class DatabaseOutbox implements Outbox
     {
         $token = (string)Str::uuid();
 
-        return match ($this->dbDriver()) {
+        $messages = match ($this->dbDriver()) {
             'pgsql' => $this->claimPendingPgsql($limit, $partitions, $token),
             'sqlite' => $this->claimPendingSqlite($limit, $partitions, $token),
             'mysql' => $this->claimPendingMysql($limit, $partitions, $token),
             default => $this->claimPendingGeneric($limit, $partitions, $token),
         };
+
+        foreach ($messages as $message) {
+            $this->outboxClaimedCounter->inc(1, [
+                'partition' => $message->partitionKey ?? '',
+            ]);
+        }
+
+        return $messages;
     }
 
     /** Build a raw SQL partition filter clause and its bound params. */
@@ -205,6 +243,9 @@ class DatabaseOutbox implements Outbox
                 'published_at' => $this->dbNow(),
                 'claim_token' => null,
             ]);
+        $this->outboxPublishedCounter->inc(1, [
+            'partition' => $message->partitionKey ?? '',
+        ]);
     }
 
     public function markFailed(OutboxMessage $message, Throwable $error): void
@@ -217,5 +258,8 @@ class DatabaseOutbox implements Outbox
                 'claim_token' => null,
                 'last_error' => substr($error->getMessage(), 0, 1000),
             ]);
+        $this->outboxFailedCounter->inc(1, [
+            'partition' => $message->partitionKey ?? '',
+        ]);
     }
 }

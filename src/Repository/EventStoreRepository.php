@@ -13,12 +13,19 @@ use Pillar\Event\EventContext;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
 use Pillar\Event\ShouldPublishInline;
+use Pillar\Metrics\Counter;
+use Pillar\Metrics\Metrics;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Throwable;
 
 final readonly class EventStoreRepository implements AggregateRepository
 {
+    private Counter $eventStoreAppendsCounter;
+    private Counter $eventStoreReadsCounter;
+    private Counter $snapshotLoadCounter;
+    private Counter $snapshotSaveCounter;
+
     public function __construct(
         private SnapshotPolicy $snapshotPolicy,
         private SnapshotStore  $snapshots,
@@ -26,8 +33,28 @@ final readonly class EventStoreRepository implements AggregateRepository
         private Dispatcher     $dispatcher,
         #[Config('pillar.event_store.options.optimistic_locking', false)]
         private bool           $optimisticLocking,
+        Metrics                $metrics,
     )
     {
+        $this->eventStoreAppendsCounter = $metrics->counter(
+            'eventstore_appends_total',
+            ['aggregate_type']
+        );
+
+        $this->eventStoreReadsCounter = $metrics->counter(
+            'eventstore_reads_total',
+            ['aggregate_type', 'found']
+        );
+
+        $this->snapshotLoadCounter = $metrics->counter(
+            'eventstore_snapshot_load_total',
+            ['aggregate_type', 'hit']
+        );
+
+        $this->snapshotSaveCounter = $metrics->counter(
+            'eventstore_snapshot_save_total',
+            ['aggregate_type']
+        );
     }
 
     /** @throws Throwable */
@@ -48,6 +75,9 @@ final readonly class EventStoreRepository implements AggregateRepository
 
             foreach ($aggregate->recordedEvents() as $event) {
                 $lastSeq = $this->eventStore->append($aggregate->id(), $event, $expected);
+                $this->eventStoreAppendsCounter->inc(1, [
+                    'aggregate_type' => $aggregate::class,
+                ]);
                 if (!EventContext::isReplaying() && $event instanceof ShouldPublishInline) {
                     $this->dispatcher->dispatch($event);
                 }
@@ -64,6 +94,9 @@ final readonly class EventStoreRepository implements AggregateRepository
 
                 if ($this->snapshotPolicy->shouldSnapshot($aggregate, $lastSeq, $prevSeq, $delta)) {
                     $this->snapshots->save($aggregate, $lastSeq);
+                    $this->snapshotSaveCounter->inc(1, [
+                        'aggregate_type' => $aggregate::class,
+                    ]);
                 }
             }
         };
@@ -81,7 +114,7 @@ final readonly class EventStoreRepository implements AggregateRepository
     {
         $aggregateClass = $id::aggregateClass();
 
-        if (! is_subclass_of($aggregateClass, EventSourcedAggregateRoot::class)) {
+        if (!is_subclass_of($aggregateClass, EventSourcedAggregateRoot::class)) {
             throw new LogicException(sprintf(
                 '%s can only load EventSourcedAggregateRoot; got %s',
                 __CLASS__,
@@ -90,6 +123,11 @@ final readonly class EventStoreRepository implements AggregateRepository
         }
 
         $snapshot = $this->snapshots->load($id);
+
+        $this->snapshotLoadCounter->inc(1, [
+            'aggregate_type' => $aggregateClass,
+            'hit'            => $snapshot ? 'true' : 'false',
+        ]);
 
         $aggregate = null;
         $snapshotVersion = 0;
@@ -147,6 +185,11 @@ final readonly class EventStoreRepository implements AggregateRepository
             $lastSeq = $storedEvent->streamSequence;
         }
 
+        $this->eventStoreReadsCounter->inc(1, [
+            'aggregate_type' => $aggregateClass,
+            'found'          => (!$snapshot && !$hadEvents) ? 'false' : 'true',
+        ]);
+
         EventContext::clear();
 
         if (!$snapshot && !$hadEvents) {
@@ -170,6 +213,9 @@ final readonly class EventStoreRepository implements AggregateRepository
 
             if ($this->snapshotPolicy->shouldSnapshot($aggregate, $newSeq, $prevSeq, $delta)) {
                 $this->snapshots->save($aggregate, $newSeq);
+                $this->snapshotSaveCounter->inc(1, [
+                    'aggregate_type' => $aggregateClass,
+                ]);
             }
         }
 

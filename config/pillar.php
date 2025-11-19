@@ -585,4 +585,68 @@ return [
             'label_format' => 'p%02d'
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | 📊 Metrics
+    |--------------------------------------------------------------------------
+    |
+    | Pillar can emit Prometheus-style metrics for key operations such as
+    | commands, queries, event store activity, the transactional outbox,
+    | workers, and replays.
+    |
+    | Metrics are optional and safe to enable in all environments:
+    | - driver = 'none'       : metrics are disabled (all calls are no-ops).
+    | - driver = 'prometheus' : metrics are emitted using
+    |                           promphp/prometheus_client_php.
+    |
+    | When using the 'prometheus' driver, you must choose a storage backend:
+    |
+    |   in_memory
+    |   ---------
+    |   - Stores metrics in PHP memory for the current process only.
+    |   - Suitable for tests and single long-running CLI workers.
+    |   - Under PHP-FPM, each worker has its own isolated metrics which are
+    |     reset when the worker restarts.
+    |   - Not recommended for production, because scrapes only see the worker
+    |     handling the request.
+    |
+    |   redis
+    |   -----
+    |   - Stores metrics in a shared Redis instance.
+    |   - Recommended for multi-process production setups (PHP-FPM +
+    |     queue workers + outbox workers).
+    |   - All processes share the same aggregated metrics view.
+    |
+    */
+    'metrics' => [
+        // 'none'       -> metrics disabled (NullMetrics)
+        // 'prometheus' -> Prometheus metrics via promphp/prometheus_client_php
+        'driver' => env('PILLAR_METRICS_DRIVER', 'none'),
+
+        'prometheus' => [
+            // Namespace/prefix applied to all metric names emitted by Pillar
+            'namespace' => env('PILLAR_METRICS_NAMESPACE', 'pillar'),
+
+            // Default labels applied to all metrics emitted by Pillar
+            'default_labels' => [
+                'app' => env('APP_NAME', 'pillar-app'),
+                'env' => env('APP_ENV', 'local'),
+            ],
+
+            'storage' => [
+                // 'in_memory' -> per-process metrics, good for tests / local dev
+                // 'redis'     -> shared metrics across processes (recommended for production)
+                'driver' => env('PILLAR_METRICS_STORAGE_DRIVER', 'in_memory'),
+
+                'redis' => [
+                    'host' => env('PILLAR_METRICS_REDIS_HOST', env('REDIS_HOST', '127.0.0.1')),
+                    'port' => env('PILLAR_METRICS_REDIS_PORT', env('REDIS_PORT', 6379)),
+                    'timeout' => env('PILLAR_METRICS_REDIS_TIMEOUT', 0.1),
+                    'auth' => env('PILLAR_METRICS_REDIS_AUTH', env('REDIS_PASSWORD')),
+                    'database' => env('PILLAR_METRICS_REDIS_DB', env('REDIS_DB', 0)),
+                ],
+            ],
+        ],
+    ],
 ];

@@ -11,6 +11,9 @@ use Pillar\Event\EventStore;
 use Pillar\Outbox\Lease\PartitionLeaseStore;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
+use Pillar\Metrics\Metrics;
+use Pillar\Metrics\Counter;
+use Pillar\Metrics\Histogram;
 use ReflectionClass;
 use RuntimeException;
 use Throwable;
@@ -22,6 +25,9 @@ class WorkerRunner
     /** @var list<string> */
     private array $owned = [];
     private int $lastRenewNs = 0;
+    private Counter $outboxDispatchCounter;
+    private Counter $outboxTickCounter;
+    private Histogram $outboxTickDurationHistogram;
     /** @var list<string> */
     private array $cachedActiveWorkers = [];
     /** @var list<string> */
@@ -35,6 +41,7 @@ class WorkerRunner
         private readonly Dispatcher          $dispatcher,
         private readonly ?string             $workerId = null,
         private readonly Partitioner         $partitioner,
+        Metrics                              $metrics,
         #[Config('pillar.outbox.worker.leasing')]
         private readonly bool                $leasing = true,
         #[Config('pillar.outbox.partition_count')]
@@ -53,6 +60,21 @@ class WorkerRunner
             $this->workerId ?? Str::uuid()->toString(),
             gethostname(),
             getmypid()
+        );
+
+        $this->outboxDispatchCounter = $metrics->counter(
+            'outbox_dispatch_total',
+            ['success']
+        );
+
+        $this->outboxTickCounter = $metrics->counter(
+            'outbox_tick_total',
+            ['empty']
+        );
+
+        $this->outboxTickDurationHistogram = $metrics->histogram(
+            'outbox_tick_duration_seconds',
+            []
         );
     }
 
@@ -155,9 +177,15 @@ class WorkerRunner
                 }
                 $this->dispatcher->dispatch($stored->event);
                 $this->outbox->markPublished($m);
+                $this->outboxDispatchCounter->inc(1, [
+                    'success' => 'true',
+                ]);
                 $processed++;
             } catch (Throwable $e) {
                 $this->outbox->markFailed($m, $e);
+                $this->outboxDispatchCounter->inc(1, [
+                    'success' => 'false',
+                ]);
                 $lastErrors[] = [
                     'ts' => now()->toIso8601String(),
                     'msg' => $this->shortError($e),
@@ -188,6 +216,12 @@ class WorkerRunner
 
         $t1 = (int)hrtime(true);
         $durationMs = ($t1 - $t0) / 1e6;
+
+        $this->outboxTickCounter->inc(1, [
+            'empty' => $processed === 0 ? 'true' : 'false',
+        ]);
+
+        $this->outboxTickDurationHistogram->observe(($t1 - $t0) / 1e9, []);
 
         return new TickResult(
             renewedHeartbeat: $renewedHeartbeat,
@@ -254,7 +288,7 @@ class WorkerRunner
 
     private function shortError(Throwable $e): string
     {
-        $class = new ReflectionClass($e)->getShortName();
+        $class = (new ReflectionClass($e))->getShortName();
         $msg = $e->getMessage();
         return $class . ': ' . $this->truncate($msg, 200);
     }

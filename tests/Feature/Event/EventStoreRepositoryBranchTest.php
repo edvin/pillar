@@ -7,6 +7,7 @@ use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
 use Pillar\Event\StoredEvent;
+use Pillar\Metrics\Metrics;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
@@ -19,7 +20,10 @@ it('throws when aggregateClass is not an EventSourcedAggregateRoot', function ()
 
     // Minimal stub EventStore that returns an empty iterator for load()
     $events = new class implements EventStore {
-        public function append($id, object $event, ?int $expectedSequence = null): int { return 0; }
+        public function append($id, object $event, ?int $expectedSequence = null): int
+        {
+            return 0;
+        }
 
         public function getByGlobalSequence(int $sequence): ?StoredEvent
         {
@@ -52,13 +56,21 @@ it('throws when aggregateClass is not an EventSourcedAggregateRoot', function ()
         eventStore: $events,
         dispatcher: app(Dispatcher::class),
         optimisticLocking: false,
+        metrics: app(Metrics::class)
     );
 
     // ID that resolves to a non-event-sourced aggregate (stdClass)
     $badId = new readonly class(Str::uuid()) extends GenericAggregateId {
-        public function __construct(string $raw) { parent::__construct($raw); }
-        public static function aggregateClass(): string { return stdClass::class; }
+        public function __construct(string $raw)
+        {
+            parent::__construct($raw);
+        }
+
+        public static function aggregateClass(): string
+        {
+            return stdClass::class;
+        }
     };
 
-    expect(fn () => $repo->find($badId))->toThrow(LogicException::class);
+    expect(fn() => $repo->find($badId))->toThrow(LogicException::class);
 });

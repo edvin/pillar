@@ -27,6 +27,11 @@ use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\PublicationPolicy;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Http\Middleware\AuthorizePillarUI;
+use Pillar\Metrics\Metrics;
+use Pillar\Metrics\NullMetrics;
+use Pillar\Metrics\Prometheus\CollectorRegistryFactory;
+use Pillar\Metrics\Prometheus\PrometheusMetrics;
+use Pillar\Metrics\Prometheus\PrometheusNameFactory;
 use Pillar\Outbox\DatabaseOutbox;
 use Pillar\Outbox\Lease\DatabasePartitionLeaseStore;
 use Pillar\Outbox\Lease\PartitionLeaseStore;
@@ -42,6 +47,7 @@ use Pillar\Snapshot\SnapshotStore;
 use Pillar\Support\PillarManager;
 use Pillar\Support\Tinker\TinkerSupport;
 use Pillar\Support\UI\UISettings;
+use RuntimeException;
 
 class PillarServiceProvider extends ServiceProvider
 {
@@ -58,6 +64,8 @@ class PillarServiceProvider extends ServiceProvider
         $this->app->singleton(QueryBusInterface::class, Config::get('pillar.buses.query.class'));
         $this->app->singleton(PublicationPolicy::class, Config::get('pillar.publication_policy.class'));
         $this->app->singleton(Partitioner::class, Config::get('pillar.outbox.partitioner.class'));
+
+        $this->wireMetrics();
 
         // Pluggable, but not yet configurable implementations
         $this->app->singleton(Outbox::class, DatabaseOutbox::class);
@@ -163,6 +171,26 @@ class PillarServiceProvider extends ServiceProvider
         $this->publishes($publish, 'migrations');
     }
 
+    private function wireMetrics(): void
+    {
+        $driver = config('pillar.metrics.driver', 'none');
 
+        if ($driver === 'prometheus') {
+            if (class_exists(\Prometheus\CollectorRegistry::class)) {
+                $this->app->singleton(CollectorRegistryFactory::class);
+                $this->app->singleton(PrometheusNameFactory::class);
+                $this->app->singleton(Metrics::class, PrometheusMetrics::class);
+                return;
+            }
 
+            // @codeCoverageIgnoreStart
+            logger()->warning(
+                "Pillar metrics driver 'prometheus' selected, but promphp/prometheus_client_php " .
+                "is not installed. Falling back to NullMetrics."
+            );
+            // @codeCoverageIgnoreEnd
+        }
+
+        $this->app->singleton(Metrics::class, NullMetrics::class);
+    }
 }

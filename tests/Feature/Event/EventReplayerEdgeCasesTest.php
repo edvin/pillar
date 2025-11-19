@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\EventReplayer;
 use Pillar\Facade\Pillar;
@@ -15,7 +15,7 @@ it('throws when replay finds no events (zero after filtering)', function () {
 
     $streamId = app(AggregateRegistry::class)->toStreamName($id);
     // Valid range but no events for that aggregate → should throw
-    expect(fn () => app(EventReplayer::class)->replay($streamId, null, 999, 1000))
+    expect(fn() => app(EventReplayer::class)->replay($streamId, null, 999, 1000))
         ->toThrow(RuntimeException::class, 'No events found for replay.');
 });
 
