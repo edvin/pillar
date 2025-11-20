@@ -13,6 +13,7 @@ use Pillar\Event\EventContext;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
 use Pillar\Event\ShouldPublishInline;
+use Pillar\Logging\PillarLogger;
 use Pillar\Metrics\Counter;
 use Pillar\Metrics\Metrics;
 use Pillar\Snapshot\SnapshotPolicy;
@@ -28,6 +29,7 @@ final readonly class EventStoreRepository implements AggregateRepository
     private Counter $snapshotSaveCounter;
 
     public function __construct(
+        private PillarLogger   $logger,
         private SnapshotPolicy $snapshotPolicy,
         private SnapshotStore  $snapshots,
         private EventStore     $eventStore,
@@ -95,8 +97,19 @@ final readonly class EventStoreRepository implements AggregateRepository
 
                 if ($this->snapshotPolicy->shouldSnapshot($aggregate, $lastSeq, $prevSeq, $delta)) {
                     $this->snapshots->save($aggregate, $lastSeq);
+                    $this->logger->debug('pillar.eventstore.snapshot_saved', [
+                        'aggregate_type' => $aggregate::class,
+                        'aggregate_id' => (string)$aggregate->id(),
+                        'seq' => $lastSeq,
+                    ]);
                     $this->snapshotSaveCounter->inc(1, [
                         'aggregate_type' => $aggregate::class,
+                    ]);
+                } else {
+                    $this->logger->debug('pillar.eventstore.snapshot_skipped', [
+                        'aggregate_type' => $aggregate::class,
+                        'aggregate_id' => (string)$aggregate->id(),
+                        'last_seq' => $lastSeq,
                     ]);
                 }
             }
@@ -127,7 +140,13 @@ final readonly class EventStoreRepository implements AggregateRepository
 
         $this->snapshotLoadCounter->inc(1, [
             'aggregate_type' => $aggregateClass,
-            'hit'            => $snapshot ? 'true' : 'false',
+            'hit' => $snapshot ? 'true' : 'false',
+        ]);
+
+        $this->logger->debug('pillar.eventstore.snapshot_load', [
+            'aggregate_type' => $aggregateClass,
+            'aggregate_id' => (string)$id,
+            'hit' => $snapshot ? 'true' : 'false',
         ]);
 
         $aggregate = null;
@@ -188,7 +207,7 @@ final readonly class EventStoreRepository implements AggregateRepository
 
         $this->eventStoreReadsCounter->inc(1, [
             'aggregate_type' => $aggregateClass,
-            'found'          => (!$snapshot && !$hadEvents) ? 'false' : 'true',
+            'found' => (!$snapshot && !$hadEvents) ? 'false' : 'true',
         ]);
 
         EventContext::clear();
@@ -214,6 +233,11 @@ final readonly class EventStoreRepository implements AggregateRepository
 
             if ($this->snapshotPolicy->shouldSnapshot($aggregate, $newSeq, $prevSeq, $delta)) {
                 $this->snapshots->save($aggregate, $newSeq);
+                $this->logger->debug('pillar.eventstore.snapshot_saved', [
+                    'aggregate_type' => $aggregateClass,
+                    'aggregate_id' => (string)$id,
+                    'seq' => $newSeq,
+                ]);
                 $this->snapshotSaveCounter->inc(1, [
                     'aggregate_type' => $aggregateClass,
                 ]);

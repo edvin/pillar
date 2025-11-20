@@ -7,9 +7,12 @@ use Pillar\Aggregate\AggregateRootId;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
+use Pillar\Logging\PillarLogger;
 
-class CacheSnapshotStore implements SnapshotStore
+readonly class CacheSnapshotStore implements SnapshotStore
 {
+    public function __construct(private PillarLogger $logger) {}
+
     public function load(AggregateRootId $id): ?array
     {
         if (!$this->isSnapshottable($id->aggregateClass())) {
@@ -19,10 +22,20 @@ class CacheSnapshotStore implements SnapshotStore
         $payload = Cache::get($this->cacheKey($id->aggregateClass(), $id));
 
         if (!$payload) {
+            $this->logger->debug('pillar.eventstore.snapshot_cache_miss', [
+                'aggregate_type' => $id->aggregateClass(),
+                'aggregate_id' => (string)$id,
+            ]);
             return null;
         }
 
         $aggregate = $id->aggregateClass()::fromSnapshot($payload['data']);
+
+        $this->logger->debug('pillar.eventstore.snapshot_cache_hit', [
+            'aggregate_type' => $id->aggregateClass(),
+            'aggregate_id' => (string)$id,
+            'snapshot_version' => $payload['snapshot_version'] ?? 0,
+        ]);
 
         return [
             'aggregate' => $aggregate,
@@ -49,6 +62,12 @@ class CacheSnapshotStore implements SnapshotStore
             $payload,
             $ttl === null ? null : Carbon::now('UTC')->modify("+$ttl seconds")
         );
+
+        $this->logger->debug('pillar.eventstore.snapshot_saved', [
+            'aggregate_type' => $aggregate::class,
+            'aggregate_id' => (string)$aggregate->id(),
+            'seq' => $sequence,
+        ]);
     }
 
     public function delete(AggregateRootId $id): void

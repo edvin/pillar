@@ -48,6 +48,7 @@ export default withMermaid(defineConfig({
                     {text: 'Versioned events', link: '/concepts/versioned-events'},
                     {text: 'Event upcasters', link: '/concepts/event-upcasters'},
                     {text: 'Pillar facade', link: '/concepts/pillar-facade'},
+                    {text: 'Logging', link: '/concepts/logging'},
                 ]
             },
             {

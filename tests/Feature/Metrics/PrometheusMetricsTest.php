@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Config;
+use Pillar\Logging\PillarLogger;
 use Pillar\Metrics\Metrics;
 use Pillar\Metrics\Prometheus\CollectorRegistryFactory;
 use Pillar\Metrics\Prometheus\PrometheusMetrics;
@@ -151,6 +152,7 @@ it('creates a Redis adapter when redis driver is configured and ext-redis is ava
     }
 
     $factory = new CollectorRegistryFactory(
+        logger: app(PillarLogger::class),
         namespace: 'pillar',
         driver: 'redis',
         redisHost: '127.0.0.1',

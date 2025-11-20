@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 use Pillar\Outbox\Worker\TickResult;
 use Pillar\Outbox\Worker\WorkerRunner;
+use Pillar\Logging\PillarLogger;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Helper\TableStyle;
 use Symfony\Component\Console\Helper\TableCell;
@@ -25,19 +26,29 @@ final class OutboxWorkCommand extends Command
 
     protected $description = 'Process the Pillar transactional outbox.';
 
-    public function handle(WorkerRunner $runner): int
+    public function handle(WorkerRunner $runner, PillarLogger $logger): int
     {
+        $noLeasing = (bool)$this->option('no-leasing');
         // Optionally override leasing from CLI
-        if ($this->option('no-leasing')) {
+        if ($noLeasing) {
             Config::set('pillar.outbox.worker.leasing', false);
         }
 
-        $once = (bool)$this->option('once');
-        $silent = (bool)$this->option('silent');
-        $jsonMode = (bool)$this->option('json');
+        $once      = (bool)$this->option('once');
+        $silent    = (bool)$this->option('silent');
+        $jsonMode  = (bool)$this->option('json');
         $intervalMs = (int)$this->option('interval-ms');
+        $windowSeconds = (int)$this->option('window');
 
-        $windowSeconds = (int) $this->option('window');
+        $logger->info('pillar.outbox.worker_started', [
+            'leasing_enabled'  => $noLeasing ? 'false' : 'true',
+            'once'             => $once ? 'true' : 'false',
+            'silent'           => $silent ? 'true' : 'false',
+            'json'             => $jsonMode ? 'true' : 'false',
+            'interval_ms'      => $intervalMs,
+            'window_seconds'   => $windowSeconds,
+        ]);
+
         $acc = [
             'since'        => microtime(true),
             'ticks'        => 0,
@@ -65,6 +76,35 @@ final class OutboxWorkCommand extends Command
 
         do {
             $result = $runner->tick();
+
+            $logger->debug('pillar.outbox.tick', [
+                'claimed'   => $result->claimed,
+                'published' => $result->published,
+                'failed'    => $result->failed,
+                'purged'    => $result->purgedStale,
+                'backoff_ms'=> $result->backoffMs,
+                'desired'   => count($result->desiredPartitions),
+                'owned'     => count($result->ownedPartitions),
+                'leased'    => count($result->leasedPartitions),
+                'released'  => count($result->releasedPartitions),
+            ]);
+
+            if ($result->failed > 0) {
+                $logger->warning('pillar.outbox.tick_failed', [
+                    'failed'  => $result->failed,
+                    'claimed' => $result->claimed,
+                    'published' => $result->published,
+                ]);
+            }
+
+            if (!empty($result->lastErrors)) {
+                foreach ($result->lastErrors as $err) {
+                    $logger->error('pillar.outbox.error', [
+                        'seq'     => $err['seq'] ?? null,
+                        'message' => $err['msg'] ?? '',
+                    ]);
+                }
+            }
 
             // capture recent errors from this tick
             if (!empty($result->lastErrors)) {
@@ -123,6 +163,14 @@ final class OutboxWorkCommand extends Command
                 $acc['durTotal'] = 0.0;
             }
         } while (!$once);
+
+        $logger->info('pillar.outbox.worker_stopped', [
+            'ticks'     => $acc['ticks'],
+            'claimed'   => $acc['claimed'],
+            'published' => $acc['published'],
+            'failed'    => $acc['failed'],
+            'purged'    => $acc['purged'],
+        ]);
 
         return self::SUCCESS;
     }

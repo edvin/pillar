@@ -27,6 +27,7 @@ use Pillar\Event\Fetch\EventFetchStrategyResolver;
 use Pillar\Event\PublicationPolicy;
 use Pillar\Event\UpcasterRegistry;
 use Pillar\Http\Middleware\AuthorizePillarUI;
+use Pillar\Logging\PillarLogger;
 use Pillar\Metrics\Metrics;
 use Pillar\Metrics\NullMetrics;
 use Pillar\Metrics\Prometheus\CollectorRegistryFactory;
@@ -47,6 +48,7 @@ use Pillar\Snapshot\SnapshotStore;
 use Pillar\Support\PillarManager;
 use Pillar\Support\Tinker\TinkerSupport;
 use Pillar\Support\UI\UISettings;
+use Prometheus\CollectorRegistry;
 use RuntimeException;
 
 class PillarServiceProvider extends ServiceProvider
@@ -56,6 +58,8 @@ class PillarServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__ . '/../../config/pillar.php', 'pillar');
 
         // Configurable implementations
+        $this->app->singleton(PillarLogger::class);
+        $this->wireMetrics();
         $this->app->singleton(ObjectSerializer::class, EncryptingSerializer::class);
         $this->app->singleton(SnapshotPolicy::class, DelegatingSnapshotPolicy::class);
         $this->app->singleton(SnapshotStore::class, Config::get('pillar.snapshot.store.class'));
@@ -64,14 +68,8 @@ class PillarServiceProvider extends ServiceProvider
         $this->app->singleton(QueryBusInterface::class, Config::get('pillar.buses.query.class'));
         $this->app->singleton(PublicationPolicy::class, Config::get('pillar.publication_policy.class'));
         $this->app->singleton(Partitioner::class, Config::get('pillar.outbox.partitioner.class'));
-
-        $this->wireMetrics();
-
-        // Pluggable, but not yet configurable implementations
         $this->app->singleton(Outbox::class, DatabaseOutbox::class);
         $this->app->singleton(PartitionLeaseStore::class, DatabasePartitionLeaseStore::class);
-
-        // Singletons without interface
         $this->app->singleton(PillarManager::class);
         $this->app->singleton(RepositoryResolver::class);
         $this->app->singleton(EventFetchStrategyResolver::class);
@@ -176,7 +174,7 @@ class PillarServiceProvider extends ServiceProvider
         $driver = config('pillar.metrics.driver', 'none');
 
         if ($driver === 'prometheus') {
-            if (class_exists(\Prometheus\CollectorRegistry::class)) {
+            if (class_exists(CollectorRegistry::class)) {
                 $this->app->singleton(CollectorRegistryFactory::class);
                 $this->app->singleton(PrometheusNameFactory::class);
                 $this->app->singleton(Metrics::class, PrometheusMetrics::class);
@@ -184,7 +182,7 @@ class PillarServiceProvider extends ServiceProvider
             }
 
             // @codeCoverageIgnoreStart
-            logger()->warning(
+            $this->app->make(PillarLogger::class)->warning(
                 "Pillar metrics driver 'prometheus' selected, but promphp/prometheus_client_php " .
                 "is not installed. Falling back to NullMetrics."
             );

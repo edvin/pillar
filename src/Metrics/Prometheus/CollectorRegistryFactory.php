@@ -3,6 +3,7 @@
 namespace Pillar\Metrics\Prometheus;
 
 use Illuminate\Container\Attributes\Config;
+use Pillar\Logging\PillarLogger;
 use Prometheus\CollectorRegistry;
 use Prometheus\Storage\Adapter;
 use Prometheus\Storage\InMemory;
@@ -18,26 +19,28 @@ final class CollectorRegistryFactory
     private ?CollectorRegistry $registry = null;
 
     public function __construct(
+        private PillarLogger $logger,
+
         #[Config('pillar.metrics.prometheus.namespace')]
-        private ?string $namespace = 'pillar',
+        private ?string      $namespace = 'pillar',
 
         #[Config('pillar.metrics.prometheus.storage.driver')]
-        private ?string $driver = 'in_memory',
+        private ?string      $driver = 'in_memory',
 
         #[Config('pillar.metrics.prometheus.storage.redis.host')]
-        private ?string $redisHost = '127.0.0.1',
+        private ?string      $redisHost = '127.0.0.1',
 
         #[Config('pillar.metrics.prometheus.storage.redis.port')]
-        private ?int    $redisPort = 6379,
+        private ?int         $redisPort = 6379,
 
         #[Config('pillar.metrics.prometheus.storage.redis.timeout')]
-        private ?float  $redisTimeout = 0.1,
+        private ?float       $redisTimeout = 0.1,
 
         #[Config('pillar.metrics.prometheus.storage.redis.auth')]
-        private ?string $redisAuth = null,
+        private ?string      $redisAuth = null,
 
         #[Config('pillar.metrics.prometheus.storage.redis.database')]
-        private ?int    $redisDatabase = 0,
+        private ?int         $redisDatabase = 0,
     )
     {
     }
@@ -71,6 +74,9 @@ final class CollectorRegistryFactory
     private function createRedisAdapter(): Adapter
     {
         if (!class_exists(\Redis::class)) {
+            $this->logger->error('pillar.metrics.redis_extension_missing', [
+                'driver' => 'redis',
+            ]);
             throw new \RuntimeException(
                 "Prometheus storage driver 'redis' selected, but ext-redis is not installed."
             );
@@ -90,6 +96,12 @@ final class CollectorRegistryFactory
         if ($this->redisDatabase !== null) {
             $redis->select($this->redisDatabase);
         }
+
+        $this->logger->debug('pillar.metrics.redis_adapter_created', [
+            'host' => $this->redisHost,
+            'port' => $this->redisPort,
+            'database' => $this->redisDatabase,
+        ]);
 
         return RedisAdapter::fromExistingConnection($redis);
     }

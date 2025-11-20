@@ -6,6 +6,7 @@ namespace Pillar\Outbox\Lease;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Facades\DB;
 use Pillar\Support\HandlesDatabaseDriverSpecifics;
+use Pillar\Logging\PillarLogger;
 
 /**
  * DatabasePartitionLeaseStore
@@ -25,10 +26,9 @@ final class DatabasePartitionLeaseStore implements PartitionLeaseStore
 
     public function __construct(
         #[Config('pillar.outbox.tables.partitions')]
-        private readonly string $table = 'outbox_partitions',
-    )
-    {
-
+        private readonly string       $table = 'outbox_partitions',
+        private readonly PillarLogger $logger,
+    ) {
     }
 
     /**
@@ -57,6 +57,10 @@ final class DatabasePartitionLeaseStore implements PartitionLeaseStore
         foreach (array_chunk($rows, 100) as $chunk) {
             DB::table($this->table)->insertOrIgnore($chunk);
         }
+
+        $this->logger->debug('pillar.outbox.partitions_seeded', [
+            'count' => count($rows),
+        ]);
     }
 
     /**
@@ -71,13 +75,19 @@ final class DatabasePartitionLeaseStore implements PartitionLeaseStore
             return 0;
         }
 
-        return DB::table($this->table)
+        $deleted = DB::table($this->table)
             ->whereNotIn('partition_key', $keep)
             ->where(function ($q) {
                 $q->whereNull('lease_owner')
                     ->orWhere('lease_until', '<=', $this->dbNow());
             })
             ->delete();
+
+        $this->logger->debug('pillar.outbox.partitions_pruned', [
+            'deleted' => $deleted,
+        ]);
+
+        return $deleted;
     }
 
     /**
@@ -115,7 +125,18 @@ final class DatabasePartitionLeaseStore implements PartitionLeaseStore
                 'updated_at' => $this->dbNow(),
             ]);
 
-        return ($took + $renewed) > 0;
+        $success = ($took + $renewed) > 0;
+
+        $this->logger->debug('pillar.outbox.lease_attempt', [
+            'owner'    => $owner,
+            'ttl'      => $ttlSeconds,
+            'requested'=> $partitions,
+            'renewed'  => $renewed,
+            'took'     => $took,
+            'success'  => $success ? 'true' : 'false',
+        ]);
+
+        return $success;
     }
 
     /**
@@ -134,6 +155,13 @@ final class DatabasePartitionLeaseStore implements PartitionLeaseStore
                 'lease_until' => $this->dbPlusSeconds($ttlSeconds),
                 'updated_at' => $this->dbNow(),
             ]);
+
+        $this->logger->debug('pillar.outbox.lease_renew', [
+            'owner'     => $owner,
+            'ttl'       => $ttlSeconds,
+            'partitions'=> $partitions,
+            'updated'   => $res,
+        ]);
 
         return $res > 0;
     }
@@ -161,6 +189,12 @@ final class DatabasePartitionLeaseStore implements PartitionLeaseStore
             ->pluck('partition_key')
             ->all();
 
+        $this->logger->debug('pillar.outbox.lease_owned', [
+            'owner'     => $owner,
+            'limit_to'  => $limitTo,
+            'count'     => count($keys),
+        ]);
+
         return $keys;
     }
 
@@ -182,6 +216,11 @@ final class DatabasePartitionLeaseStore implements PartitionLeaseStore
                 'lease_until' => null,
                 'updated_at' => $this->dbNow(),
             ]);
+
+        $this->logger->debug('pillar.outbox.lease_released', [
+            'owner'      => $owner,
+            'partitions' => $partitions,
+        ]);
     }
 
 }

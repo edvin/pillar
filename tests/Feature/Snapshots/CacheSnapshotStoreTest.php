@@ -3,6 +3,7 @@
 use Pillar\Aggregate\EventSourcedAggregateRoot;
 use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Aggregate\RecordsEvents;
+use Pillar\Logging\PillarLogger;
 use Pillar\Snapshot\CacheSnapshotStore;
 use Pillar\Aggregate\AggregateRootId;
 use Illuminate\Support\Facades\Cache;
@@ -19,7 +20,7 @@ it('no-ops save() when aggregate is not Snapshottable', function () {
 
     Cache::spy();
 
-    $store = new CacheSnapshotStore();
+    $store = new CacheSnapshotStore(app(PillarLogger::class));
     $store->save($aggregate, 123);
 
     // Early-return path means no snapshot write happens
@@ -32,7 +33,7 @@ it('load() returns null and skips cache when aggregate is not Snapshottable', fu
 
     Cache::spy();
 
-    $store = new CacheSnapshotStore();
+    $store = new CacheSnapshotStore(app(PillarLogger::class));
     $result = $store->load($id);
 
     expect($result)->toBeNull();

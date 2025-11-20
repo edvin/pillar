@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Pillar\Support\HandlesDatabaseDriverSpecifics;
 use Pillar\Metrics\Metrics;
 use Pillar\Metrics\Counter;
+use Pillar\Logging\PillarLogger;
 use Throwable;
 
 class DatabaseOutbox implements Outbox
@@ -26,6 +27,7 @@ class DatabaseOutbox implements Outbox
         private readonly int    $claimTtl,
         #[Config('pillar.outbox.worker.retry_backoff', 60)]
         private readonly int    $retryBackoff,
+        private PillarLogger $logger,
         Metrics $metrics
     )
     {
@@ -58,6 +60,10 @@ class DatabaseOutbox implements Outbox
             'partition_key' => $partition,
         ]);
         $this->outboxEnqueuedCounter->inc(1, [
+            'partition' => $partition ?? '',
+        ]);
+        $this->logger->debug('pillar.outbox.enqueued', [
+            'global_sequence' => $globalSequence,
             'partition' => $partition ?? '',
         ]);
     }
@@ -94,7 +100,10 @@ class DatabaseOutbox implements Outbox
                 'partition' => $message->partitionKey ?? '',
             ]);
         }
-
+        $this->logger->debug('pillar.outbox.claimed', [
+            'count' => count($messages),
+            'partitions' => $partitions,
+        ]);
         return $messages;
     }
 
@@ -246,6 +255,10 @@ class DatabaseOutbox implements Outbox
         $this->outboxPublishedCounter->inc(1, [
             'partition' => $message->partitionKey ?? '',
         ]);
+        $this->logger->debug('pillar.outbox.published', [
+            'global_sequence' => $message->globalSequence,
+            'partition' => $message->partitionKey ?? '',
+        ]);
     }
 
     public function markFailed(OutboxMessage $message, Throwable $error): void
@@ -260,6 +273,11 @@ class DatabaseOutbox implements Outbox
             ]);
         $this->outboxFailedCounter->inc(1, [
             'partition' => $message->partitionKey ?? '',
+        ]);
+        $this->logger->error('pillar.outbox.failed', [
+            'global_sequence' => $message->globalSequence,
+            'partition' => $message->partitionKey ?? '',
+            'exception' => $error,
         ]);
     }
 }

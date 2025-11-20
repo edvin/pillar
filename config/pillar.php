@@ -649,4 +649,10 @@ return [
             ],
         ],
     ],
+
+    'logging' => [
+        'enabled' => true,
+        'channel' => env('PILLAR_LOG_CHANNEL', env('LOG_CHANNEL', 'stack')),
+        'level'   => env('PILLAR_LOG_LEVEL', env('LOG_LEVEL', 'info')),
+    ],
 ];

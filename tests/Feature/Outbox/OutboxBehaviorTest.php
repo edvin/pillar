@@ -6,6 +6,7 @@ use Mockery\MockInterface;
 use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\EventStore;
 use Pillar\Event\ShouldPublish;
+use Pillar\Logging\PillarLogger;
 use Pillar\Metrics\Metrics;
 use Pillar\Outbox\DatabaseOutbox;
 use Pillar\Outbox\Outbox;
@@ -91,6 +92,7 @@ it('marks a message as failed and schedules a retry', function () {
         table: $table,
         claimTtl: 30,
         retryBackoff: 60,
+        logger: app(PillarLogger::class),
         metrics: app(Metrics::class),
     );
 
@@ -135,6 +137,7 @@ it('claims pending messages using the generic strategy', function () {
         $table, // table
         30,     // claimTtl
         60,     // retryBackoff
+        app(PillarLogger::class),
         app(Metrics::class)
     ])
         ->makePartial()
@@ -181,7 +184,8 @@ it('returns an empty array when there are no pending messages for the generic st
         $table, // table
         30,     // claimTtl
         60,     // retryBackoff
-        app(Metrics::class)
+        app(PillarLogger::class),
+        app(Metrics::class),
     ])
         ->makePartial()
         ->shouldAllowMockingProtectedMethods();
@@ -204,7 +208,7 @@ it('returns an empty array when there are no pending messages for the generic st
 });
 
 it('uses the mysql-specific strategy when driver is mysql', function () {
-    $outbox = new class('outbox', 30, 60, app(Metrics::class)) extends DatabaseOutbox {
+    $outbox = new class('outbox', 30, 60, app(PillarLogger::class), app(Metrics::class)) extends DatabaseOutbox {
         public ?array $calledWith = null;
 
         public function dbDriver(): string
@@ -243,7 +247,7 @@ it('uses the mysql-specific strategy when driver is mysql', function () {
 
 
 it('uses the pgsql-specific strategy when driver is pgsql', function () {
-    $outbox = new class('outbox', 30, 60, app(Metrics::class)) extends DatabaseOutbox {
+    $outbox = new class('outbox', 30, 60, app(PillarLogger::class), app(Metrics::class)) extends DatabaseOutbox {
         public ?array $calledWith = null;
 
         public function dbDriver(): string
@@ -303,7 +307,7 @@ it('claims pending messages using the mysql-specific implementation', function (
         ->once()
         ->andReturn(1);
 
-    $outbox = new class($table, 30, 60, app(Metrics::class)) extends DatabaseOutbox {
+    $outbox = new class($table, 30, 60, app(PillarLogger::class), app(Metrics::class)) extends DatabaseOutbox {
         public function callClaimPendingMysql(int $limit, array $partitions, string $token): array
         {
             return $this->claimPendingMysql($limit, $partitions, $token);
@@ -344,7 +348,7 @@ it('claims pending messages using the pgsql-specific implementation', function (
             ],
         ]);
 
-    $outbox = new class($table, 30, 60, app(Metrics::class)) extends DatabaseOutbox {
+    $outbox = new class($table, 30, 60, app(PillarLogger::class), app(Metrics::class)) extends DatabaseOutbox {
         public function callClaimPendingPgsql(int $limit, array $partitions, string $token): array
         {
             return $this->claimPendingPgsql($limit, $partitions, $token);

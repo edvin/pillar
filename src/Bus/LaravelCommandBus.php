@@ -3,10 +3,12 @@
 namespace Pillar\Bus;
 
 use Illuminate\Contracts\Bus\Dispatcher;
+use Pillar\Logging\PillarLogger;
 use Pillar\Metrics\Metrics;
 use Pillar\Metrics\Counter;
 use Pillar\Metrics\Histogram;
 use Pillar\Event\EventContext;
+use Throwable;
 
 class LaravelCommandBus implements CommandBusInterface
 {
@@ -14,7 +16,11 @@ class LaravelCommandBus implements CommandBusInterface
     private Counter $commandsFailedCounter;
     private Histogram $commandDurationHistogram;
 
-    public function __construct(private Dispatcher $dispatcher, Metrics $metrics)
+    public function __construct(
+        private readonly PillarLogger $logger,
+        private readonly Dispatcher   $dispatcher,
+        Metrics                       $metrics
+    )
     {
         $this->commandsCounter = $metrics->counter(
             'commands_total',
@@ -35,6 +41,9 @@ class LaravelCommandBus implements CommandBusInterface
     public function dispatch(object $command): mixed
     {
         $commandClass = $command::class;
+        $this->logger->debug('pillar.command.started', [
+            'command' => $commandClass,
+        ]);
         $start = microtime(true);
 
         EventContext::initialize();
@@ -47,8 +56,12 @@ class LaravelCommandBus implements CommandBusInterface
                 'success' => 'true',
             ]);
 
+            $this->logger->debug('pillar.command.completed', [
+                'command' => $commandClass,
+            ]);
+
             return $result;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->commandsCounter->inc(1, [
                 'command' => $commandClass,
                 'success' => 'false',
@@ -56,6 +69,11 @@ class LaravelCommandBus implements CommandBusInterface
 
             $this->commandsFailedCounter->inc(1, [
                 'command' => $commandClass,
+            ]);
+
+            $this->logger->error('pillar.command.failed', [
+                'command' => $commandClass,
+                'exception' => $e,
             ]);
 
             throw $e;

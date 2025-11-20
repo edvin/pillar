@@ -7,6 +7,7 @@ use Pillar\Aggregate\GenericAggregateId;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
 use Pillar\Event\StoredEvent;
+use Pillar\Logging\PillarLogger;
 use Pillar\Metrics\Metrics;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Snapshot\SnapshotPolicy;
@@ -51,6 +52,7 @@ it('throws when aggregateClass is not an EventSourcedAggregateRoot', function ()
     };
 
     $repo = new EventStoreRepository(
+        logger: app(PillarLogger::class),
         snapshotPolicy: $policy,
         snapshots: $snapshots,
         eventStore: $events,

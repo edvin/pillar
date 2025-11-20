@@ -6,12 +6,12 @@ use Carbon\CarbonImmutable;
 use Generator;
 use Pillar\Aggregate\AggregateRegistry;
 use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 use InvalidArgumentException;
 use Pillar\Metrics\Metrics;
 use Pillar\Metrics\Counter;
+use Pillar\Logging\PillarLogger;
 
 /**
  * Replays historical domain events for rebuilding projections.
@@ -31,6 +31,7 @@ final class EventReplayer
      * @param array<class-string, array<class-string>> $projectors Mapping of event FQCN → list of projector class names (must implement Projector).
      */
     public function __construct(
+        private PillarLogger        $logger,
         private readonly EventStore $eventStore,
         Metrics                     $metrics,
         private array               $projectors = [],
@@ -88,13 +89,29 @@ final class EventReplayer
         $this->validateRanges($fromSequence, $toSequence, $fromDate, $toDate);
         $this->replayStartedCounter->inc();
 
+        $context = [
+            'stream_id'     => $streamId,
+            'event_type'    => $eventType,
+            'from_sequence' => $fromSequence,
+            'to_sequence'   => $toSequence,
+            'from_date'     => $fromDate,
+            'to_date'       => $toDate,
+        ];
+
+        $this->logger->info('pillar.replay.started', $context);
+
         $events = $this->baseStream($streamId, $eventType);
         $filtered = $this->filterEvents($events, $fromSequence, $toSequence, $fromDate, $toDate);
         $count = $this->replayEvents($filtered);
 
         if ($count === 0) {
+            $this->logger->warning('pillar.replay.no_events', $context);
             throw new RuntimeException('No events found for replay.');
         }
+
+        $this->logger->info('pillar.replay.completed', $context + [
+            'events_processed' => $count,
+        ]);
     }
 
     /**
@@ -262,11 +279,21 @@ final class EventReplayer
 
             foreach ($listeners as $listenerClass) {
                 $listener = App::make($listenerClass);
-                Log::info("🎬 Replaying $storedEvent->eventType → $listenerClass");
+                $this->logger->debug('pillar.replay.dispatch', [
+                    'event_type' => $storedEvent->eventType,
+                    'projector'  => $listenerClass,
+                    'sequence'   => $storedEvent->sequence ?? null,
+                ]);
                 // @codeCoverageIgnoreStart
                 try {
                     $listener($storedEvent->event);
-                } catch (\Throwable $e) {
+                } catch (Throwable $e) {
+                    $this->logger->error('pillar.replay.handler_failed', [
+                        'event_type' => $storedEvent->eventType,
+                        'projector'  => $listenerClass,
+                        'sequence'   => $storedEvent->sequence ?? null,
+                        'exception'  => $e,
+                    ]);
                     $this->replayFailedCounter->inc();
                     throw $e;
                 }

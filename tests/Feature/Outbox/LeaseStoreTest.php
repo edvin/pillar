@@ -2,15 +2,18 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\DB;
+use Pillar\Logging\PillarLogger;
 use Pillar\Outbox\Lease\DatabasePartitionLeaseStore;
 
-function part(string $key): ?array {
+function part(string $key): ?array
+{
     $row = DB::table('outbox_partitions')->where('partition_key', $key)->first();
-    return $row ? (array) $row : null;
+    return $row ? (array)$row : null;
 }
 
 it('seeds partitions idempotently', function () {
-    $store = new DatabasePartitionLeaseStore();
+    $table = config('pillar.outbox.tables.partitions', 'outbox_partitions');
+    $store = new DatabasePartitionLeaseStore($table, app(PillarLogger::class));
 
     $store->seed(['p00', 'p01', 'p01']);     // duplicates
     expect(DB::table('outbox_partitions')->count())->toBe(2);
@@ -24,7 +27,8 @@ it('seeds partitions idempotently', function () {
 });
 
 it('tryLease acquires free and renews own lease without bumping epoch', function () {
-    $store = new DatabasePartitionLeaseStore();
+    $table = config('pillar.outbox.tables.partitions', 'outbox_partitions');
+    $store = new DatabasePartitionLeaseStore($table, app(PillarLogger::class));
     $store->seed(['p00']);
 
     // Acquire fresh
@@ -44,7 +48,8 @@ it('tryLease acquires free and renews own lease without bumping epoch', function
 });
 
 it('tryLease does not steal from another owner unless expired', function () {
-    $store = new DatabasePartitionLeaseStore();
+    $table = config('pillar.outbox.tables.partitions', 'outbox_partitions');
+    $store = new DatabasePartitionLeaseStore($table, app(PillarLogger::class));
     $store->seed(['p01']);
 
     // w1 takes it with a healthy TTL
@@ -65,7 +70,8 @@ it('tryLease does not steal from another owner unless expired', function () {
 });
 
 it('renew extends only when owner matches', function () {
-    $store = new DatabasePartitionLeaseStore();
+    $table = config('pillar.outbox.tables.partitions', 'outbox_partitions');
+    $store = new DatabasePartitionLeaseStore($table, app(PillarLogger::class));
     $store->seed(['p02']);
 
     $store->tryLease(['p02'], 'w1', 30);
@@ -78,7 +84,8 @@ it('renew extends only when owner matches', function () {
 });
 
 it('ownedBy returns active leases and respects the optional filter', function () {
-    $store = new DatabasePartitionLeaseStore();
+    $table = config('pillar.outbox.tables.partitions', 'outbox_partitions');
+    $store = new DatabasePartitionLeaseStore($table, app(PillarLogger::class));
     $store->seed(['p00', 'p01', 'p02', 'p03']);
 
     $store->tryLease(['p00', 'p02'], 'w1', 60);
@@ -100,7 +107,8 @@ it('ownedBy returns active leases and respects the optional filter', function ()
 });
 
 it('release frees selected leases and ignores empty input', function () {
-    $store = new DatabasePartitionLeaseStore();
+    $table = config('pillar.outbox.tables.partitions', 'outbox_partitions');
+    $store = new DatabasePartitionLeaseStore($table, app(PillarLogger::class));
     $store->seed(['p10', 'p11']);
 
     $store->tryLease(['p10', 'p11'], 'wZ', 30);
@@ -131,8 +139,9 @@ it('does nothing when seeding with an empty list', function () {
 });
 
 it('pruneObsolete removes only keys outside keep that are unleased or expired', function () {
-    $store = new DatabasePartitionLeaseStore();
-    $store->seed(['p00','p01','p02','p03']);
+    $table = config('pillar.outbox.tables.partitions', 'outbox_partitions');
+    $store = new DatabasePartitionLeaseStore($table, app(PillarLogger::class));
+    $store->seed(['p00', 'p01', 'p02', 'p03']);
 
     // p00 leased and active
     $store->tryLease(['p00'], 'w1', 60);
@@ -159,7 +168,8 @@ it('pruneObsolete removes only keys outside keep that are unleased or expired', 
 });
 
 it('guards: empty inputs return early', function () {
-    $store = new DatabasePartitionLeaseStore();
+    $table = config('pillar.outbox.tables.partitions', 'outbox_partitions');
+    $store = new DatabasePartitionLeaseStore($table, app(PillarLogger::class));
 
     expect($store->tryLease([], 'w', 10))->toBeFalse()
         ->and($store->renew([], 'w', 10))->toBeFalse();
