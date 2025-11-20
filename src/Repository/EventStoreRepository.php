@@ -17,6 +17,7 @@ use Pillar\Metrics\Counter;
 use Pillar\Metrics\Metrics;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
+use Pillar\Snapshot\Snapshottable;
 use Throwable;
 
 final readonly class EventStoreRepository implements AggregateRepository
@@ -87,7 +88,7 @@ final readonly class EventStoreRepository implements AggregateRepository
                 }
             }
 
-            if ($lastSeq !== null) {
+            if ($lastSeq !== null && $aggregate instanceof Snapshottable) {
                 $prevSeq = ($this->optimisticLocking && $expectedVersion !== null)
                     ? $expectedVersion
                     : max(0, $lastSeq - $delta);
