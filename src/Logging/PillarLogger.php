@@ -30,7 +30,7 @@ final class PillarLogger implements LoggerInterface
         #[Config('pillar.logging.enabled', 'true')]
         private readonly bool    $enabled,
         #[Config('pillar.logging.channel')]
-        private readonly ?string $channel = null,
+        private readonly ?string $channel,
         #[Config('pillar.logging.level', 'info')]
         private readonly string  $level,
     )

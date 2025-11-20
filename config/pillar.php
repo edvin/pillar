@@ -677,6 +677,29 @@ return [
         // Minimum log level for Pillar logs. Common values: 'debug', 'info',
         // 'notice', 'warning', 'error'. This is passed through to Laravel's
         // logging stack; Laravel handles the actual filtering by level.
-        'level'   => env('PILLAR_LOG_LEVEL', env('LOG_LEVEL', 'info')),
+        'level' => env('PILLAR_LOG_LEVEL', env('LOG_LEVEL', 'info')),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | ❤️ Pillar health check
+    |--------------------------------------------------------------------------
+    |
+    | Lightweight JSON health endpoint for Pillar internals. This is intended for
+    | readiness/liveness checks (Kubernetes probes, load balancers, uptime checks).
+    |
+    | enabled : Master switch. If false, the health route is not registered.
+    | path    : Absolute path where the health endpoint is mounted. This should
+    |           start with a leading slash. Default: "/pillar/health".
+    |
+    */
+    'health' => [
+        'enabled' => env('PILLAR_HEALTH_ENABLED', true),
+
+        // Absolute path for the health endpoint. Example: "/pillar/health".
+        // You can change this to anything that fits your app:
+        //   PILLAR_HEALTH_PATH=/health/pillar
+        'path' => env('PILLAR_HEALTH_PATH', '/pillar/health'),
+    ],
+
 ];

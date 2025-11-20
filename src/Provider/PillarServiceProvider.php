@@ -141,6 +141,10 @@ class PillarServiceProvider extends ServiceProvider
             require __DIR__ . '/../../routes/pillar-ui.php';
         });
 
+        if (config('pillar.health.enabled', false)) {
+            $this->loadRoutesFrom(__DIR__ . '/../../routes/health.php');
+        }
+
         // Load UI views
         $this->loadViewsFrom(__DIR__ . '/../../resources/views/ui', 'pillar-ui');
     }
