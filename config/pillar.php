@@ -650,9 +650,33 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | 🧾 Pillar internal logging
+    |--------------------------------------------------------------------------
+    |
+    | Pillar uses its own PSR-3 compatible logger wrapper (PillarLogger) for all
+    | internal log messages (event store, outbox, replay, metrics, etc.). Logs
+    | are emitted using a dedicated Laravel logging channel so you can route
+    | them separately from your main application logs if desired.
+    |
+    | enabled : Turn Pillar's internal logging on/off globally.
+    | channel : Which Laravel logging channel to send Pillar logs to.
+    |           Defaults to LOG_CHANNEL (typically "stack").
+    | level   : Minimum log level for Pillar logs. This usually mirrors your
+    |           application's LOG_LEVEL, but you can override it for more or
+    |           less verbosity just for Pillar.
+    */
     'logging' => [
         'enabled' => true,
+
+        // Use a dedicated channel for Pillar logs, or fall back to the main
+        // application channel (LOG_CHANNEL). Example: 'single', 'daily', 'stderr'.
         'channel' => env('PILLAR_LOG_CHANNEL', env('LOG_CHANNEL', 'stack')),
+
+        // Minimum log level for Pillar logs. Common values: 'debug', 'info',
+        // 'notice', 'warning', 'error'. This is passed through to Laravel's
+        // logging stack; Laravel handles the actual filtering by level.
         'level'   => env('PILLAR_LOG_LEVEL', env('LOG_LEVEL', 'info')),
     ],
 ];
