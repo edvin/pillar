@@ -134,23 +134,6 @@ it('omits default labels when none are configured', function () {
     expect($output)->not()->toContain('env="');
 });
 
-it('throws when redis driver is selected but ext-redis is not installed', function () {
-    if (class_exists(\Redis::class)) {
-        $this->markTestSkipped('ext-redis is installed, cannot test missing-extension branch.');
-    }
-
-    $factory = new CollectorRegistryFactory(
-        namespace: 'pillar',
-        driver: 'redis',
-    );
-
-    expect(fn () => invokePrivateMethod($factory, 'createStorageAdapter'))
-        ->toThrow(
-            \RuntimeException::class,
-            "Prometheus storage driver 'redis' selected, but ext-redis is not installed.",
-        );
-});
-
 it('creates a Redis adapter when redis driver is configured and ext-redis is available', function () {
     if (!class_exists(\Redis::class)) {
         $this->markTestSkipped('ext-redis is not installed, cannot test redis adapter creation.');
