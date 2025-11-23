@@ -3,6 +3,7 @@
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Facade\Pillar;
+use Pillar\Snapshot\Snapshot;
 use Pillar\Snapshot\SnapshotStore;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
@@ -13,22 +14,19 @@ it('saves a snapshot with the last aggregate version after commit', function () 
      * EventStoreRepository::find() can load snapshots and avoid re-saving.
      */
     $fake = new class implements SnapshotStore {
-        /** @var array<string, array{aggregate: object, snapshot_version: int}> */
+        /** @var array<string, Snapshot}> */
         public array $store = [];
         /** @var int[] versions we recorded for assertions */
         public array $saved = [];
 
-        public function load(AggregateRootId $id): ?array
+        public function load(AggregateRootId $id): ?Snapshot
         {
             return $this->store[$id->value()] ?? null;
         }
 
         public function save(AggregateRoot $aggregate, int $sequence): void
         {
-            $this->store[$aggregate->id()->value()] = [
-                'aggregate' => $aggregate,
-                'snapshot_version' => $sequence,
-            ];
+            $this->store[$aggregate->id()->value()] = new Snapshot($aggregate, $sequence);
             $this->saved[] = $sequence;
         }
 

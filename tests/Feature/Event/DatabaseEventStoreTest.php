@@ -333,6 +333,20 @@ it('wraps repository save in its own transaction when called outside a transacti
             $t->index(['stream_id', 'stream_sequence']);
         });
 
+        Schema::create('snapshots', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('aggregate_type', 255);
+            $table->string('aggregate_id', 191);
+
+            $table->unsignedBigInteger('snapshot_version')->default(0);
+            $table->dateTime('snapshot_created_at');
+            $table->json('data');
+            $table->unique(['aggregate_type', 'aggregate_id'], 'pillar_snapshots_unique_aggregate');
+            $table->index(['aggregate_type', 'snapshot_version'], 'pillar_snapshots_type_version_idx');
+        });
+
+
         /** @var EventStoreRepository $repo */
         $repo = app(EventStoreRepository::class);
 

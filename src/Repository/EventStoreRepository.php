@@ -150,19 +150,14 @@ final readonly class EventStoreRepository implements AggregateRepository
         ]);
 
         $aggregate = null;
-        $snapshotVersion = 0;
-
-        if ($snapshot) {
-            $snapshotVersion = (int)($snapshot['snapshot_version'] ?? 0);
-        }
 
         // Caller’s requested starting cursor (defaults to 0)
         $requestedAfter = $window?->afterStreamSequence ?? 0;
 
         // Use snapshot only if it is at/after the requested start; otherwise rebuild earlier state
-        if ($snapshot && $snapshotVersion >= $requestedAfter) {
-            $aggregate = $snapshot['aggregate'];
-            $after = $snapshotVersion;
+        if ($snapshot && $snapshot->version >= $requestedAfter) {
+            $aggregate = $snapshot->aggregate;
+            $after = $snapshot->version;
         } else {
             $after = $requestedAfter;
         }

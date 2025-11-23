@@ -2,6 +2,7 @@
 
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Facade\Pillar;
+use Pillar\Snapshot\Snapshot;
 use Pillar\Snapshot\SnapshotStore;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
@@ -10,21 +11,18 @@ use Pillar\Aggregate\AggregateRootId;
 it('does not save a snapshot when committing with no new events', function () {
     // Fake in-memory snapshot store that persists and returns snapshots
     $fake = new class implements SnapshotStore {
-        /** @var array<string, array{aggregate: AggregateRoot, snapshot_version: int}> */
+        /** @var array<string, Snapshot}> */
         public array $store = [];
         /** @var int[] */
         public array $saved = [];
 
-        public function load(AggregateRootId $id): ?array
+        public function load(AggregateRootId $id): ?Snapshot
         {
             return $this->store[$id->value()] ?? null;
         }
         public function save(AggregateRoot $aggregate, int $sequence): void
         {
-            $this->store[$aggregate->id()->value()] = [
-                'aggregate' => $aggregate,
-                'snapshot_version' => $sequence,
-            ];
+            $this->store[$aggregate->id()->value()] = new Snapshot($aggregate, $sequence);
             $this->saved[] = $sequence;
         }
         public function delete(AggregateRootId $id): void {}

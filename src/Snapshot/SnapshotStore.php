@@ -16,9 +16,9 @@ interface SnapshotStore
      *
      * @param AggregateRootId $id
      *
-     * @return null|array{aggregate: T, snapshot_version: int}
+     * @return null|Snapshot
      */
-    public function load(AggregateRootId $id): ?array;
+    public function load(AggregateRootId $id): ?Snapshot;
 
     /**
      * Persist a snapshot for the given aggregate at the given sequence.

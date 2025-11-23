@@ -157,6 +157,7 @@ class PillarServiceProvider extends ServiceProvider
         $timestamp = date('Y_m_d_His');
 
         $names = [
+            'create_snapshots_table',
             'create_events_table',
             'create_outbox_table',
             'create_outbox_partitions_table',

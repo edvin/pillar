@@ -118,7 +118,11 @@ return [
     */
     'snapshot' => [
         'store' => [
-            'class' => \Pillar\Snapshot\CacheSnapshotStore::class,
+            //'class' => \Pillar\Snapshot\CacheSnapshotStore::class,
+            'class' => \Pillar\Snapshot\DatabaseSnapshotStore::class,
+            'options' => [
+                'table' => 'snapshots',
+            ]
         ],
         'ttl' => null, // Time-to-live in seconds (null = indefinitely)
 

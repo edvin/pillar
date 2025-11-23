@@ -13,7 +13,7 @@ readonly class CacheSnapshotStore implements SnapshotStore
 {
     public function __construct(private PillarLogger $logger) {}
 
-    public function load(AggregateRootId $id): ?array
+    public function load(AggregateRootId $id): ?Snapshot
     {
         if (!$this->isSnapshottable($id->aggregateClass())) {
             return null;
@@ -30,17 +30,15 @@ readonly class CacheSnapshotStore implements SnapshotStore
         }
 
         $aggregate = $id->aggregateClass()::fromSnapshot($payload['data']);
+        $version = $payload['snapshot_version'] ?? 0;
 
         $this->logger->debug('pillar.eventstore.snapshot_cache_hit', [
             'aggregate_type' => $id->aggregateClass(),
             'aggregate_id' => (string)$id,
-            'snapshot_version' => $payload['snapshot_version'] ?? 0,
+            'snapshot_version' => $version,
         ]);
 
-        return [
-            'aggregate' => $aggregate,
-            'snapshot_version' => $payload['snapshot_version'] ?? 0,
-        ];
+        return new Snapshot($aggregate, $version);
     }
 
     public function save(AggregateRoot $aggregate, int $sequence): void

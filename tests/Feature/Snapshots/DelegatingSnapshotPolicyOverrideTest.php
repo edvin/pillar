@@ -1,6 +1,9 @@
 <?php
 
+use Pillar\Aggregate\AggregateSession;
 use Pillar\Facade\Pillar;
+use Pillar\Repository\EventStoreRepository;
+use Pillar\Repository\RepositoryResolver;
 use Pillar\Snapshot\SnapshotStore;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\DelegatingSnapshotPolicy;
@@ -52,9 +55,9 @@ it('uses the per-aggregate override for Document instead of the default policy',
         // Make sure everyone re-resolves with the new policy
         app()->forgetInstance(DelegatingSnapshotPolicy::class);
         app()->forgetInstance(SnapshotPolicy::class);
-        app()->forgetInstance(\Pillar\Repository\EventStoreRepository::class);
-        app()->forgetInstance(\Pillar\Repository\RepositoryResolver::class);
-        app()->forgetInstance(\Pillar\Aggregate\AggregateSession::class);
+        app()->forgetInstance(EventStoreRepository::class);
+        app()->forgetInstance(RepositoryResolver::class);
+        app()->forgetInstance(AggregateSession::class);
 
         $id2 = DocumentId::new();
         $snap->delete($id2);
@@ -65,7 +68,7 @@ it('uses the per-aggregate override for Document instead of the default policy',
 
         $loaded = $snap->load($id2);
         expect($loaded)->not()->toBeNull()
-            ->and($loaded['snapshot_version'])->toBeGreaterThanOrEqual(1);
+            ->and($loaded->version)->toBeGreaterThanOrEqual(1);
     } finally {
         // Restore original config and clear policy singletons
         config()->set('pillar.snapshot', $original);

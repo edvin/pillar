@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Contracts\Events\Dispatcher;
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Aggregate\EventSourcedAggregateRoot;
@@ -10,11 +9,9 @@ use Pillar\Aggregate\RecordsEvents;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
 use Pillar\Event\StoredEvent;
-use Pillar\Repository\EventStoreRepository;
-use Pillar\Repository\LoadedAggregate;
+use Pillar\Snapshot\Snapshot;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
-use Tests\Fixtures\Document\DocumentId;
 
 /**
  * Minimal fake aggregate used for snapshot reconstitution in this test.
@@ -40,15 +37,12 @@ final class __FakeAggregate implements EventSourcedAggregateRoot
  */
 final class __FakeSnapshotStore implements SnapshotStore
 {
-    public function load(AggregateRootId $id): ?array
+    public function load(AggregateRootId $id): ?Snapshot
     {
-        return [
-            'aggregate' => new __FakeAggregate($id),
-            'snapshot_version' => 0,
-        ];
+        return new Snapshot(new __FakeAggregate($id), 0);
     }
 
-    public function save(AggregateRoot $aggregate, int $version): void
+    public function save(AggregateRoot $aggregate, int $sequence): void
     {
         // no-op for test
     }

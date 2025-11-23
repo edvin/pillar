@@ -64,14 +64,21 @@ final class Document implements Snapshottable, EventSourcedAggregateRoot
 
 > Aggregates that do **not** implement `Snapshottable` are ignored by the snapshot store.
 
+
 ### Configuration
+
+By default, Pillar uses the `DatabaseSnapshotStore`, storing snapshots in a relational database table. You can swap this for the cache-based store if you prefer an in-memory or Redis-backed snapshot layer.
 
 Configure snapshotting in `config/pillar.php`:
 
 ```php
 'snapshot' => [
     'store' => [
-        'class' => \Pillar\Snapshot\CacheSnapshotStore::class,
+        // 'class' => \Pillar\Snapshot\CacheSnapshotStore::class,
+        'class' => \Pillar\Snapshot\DatabaseSnapshotStore::class,
+        'options' => [
+            'table' => 'snapshots',
+        ],
     ],
     'ttl' => null, // Time-to-live in seconds (null = indefinitely)
 
@@ -141,10 +148,12 @@ if ($loaded) {
 }
 ```
 
+
 ### Storage
 
-The default `CacheSnapshotStore` uses Laravel’s cache. Set `ttl` for automatic expiry (seconds), or leave `null` to keep
-snapshots indefinitely. For best performance in production, point your cache to Redis or another fast store.
+The default `DatabaseSnapshotStore` persists snapshots in the database table configured under `snapshot.store.options.table` (`snapshots` by default). This makes snapshotting durable across restarts and cache flushes.
+
+Alternatively, you can switch to `CacheSnapshotStore`, which uses Laravel’s cache layer (e.g. Redis, database, or array cache) for snapshot storage. This is useful when you want ultra-fast, ephemeral snapshots that are backed by whatever cache store you configure in Laravel.
 
 ### Custom dynamic policy
 

@@ -47,5 +47,5 @@ it('rebuilds from events when snapshot is missing, then re-saves a snapshot', fu
 
     $after = $store->load($id);
     expect($after)->not()->toBeNull()
-        ->and($after['snapshot_version'])->toBe(3); // last applied aggregate sequence
+        ->and($after->version)->toBe(3); // last applied aggregate sequence
 });
