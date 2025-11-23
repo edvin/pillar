@@ -81,6 +81,7 @@ final readonly class EventStoreRepository implements AggregateRepository
                 $this->eventStoreAppendsCounter->inc(1, [
                     'aggregate_type' => $aggregate::class,
                 ]);
+
                 if (!EventContext::isReplaying() && $event instanceof ShouldPublishInline) {
 
                     EventContext::initialize(

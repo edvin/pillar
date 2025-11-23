@@ -50,6 +50,14 @@ You can detect this via `EventContext::isReplaying()`, which ensures projectors 
 For example, when updating a database, projectors should use *insert-or-update* logic instead of blindly inserting new
 records.
 
+> **Live vs replay:** Projectors see events in two ways:
+> - During **replay**, they are invoked directly by the replayer for matching event types, regardless of publishability.
+> - In the **live flow**, they only see events that are sent through the bus, which is controlled by your `PublicationPolicy`
+    >   (by default, events implementing `ShouldPublish`). Local events (no marker interface) are persisted and used to
+    >   rebuild aggregates, but they do not drive projectors live unless your policy says otherwise.
+
+--- 
+
 #### EventContext in projectors
 
 Just like other handlers, projectors run under an [`EventContext`](../concepts/events.md#event-context-timestamps-correlation-ids-aggregate-ids-replay-flags) that exposes:

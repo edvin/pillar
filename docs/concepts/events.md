@@ -88,8 +88,7 @@ final class TitleProjected implements ShouldPublishInline
 
 ## Publication policy
 
-Under the hood, a `PublicationPolicy` decides whether an event should be published. The default policy treats *
-*`ShouldPublish`** (and any configured attribute) as a publish signal and suppresses publication during **replay**:
+Under the hood, a `PublicationPolicy` decides whether an event should be sent to the **async publish pipeline** (the transactional outbox). It does **not** affect which events are persisted, which events are dispatched **inline** via `ShouldPublishInline`, or which events are delivered to projectors during **replay**. The default policy treats **`ShouldPublish`** (and any configured attribute) as a publish signal and suppresses publication during **replay**:
 
 ```php
 if (EventContext::isReplaying()) {
@@ -98,7 +97,7 @@ if (EventContext::isReplaying()) {
 return $event instanceof ShouldPublish;
 ```
 
-You can bind your own policy in the service container (see `pillar.publication_policy.class` in config).
+You can bind your own policy in the service container (see `pillar.publication_policy.class` in config). For more details and alternative policies (publish-all, projector-aware, etc.), see [Publication Policy](../concepts/publication-policy.md).
 
 ---
 
