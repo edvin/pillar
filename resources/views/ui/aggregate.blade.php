@@ -7,7 +7,7 @@
         <h1 class="text-3xl font-semibold mb-6">Stream timeline</h1>
 
         @php
-            $aggTypeFull  = $aggregate_type ?? null; // optional: controller may set this
+            $aggTypeFull  = $aggregate_type ?? null;
             $aggTypeShort = $aggTypeFull ? class_basename($aggTypeFull) : null;
         @endphp
         <div class="mb-4 flex items-start gap-3">
@@ -175,8 +175,8 @@
 
             // Utility: humanize event short name
             function humanizeEvent(type) {
-                // Extract class short name after last backslash or dot
-                let shortName = type.split(/[\\.]/).pop();
+                // Extract class short name after last backslash
+                let shortName = type.split(/\\/).pop();
                 // Insert spaces before capital letters (except first)
                 return shortName.replace(/([a-z])([A-Z])/g, '$1 $2');
             }
