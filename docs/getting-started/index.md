@@ -34,13 +34,14 @@ php artisan pillar:install
 
 Once `pillar:install` has finished and migrations have run, you should see:
 
-| File                                                                        | Description                                                               |
-|-----------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_events_table.php`             | Stores domain events                                                      |
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_table.php`             | Outbox storage for events implementing `ShouldPublish`                    |
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_partitions_table.php`  | Tracks outbox partitions to support cooperative leasing worker scheduling |
-| `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_workers_table.php`     | Tracks connected outbox publishing workers                                |
-| `config/pillar.php`                                                         | Configure Pillar                                                          |
+| File                                                                       | Description                                                               |
+|----------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_events_table.php`            | Stores domain events                                                      |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_table.php`            | Outbox storage for events implementing `ShouldPublish`                    |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_partitions_table.php` | Tracks outbox partitions to support cooperative leasing worker scheduling |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_outbox_workers_table.php`    | Tracks connected outbox publishing workers                                |
+| `database/migrations/YYYY_MM_DD_HHMMSS_create_snapshots_table.php`         | Stores aggregate root snapshots in a database table                       |
+| `config/pillar.php`                                                        | Configure Pillar                                                          |
 
 These give you:
 

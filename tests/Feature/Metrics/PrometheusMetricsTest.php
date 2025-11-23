@@ -8,6 +8,11 @@ use Pillar\Metrics\Prometheus\PrometheusMetrics;
 use Pillar\Provider\PillarServiceProvider;
 use Prometheus\Storage\Redis as RedisAdapter;
 
+use Pillar\Metrics\Prometheus\PrometheusCounter;
+use Pillar\Metrics\Prometheus\PrometheusGauge;
+use Pillar\Metrics\Prometheus\PrometheusHistogram;
+use Pillar\Metrics\Prometheus\PrometheusNameFactory;
+
 function configurePrometheusMetrics(string $namespace = 'pillar_test', array $defaultLabels = [
     'app' => 'pillar-tests',
     'env' => 'testing',
@@ -172,6 +177,90 @@ it('creates a Redis adapter when redis driver is configured and ext-redis is ava
     expect($adapter)->toBeInstanceOf(RedisAdapter::class);
 });
 
+it('PrometheusCounter builds label values in the configured order', function () {
+    $inner = Mockery::mock(\Prometheus\Counter::class);
+    $inner->shouldReceive('incBy')
+        ->once()
+        ->with(5.0, ['svcA', 'prod', 'us-east-1']);
+
+    $counter = new PrometheusCounter(
+        inner: $inner,
+        defaultLabels: ['app' => 'svcA', 'env' => 'prod'],
+        labelNames: ['app', 'env', 'region'],
+    );
+
+    $counter->inc(5.0, ['region' => 'us-east-1']);
+});
+
+it('PrometheusGauge uses incBy with negative amount when decrementing', function () {
+    $inner = Mockery::mock(\Prometheus\Gauge::class);
+    $inner->shouldReceive('incBy')
+        ->once()
+        ->with(-2.0, ['svcA', '']);
+
+    $gauge = new PrometheusGauge(
+        inner: $inner,
+        defaultLabels: ['app' => 'svcA'],
+        labelNames: ['app', 'env'],
+    );
+
+    // Only app is provided via defaults, env is missing → empty string
+    $gauge->dec(2.0, []);
+});
+
+it('PrometheusHistogram projects labels according to labelNames', function () {
+    $inner = Mockery::mock(\Prometheus\Histogram::class);
+    $inner->shouldReceive('observe')
+        ->once()
+        ->with(0.42, ['svcA', 'testing']);
+
+    $histogram = new PrometheusHistogram(
+        inner: $inner,
+        defaultLabels: ['app' => 'svcA'],
+        labelNames: ['app', 'env'],
+    );
+
+    $histogram->observe(0.42, ['env' => 'testing']);
+});
+
+it('Prometheus metric wrappers fall back to positional labels when no labelNames are configured', function () {
+    $innerCounter = Mockery::mock(\Prometheus\Counter::class);
+    $innerCounter->shouldReceive('incBy')
+        ->once()
+        ->with(1.0, ['foo', 'bar']);
+
+    $counter = new PrometheusCounter(inner: $innerCounter);
+    $counter->inc(1.0, ['a' => 'foo', 'b' => 'bar']);
+
+    $innerGauge = Mockery::mock(\Prometheus\Gauge::class);
+    $innerGauge->shouldReceive('set')
+        ->once()
+        ->with(3.14, ['x', 'y']);
+
+    $gauge = new PrometheusGauge(inner: $innerGauge);
+    $gauge->set(3.14, ['k1' => 'x', 'k2' => 'y']);
+
+    $innerHistogram = Mockery::mock(\Prometheus\Histogram::class);
+    $innerHistogram->shouldReceive('observe')
+        ->once()
+        ->with(0.1, ['v1', 'v2']);
+
+    $histogram = new PrometheusHistogram(inner: $innerHistogram);
+    $histogram->observe(0.1, ['l1' => 'v1', 'l2' => 'v2']);
+});
+
+it('PrometheusNameFactory normalizes metric names and prefixes invalid leading characters', function () {
+    $factory = new PrometheusNameFactory(namespace: 'pillar_test');
+
+    // Dashes and dots become underscores
+    expect($factory->metricName('http-server.requests.total'))
+        ->toBe('http_server_requests_total');
+
+    // Leading digit gets prefixed with underscore to satisfy Prometheus rules
+    expect($factory->metricName('123bad-name'))
+        ->toBe('_123bad_name');
+});
+
 /**
  * Helper to invoke a private method on the factory.
  *
@@ -185,3 +274,38 @@ function invokePrivateMethod(object $object, string $method, array $args = []): 
 
     return $m->invokeArgs($object, $args);
 }
+
+it('PrometheusGauge increments with ordered labels and no default labels', function () {
+    $inner = Mockery::mock(\Prometheus\Gauge::class);
+    $inner->shouldReceive('incBy')
+        ->once()
+        ->with(1.5, ['v1', 'v2']);
+
+    $gauge = new PrometheusGauge(
+        inner: $inner,
+        defaultLabels: [],                 // <- hit the `$all = $labels` branch
+        labelNames: ['l1', 'l2'],          // <- force labelNames path
+    );
+
+    $gauge->inc(1.5, ['l1' => 'v1', 'l2' => 'v2']);
+});
+
+it('PrometheusHistogram uses raw labels map when no default labels are configured', function () {
+    $inner = Mockery::mock(\Prometheus\Histogram::class);
+
+    // We expect the labels in the order of labelNames, using the raw $labels map
+    $inner->shouldReceive('observe')
+        ->once()
+        ->with(0.5, ['svcA', 'prod']);
+
+    $histogram = new PrometheusHistogram(
+        inner: $inner,
+        defaultLabels: [],                  // <- hit `$all = $labels`
+        labelNames: ['app', 'env'],         // <- force the labelNames branch
+    );
+
+    $histogram->observe(0.5, [
+        'app' => 'svcA',
+        'env' => 'prod',
+    ]);
+});

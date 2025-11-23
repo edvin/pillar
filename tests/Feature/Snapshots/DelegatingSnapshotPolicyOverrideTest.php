@@ -29,6 +29,7 @@ it('uses the per-aggregate override for Document instead of the default policy',
         // Force re-resolve with new config
         app()->forgetInstance(DelegatingSnapshotPolicy::class);
         app()->forgetInstance(SnapshotPolicy::class);
+        app()->forgetInstance(SnapshotStore::class);
 
         /** @var SnapshotStore $snap */
         $snap = app(SnapshotStore::class);
@@ -42,7 +43,7 @@ it('uses the per-aggregate override for Document instead of the default policy',
 
         expect($snap->load($id1))->toBeNull(); // no snapshot under OnDemand
 
-// 2) Override Document → Always; default still OnDemand
+        // 2) Override Document → Always; default still OnDemand
         config()->set('pillar.snapshot', [
             'policy' => ['class' => OnDemandSnapshotPolicy::class, 'options' => []],
             'overrides' => [

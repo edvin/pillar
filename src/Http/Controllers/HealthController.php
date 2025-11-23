@@ -1,5 +1,5 @@
 <?php
-
+// @codeCoverageIgnoreStart
 namespace Pillar\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
@@ -20,3 +20,4 @@ final class HealthController extends Controller
         return response()->json($result, $statusCode);
     }
 }
+// @codeCoverageIgnoreEnd

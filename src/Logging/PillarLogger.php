@@ -37,17 +37,9 @@ final class PillarLogger implements LoggerInterface
     {
         // If a specific Pillar channel is configured, use that.
         // Otherwise, fall back to Laravel's default logging channel.
-        $logger = $this->channel !== null
+        $this->logger = $this->channel !== null
             ? $logManager->channel($this->channel)
             : $logManager->channel();
-
-        // In practice Laravel's channels are already PSR-3 loggers,
-        // but we keep this safety check to be explicit.
-        if (!$logger instanceof LoggerInterface) {
-            $logger = $logManager->driver($this->channel ?? $logManager->getDefaultDriver());
-        }
-
-        $this->logger = $logger;
     }
 
     public function isEnabled(): bool

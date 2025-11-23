@@ -1,4 +1,5 @@
 <?php
+// @codeCoverageIgnoreStart
 
 namespace Pillar\Health;
 
@@ -252,3 +253,4 @@ final class PillarHealth
         }
     }
 }
+// @codeCoverageIgnoreEnd

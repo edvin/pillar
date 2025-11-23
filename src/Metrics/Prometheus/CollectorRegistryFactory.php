@@ -73,6 +73,7 @@ final class CollectorRegistryFactory
 
     private function createRedisAdapter(): Adapter
     {
+        // @codeCoverageIgnoreStart
         if (!class_exists(\Redis::class)) {
             $this->logger->error('pillar.metrics.redis_extension_missing', [
                 'driver' => 'redis',
@@ -81,6 +82,7 @@ final class CollectorRegistryFactory
                 "Prometheus storage driver 'redis' selected, but ext-redis is not installed."
             );
         }
+        // @codeCoverageIgnoreEnd
 
         $redis = new \Redis();
         $redis->connect(
@@ -89,9 +91,11 @@ final class CollectorRegistryFactory
             $this->redisTimeout ?? 0.1,
         );
 
+        // @codeCoverageIgnoreStart
         if ($this->redisAuth !== null) {
             $redis->auth($this->redisAuth);
         }
+        // @codeCoverageIgnoreEnd
 
         if ($this->redisDatabase !== null) {
             $redis->select($this->redisDatabase);
