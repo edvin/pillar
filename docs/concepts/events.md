@@ -114,7 +114,6 @@ This keeps replay pure and avoids side effects while still driving read models.
 
 ---
 
-
 ## Versioning, aliases, upcasting
 
 - **Versioning**: implement a `VersionedEvent` interface (if present in your app) so each stored row carries an
@@ -123,13 +122,15 @@ This keeps replay pure and avoids side effects while still driving read models.
 - **StoredEvent**: when fetching by global sequence, you get a `StoredEvent` wrapper with metadata (sequence, aggregate
   id, occurred at, correlation id, etc.).
 
-## Event context (timestamps, correlation IDs, replay flags)
+## Event context (timestamps, correlation IDs, aggregate IDs, replay flags)
 
 Every event recorded or replayed in Pillar runs under an **EventContext**, which provides:
 
 - **occurredAt()** → the UTC timestamp when the event *actually* happened  
   (during replay this is restored from event metadata).
 - **correlationId()** → a per-operation UUID used for tracing and log correlation.
+- **aggregateRootId()** → the typed `AggregateRootId` instance (for example `CustomerId`, `DocumentId`) when the event
+  stream can be resolved to a registered aggregate id class, or `null` otherwise.
 - **isReconstituting()** → true while rebuilding an aggregate from history.
 - **isReplaying()** → true while driving projectors in a replay (suppresses publication).
 
@@ -141,11 +142,37 @@ EventContext is automatically set when:
 Example:
 
 ```php
-EventContext::occurredAt();     // CarbonImmutable timestamp
-EventContext::correlationId();  // UUID string
+EventContext::occurredAt();        // CarbonImmutable timestamp
+EventContext::correlationId();     // UUID string
+EventContext::aggregateRootId();   // AggregateRootId|null
 ```
 
 Because **occurredAt** survives replay, projectors can use actual historical timestamps—even long after the event occurred.
+Because **aggregateRootId** is resolved from the stream name, handlers and projectors can correlate work to the exact
+aggregate instance that produced the event—without having to duplicate ids in the event payload.
+
+For convenience in handlers and projectors, you can also use the `Pillar\Event\UsesEventContext` trait, which exposes:
+
+- `aggregateRootId()` — returns the current `AggregateRootId|null`.
+- `aggregateRootIdAs(string $idClass)` — safely cast the id to a specific `AggregateRootId` subclass.
+- `correlationId()` and `occurredAt()` — thin wrappers around the corresponding `EventContext` accessors.
+
+```php
+use Pillar\Event\UsesEventContext;
+
+final class SendWelcomeEmail
+{
+    use UsesEventContext;
+
+    public function __invoke(CustomerRegistered $event): void
+    {
+        /** @var CustomerId|null $id */
+        $id = $this->aggregateRootIdAs(CustomerId::class);
+
+        // ...
+    }
+}
+```
 
 ---
 

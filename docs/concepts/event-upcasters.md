@@ -9,7 +9,7 @@ projectors ever see them.
 - [Versioned Events](../concepts/versioned-events.md)
 - [Serialization](../concepts/serialization.md)
 - [Context Registries](../concepts/context-registries.md)
-:::
+  :::
 
 ### Example
 
@@ -86,15 +86,25 @@ with the original metadata from storage:
 
 - `EventContext::occurredAt()` — returns the UTC timestamp of **when the event actually happened**.
 - `EventContext::correlationId()` — returns the logical operation ID spanning all events in the same flow.
+- `EventContext::aggregateRootId()` — returns the typed `AggregateRootId` instance (e.g. `CustomerId`, `DocumentId`)
+  when the stream can be resolved to a registered aggregate id class, or `null` otherwise.
 - `EventContext::isReconstituting()` / `EventContext::isReplaying()` — let you detect replay vs. live handling.
+
+For convenience in handlers and projectors, you can use the `Pillar\Event\UsesEventContext` trait, which exposes:
+
+- `aggregateRootId()` — typed aggregate id from the current `EventContext`.
+- `aggregateRootIdAs(string $idClass)` — safely cast the id to a specific `AggregateRootId` subclass.
+- `correlationId()` and `occurredAt()` — thin wrappers around the corresponding `EventContext` accessors.
 
 This means that even for **old events that have been upcasted** to a newer schema, your aggregates and projectors can
 still:
 
-- see the true historical time the event occurred, and
-- attach diagnostics or logs to the same correlation ID that was present when the event was first recorded.
+- see the true historical time the event occurred,
+- attach diagnostics or logs to the same correlation ID that was present when the event was first recorded, and
+- easily correlate work to the aggregate instance that produced the event, when that information is available.
 
-Upcasting transforms the **shape** of the payload; `EventContext` keeps the **when** and **why** intact.
+Upcasting transforms the **shape** of the payload; `EventContext` (and `UsesEventContext`) keep the **when**, **who**,
+and **why** intact.
 
 ---
 

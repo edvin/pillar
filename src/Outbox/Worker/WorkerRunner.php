@@ -7,6 +7,8 @@ use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Pillar\Aggregate\AggregateRegistry;
+use Pillar\Event\EventContext;
 use Pillar\Event\EventStore;
 use Pillar\Outbox\Lease\PartitionLeaseStore;
 use Pillar\Outbox\Outbox;
@@ -41,6 +43,7 @@ class WorkerRunner
         private readonly Dispatcher          $dispatcher,
         private readonly ?string             $workerId = null,
         private readonly Partitioner         $partitioner,
+        private readonly AggregateRegistry   $aggregateRegistry,
         Metrics                              $metrics,
         #[Config('pillar.outbox.worker.leasing')]
         private readonly bool                $leasing = true,
@@ -73,8 +76,7 @@ class WorkerRunner
         );
 
         $this->outboxTickDurationHistogram = $metrics->histogram(
-            'outbox_tick_duration_seconds',
-            []
+            'outbox_tick_duration_seconds'
         );
     }
 
@@ -175,7 +177,21 @@ class WorkerRunner
                 if ($stored === null) {
                     throw new RuntimeException('Stored event not found for sequence ' . $m->globalSequence);
                 }
-                $this->dispatcher->dispatch($stored->event);
+
+                $aggregateId = $this->aggregateRegistry->idFromStreamName($stored->streamId);
+
+                EventContext::initialize(
+                    occurredAt: $stored->occurredAt,
+                    correlationId: $stored->correlationId,
+                    aggregateRootId: $aggregateId,
+                );
+
+                try {
+                    $this->dispatcher->dispatch($stored->event);
+                } finally {
+                    EventContext::clear();
+                }
+
                 $this->outbox->markPublished($m);
                 $this->outboxDispatchCounter->inc(1, [
                     'success' => 'true',

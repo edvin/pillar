@@ -29,12 +29,13 @@ final class DocumentCreated implements VersionedEvent
 
 #### EventContext and metadata
 
-When an event is being **upcast or replayed**, the **payload** that your upcaster or handler receives is the serialized body of the event at a given version. Pillar initializes the [`EventContext`](../concepts/events.md#event-context-timestamps-correlation-ids-replay-flags) from the stored row before upcasting and rehydration, so you can inspect timestamps and correlation IDs without changing the payload itself.
+When an event is being **upcast or replayed**, the **payload** that your upcaster or handler receives is the serialized body of the event at a given version. Pillar initializes the [`EventContext`](../concepts/events.md#event-context-timestamps-correlation-ids-aggregate-ids-replay-flags) from the stored row before upcasting and rehydration, so you can inspect timestamps, correlation IDs, and aggregate IDs without changing the payload itself.
 
 During upcasting or replay you can read:
 
 - `EventContext::occurredAt()` — the original UTC timestamp when the event was recorded
 - `EventContext::correlationId()` — the correlation id for the logical operation
+- `EventContext::aggregateRootId()` — the typed aggregate id (when resolvable from the stream), or `null`
 - `EventContext::isReconstituting()` / `EventContext::isReplaying()` — to distinguish replay from live handling
 
 In most cases, upcasters should remain **pure payload transforms** (only reshaping the array). When you truly need to

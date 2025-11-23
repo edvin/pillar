@@ -110,12 +110,6 @@ final class AggregateScenario
     {
         // New logical operation → fresh event context
         EventContext::clear();
-        EventContext::initialize(
-            occurredAt: $this->time,
-            correlationId: 'test-'.spl_object_id($this),
-            reconstituting: false,
-            replaying: false,
-        );
 
         if ($this->aggregate === null) {
             $this->aggregate = $this->rehydrate();
@@ -124,6 +118,12 @@ final class AggregateScenario
         // Only capture events from this action, not from history or previous steps
         $this->aggregate->clearRecordedEvents();
         $this->thrown = null;
+
+        EventContext::initialize(
+            occurredAt: $this->time,
+            correlationId: 'test-'.spl_object_id($this),
+            aggregateRootId: $this->aggregate->id(),
+        );
 
         try {
             $action($this->aggregate);
@@ -293,10 +293,8 @@ final class AggregateScenario
         // Reconstitution path: apply historical events with isReconstituting() = true
         EventContext::clear();
         EventContext::initialize(
-            occurredAt: null,
             correlationId: 'test-rehydrate-'.spl_object_id($this),
             reconstituting: true,
-            replaying: false,
         );
 
         foreach ($this->given as $event) {

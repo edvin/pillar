@@ -21,7 +21,7 @@ See also [Events](/concepts/events) and [Outbox](/concepts/outbox).
 1. Your aggregate records events.
 2. On save, **all** events are persisted to the `events` table.
 3. Events that implement **`ShouldPublish`** are **enqueued** into the `outbox` table (same transaction), with an optional `partition_key` for sharding (see also [Aggregate Roots](/concepts/aggregate-roots) and [Events](/concepts/events)).
-4. A background worker periodically **claims** pending rows, **rehydrates** events via `EventStore::getByGlobalSequence($seq)`, **dispatches** them to the bus, and marks rows **published**.
+4. A background worker periodically **claims** pending rows, **rehydrates** events via `EventStore::getByGlobalSequence($seq)`, **initializes** the [`EventContext`](/concepts/events#event-context-timestamps-correlation-ids-aggregate-ids-replay-flags) with the original timestamp, correlation id, and resolved aggregate id (when available), **dispatches** them to the bus, and marks rows **published**.
 5. Failures increment `attempts`, capture `last_error`, and retry after `retry_backoff` seconds.
 
 **Delivery**: at‑least‑once. Make handlers [idempotent](/concepts/projectors).

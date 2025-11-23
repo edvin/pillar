@@ -10,7 +10,7 @@ stable payloads. For how events themselves are modeled, see [Events](../concepts
 - [Versioned Events](../concepts/versioned-events.md)
 - [Event upcasters](../concepts/event-upcasters.md)
 - [Configuration](../reference/configuration.md)
-:::
+  :::
 
 ## Default: JSON
 
@@ -98,8 +98,8 @@ wrapper unwraps and feeds plaintext back to the base serializer. This works equa
 - **Read (arrays)**: `toArray($payload)` unwraps **only when encryption is enabled**, then normalizes via the base
   serializer. (This keeps the hot path cheap when disabled.)
 - **Metadata** (ids, alias/type, version, timestamps) remains **plaintext**; only the payload is encrypted. This ensures
-  features like `EventContext::occurredAt()` and `EventContext::correlationId()` still see the original values even for
-  encrypted events.
+  features like `EventContext::occurredAt()`, `EventContext::correlationId()`, and `EventContext::aggregateRootId()`
+  still see the original values even for encrypted events.
 - You can mix encrypted and plaintext events over time; reads are seamless when enabled for those classes.
 
 ### Swap the cipher
@@ -118,7 +118,7 @@ the serializer is agnostic.
 
 ## Tips
 
-- Keep events as **simple value objects** (scalars/arrays) for long‑term compatibility.
+- Keep events as **simple value objects** (scalars/arrays) for long-term compatibility.
 - Version payloads with `VersionedEvent` and use **Upcasters** to evolve shapes safely.
 
 ---

@@ -36,7 +36,7 @@ In Pillar’s own test suite we use:
 
 - **Pest** for test definitions.
 - **Orchestra Testbench** to boot a minimal Laravel app.
-- **In‑memory SQLite** for the database.
+- **In-memory SQLite** for the database.
 - Laravel’s **`RefreshDatabase`** trait so migrations are run for each test group.
 
 A minimal setup looks like this:
@@ -85,7 +85,7 @@ abstract class TestCase extends BaseTestCase
         $config->set('app.cipher', 'AES-256-CBC');
         $config->set('app.key', 'base64:' . base64_encode(random_bytes(32)));
 
-        // In‑memory SQLite for fast, isolated tests
+        // In-memory SQLite for fast, isolated tests
         $config->set('database.default', 'sqlite');
         $config->set('database.connections.sqlite', [
             'driver' => 'sqlite',
@@ -174,7 +174,7 @@ AggregateScenario::for(AggregateRootId $id)
     ->at(CarbonImmutable|string $time): self;
 ```
 
-#### Multi‑step flows on the same aggregate
+#### Multi-step flows on the same aggregate
 
 You can chain multiple `whenAggregate()` calls on the same scenario instance:
 
@@ -197,7 +197,7 @@ $scenario->thenAggregate(function (Document $d) {
 
 Each `whenAggregate()`:
 
-- Reuses the **same in‑memory aggregate instance**.
+- Reuses the **same in-memory aggregate instance**.
 - Clears previously recorded events before running your callback.
 - Captures only the **newly recorded events** from that step.
 
@@ -254,7 +254,7 @@ expect($e)->toBeInstanceOf(DomainException::class)
 
 `->thrown()` always returns either the last `Throwable` raised in `whenAggregate()` (or `when()`), or `null` if no exception occurred.
 
-#### Time‑sensitive behavior with `->at()`
+#### Time-sensitive behavior with `->at()`
 
 `AggregateScenario` also lets you control the **logical time** via `EventContext`:
 
@@ -278,11 +278,14 @@ it('records occurredAt correctly', function () {
 Inside your aggregate or event factory you can use:
 
 ```php
-EventContext::occurredAt();    // logical event time (UTC)
-EventContext::correlationId(); // per‑operation trace id
+EventContext::occurredAt();        // logical event time (UTC)
+EventContext::correlationId();     // per-operation trace id
+EventContext::aggregateRootId();   // AggregateRootId|null for the current stream
 EventContext::isReconstituting();
 EventContext::isReplaying();
 ```
+
+You can also read `EventContext::aggregateRootId()` in handler or projector tests (or via the `UsesEventContext` trait) to assert that the correct aggregate id was propagated for a given event.
 
 ---
 
@@ -363,7 +366,7 @@ This is useful when you care about the **message**, **code**, or a custom except
 For each `whenCommand($command)`:
 
 1. It resolves `EventStore` and `CommandBus` from the container.
-2. It figures out the **current per‑stream version** for this aggregate (by reading the stream once).
+2. It figures out the **current per-stream version** for this aggregate (by reading the stream once).
 3. It dispatches the command via `$bus->dispatch($command)`.
 4. It calls `EventStore::streamFor($id, EventWindow::afterStreamSeq($before))`
    to fetch only the **new events** appended to this stream.
@@ -374,7 +377,7 @@ Because it uses `EventStoreRepository` in `thenAggregate()`, your tests see the 
 
 - Snapshots are respected.
 - Upcasters run.
-- Fetch strategies (chunked, streaming, load‑all) are used.
+- Fetch strategies (chunked, streaming, load-all) are used.
 - Outbox publication runs (if your handlers record publishable events).
 
 ---
@@ -412,7 +415,7 @@ it('is idempotent', function () {
 });
 ```
 
-For more end‑to‑end projector tests, you can:
+For more end-to-end projector tests, you can:
 
 - Seed events in the EventStore (via `CommandScenario` or plain `EventStore::append()`).
 - Run `pillar:replay-events` against a **test** database.
@@ -420,7 +423,7 @@ For more end‑to‑end projector tests, you can:
 
 ---
 
-## 4. 🌐 Multi‑aggregate / process tests {#multi-aggregate}
+## 4. 🌐 Multi-aggregate / process tests {#multi-aggregate}
 
 Sometimes your business flow involves **multiple aggregates**:
 
@@ -494,7 +497,7 @@ You can freely **mix and match**:
 
 - Use `AggregateScenario` for fast, pure domain tests.
 - Use `CommandScenario` when you want a single aggregate’s full pipeline.
-- Drop down to “manual wiring” for richer cross‑aggregate stories.
+- Drop down to “manual wiring” for richer cross-aggregate stories.
 
 ---
 
@@ -538,10 +541,10 @@ it('pillar:replay-events rebuilds projectors', function () {
 });
 ```
 
-Because tests use an **isolated, in‑memory DB** (via `RefreshDatabase` + SQLite), replaying is fast and safe, and you can assert on both:
+Because tests use an **isolated, in-memory DB** (via `RefreshDatabase` + SQLite), replaying is fast and safe, and you can assert on both:
 
 - CLI output / exit codes.
-- Side‑effects in projectors / read models.
+- Side-effects in projectors / read models.
 
 ---
 
@@ -549,8 +552,8 @@ Because tests use an **isolated, in‑memory DB** (via `RefreshDatabase` + SQLit
 
 - Use **`AggregateScenario`** when you want **pure aggregate tests**: no DB, no bus, just events and state.
 - Use **`CommandScenario`** when you want to exercise **command handlers + EventStore + repository** for a single aggregate.
-- Use **direct wiring** (EventStore + CommandBus + EventStoreRepository) for **multi‑aggregate flows** and integration tests.
-- Use `pillar:replay-events` in a test DB to verify **projector idempotency** and replay behavior end‑to‑end.
-- Let `RefreshDatabase` + an in‑memory SQLite connection keep tests **fast and isolated**.
+- Use **direct wiring** (EventStore + CommandBus + EventStoreRepository) for **multi-aggregate flows** and integration tests.
+- Use `pillar:replay-events` in a test DB to verify **projector idempotency** and replay behavior end-to-end.
+- Let `RefreshDatabase` + an in-memory SQLite connection keep tests **fast and isolated**.
 
 With these pieces, you can push confidence all the way from tiny invariants to full process flows—without sacrificing speed or clarity.

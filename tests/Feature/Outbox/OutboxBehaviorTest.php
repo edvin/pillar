@@ -12,6 +12,7 @@ use Pillar\Outbox\DatabaseOutbox;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\OutboxMessage;
 use Pillar\Outbox\Worker\WorkerRunner;
+use Tests\Fixtures\Document\DocumentId;
 
 it('does not dispatch a ShouldPublish event until a worker tick runs', function () {
     // Arrange: make the worker claim from all partitions (no leasing complexity)
@@ -24,7 +25,7 @@ it('does not dispatch a ShouldPublish event until a worker tick runs', function 
     $store = app(EventStore::class);
 
     // Append a publishable event directly (no aggregate needed for this assertion)
-    $aggregateId = GenericAggregateId::new();
+    $aggregateId = DocumentId::new();
     $store->append($aggregateId, new TestPublishedForTick('hello'), null);
 
     // Assert: nothing dispatched yet (enqueued in outbox only)

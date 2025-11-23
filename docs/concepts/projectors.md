@@ -19,11 +19,11 @@ final class DocumentCreatedProjector implements Projector
 }
 ```
 
-👉 **Related concepts:**  
-- [Events](../concepts/events.md)  
-- [Versioned Events](../concepts/versioned-events.md)  
-- [Event Window](../concepts/event-window.md)  
-- [Aggregate Sessions](../concepts/aggregate-sessions.md)  
+👉 **Related concepts:**
+- [Events](../concepts/events.md)
+- [Versioned Events](../concepts/versioned-events.md)
+- [Event Window](../concepts/event-window.md)
+- [Aggregate Sessions](../concepts/aggregate-sessions.md)
 - [Serialization](../concepts/serialization.md)
 
 Example of a listener that is not a projector and will not be invoked during replay:
@@ -49,6 +49,36 @@ You can detect this via `EventContext::isReplaying()`, which ensures projectors 
 
 For example, when updating a database, projectors should use *insert-or-update* logic instead of blindly inserting new
 records.
+
+#### EventContext in projectors
+
+Just like other handlers, projectors run under an [`EventContext`](../concepts/events.md#event-context-timestamps-correlation-ids-aggregate-ids-replay-flags) that exposes:
+
+- `EventContext::occurredAt()` — the original UTC timestamp when the event was recorded
+- `EventContext::correlationId()` — the correlation id for the logical operation
+- `EventContext::aggregateRootId()` — the typed aggregate id (when resolvable from the stream), or `null`
+- `EventContext::isReplaying()` — `true` during replay-driven projections
+
+For convenience you can also use the `Pillar\Event\UsesEventContext` trait inside projectors:
+
+```php
+use Pillar\Event\Projector;
+use Pillar\Event\UsesEventContext;
+
+final class DocumentCreatedProjector implements Projector
+{
+    use UsesEventContext;
+
+    public function __invoke(DocumentCreated $event): void
+    {
+        // Access metadata if needed
+        $occurredAt = $this->occurredAt();
+        $aggregateId = $this->aggregateRootId();
+
+        // Perform deterministic, replay-safe updates to the read model...
+    }
+}
+```
 
 ⚠️ **Important:** Listeners that perform side effects (such as sending emails, publishing messages, or calling APIs)
 must **not** implement `Projector`, since replays would re-trigger those side effects. Projectors should handle only

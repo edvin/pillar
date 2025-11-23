@@ -1,5 +1,6 @@
 <?php
 
+use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
@@ -25,6 +26,7 @@ function makeWorkerRunnerForTest(string $workerId, int $partitionCount = 6): Wor
         app(Dispatcher::class),
         $workerId,
         app(Partitioner::class),
+        app(AggregateRegistry::class),
         app(Metrics::class),
         false,
         $partitionCount,
@@ -45,6 +47,7 @@ function makeLeasingWorkerRunnerForTest(string $workerId, int $partitionCount = 
         app(Dispatcher::class),
         $workerId,
         app(Partitioner::class),
+        app(AggregateRegistry::class),
         app(Metrics::class),
         true,
         $partitionCount,
@@ -382,6 +385,7 @@ it('records failed messages and trims lastErrors when dispatching throws', funct
         $dispatcher,
         'error-worker',
         app(Partitioner::class),
+        app(AggregateRegistry::class),
         app(Metrics::class),
         false,   // leasing off – we don’t care about partitions here
         10,      // partition count (ignored by our fake outbox)
@@ -487,6 +491,7 @@ it('marks messages as failed when stored event is missing', function () {
         $dispatcher,
         'missing-event-worker',
         app(Partitioner::class),
+        app(AggregateRegistry::class),
         app(Metrics::class),
         false,   // leasing off
         10,
@@ -520,7 +525,7 @@ it('releases partitions we no longer desire', function () {
     $partitioner = app(Partitioner::class);
 
     // Fake lease store: starts owning a superset of what we "should" own
-    $fakeLeases = new class($partitioner) implements \Pillar\Outbox\Lease\PartitionLeaseStore {
+    $fakeLeases = new class($partitioner) implements PartitionLeaseStore {
         public array $owned;
         public array $released = [];
 
@@ -568,6 +573,7 @@ it('releases partitions we no longer desire', function () {
     $eventStore = app(EventStore::class);  // not used in this test
     $dispatcher = app(Dispatcher::class);
     $metrics = app(Metrics::class);
+    $aggregateRegistry = app(AggregateRegistry::class);
 
     $runner = new WorkerRunner(
         $registry,
@@ -577,6 +583,7 @@ it('releases partitions we no longer desire', function () {
         $dispatcher,
         'worker-a',
         $partitioner,
+        $aggregateRegistry,
         $metrics,
         true,   // leasing enabled
         2,      // small partition count: 0 and 1

@@ -4,6 +4,7 @@ namespace Pillar\Event;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use Pillar\Aggregate\AggregateRootId;
 
 final class EventContext
 {
@@ -11,6 +12,8 @@ final class EventContext
     private static ?string $correlationId = null;
     private static bool $reconstituting = false;
     private static bool $replaying = false;
+    private static ?AggregateRootId $aggregateRootId = null;
+
 
     public static function isReplaying(): bool
     {
@@ -25,7 +28,8 @@ final class EventContext
         CarbonImmutable|string|null $occurredAt = null,
         string|null                 $correlationId = null,
         bool                        $reconstituting = false,
-        bool                        $replaying = false
+        bool                        $replaying = false,
+        ?AggregateRootId            $aggregateRootId = null
     ): void
     {
         self::$occurredAt = $occurredAt
@@ -35,6 +39,7 @@ final class EventContext
         self::$correlationId = $correlationId ?? (string)Str::uuid();
         self::$reconstituting = $reconstituting;
         self::$replaying = $replaying;
+        self::$aggregateRootId = $aggregateRootId;
     }
 
     public static function isReconstituting(): bool
@@ -59,6 +64,15 @@ final class EventContext
     }
 
     /**
+     * Return the AggregateRootId connected to the current event.
+     *
+     * @return AggregateRootId|null
+     */
+    public static function aggregateRootId(): ?AggregateRootId {
+        return self::$aggregateRootId;
+    }
+
+    /**
      * Clear the current context (used after replaying or completing a request).
      */
     public static function clear(): void
@@ -67,6 +81,7 @@ final class EventContext
         self::$correlationId = null;
         self::$reconstituting = false;
         self::$replaying = false;
+        self::$aggregateRootId = null;
     }
 
     /**

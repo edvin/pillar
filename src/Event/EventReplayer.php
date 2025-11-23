@@ -31,10 +31,11 @@ final class EventReplayer
      * @param array<class-string, array<class-string>> $projectors Mapping of event FQCN → list of projector class names (must implement Projector).
      */
     public function __construct(
-        private PillarLogger        $logger,
-        private readonly EventStore $eventStore,
-        Metrics                     $metrics,
-        private array               $projectors = [],
+        private PillarLogger               $logger,
+        private readonly EventStore        $eventStore,
+        Metrics                            $metrics,
+        private readonly AggregateRegistry $aggregateRegistry,
+        private array                      $projectors = [],
     )
     {
         $this->replayStartedCounter = $metrics->counter(
@@ -90,12 +91,12 @@ final class EventReplayer
         $this->replayStartedCounter->inc();
 
         $context = [
-            'stream_id'     => $streamId,
-            'event_type'    => $eventType,
+            'stream_id' => $streamId,
+            'event_type' => $eventType,
             'from_sequence' => $fromSequence,
-            'to_sequence'   => $toSequence,
-            'from_date'     => $fromDate,
-            'to_date'       => $toDate,
+            'to_sequence' => $toSequence,
+            'from_date' => $fromDate,
+            'to_date' => $toDate,
         ];
 
         $this->logger->info('pillar.replay.started', $context);
@@ -110,8 +111,8 @@ final class EventReplayer
         }
 
         $this->logger->info('pillar.replay.completed', $context + [
-            'events_processed' => $count,
-        ]);
+                'events_processed' => $count,
+            ]);
     }
 
     /**
@@ -267,11 +268,14 @@ final class EventReplayer
             ++$count;
             $this->replayProcessedCounter->inc();
 
+            $aggregateRootId = $this->aggregateRegistry->idFromStreamName($storedEvent->streamId);
+
             EventContext::initialize(
                 occurredAt: $storedEvent->occurredAt,
                 correlationId: $storedEvent->correlationId,
                 reconstituting: true,
-                replaying: true
+                replaying: true,
+                aggregateRootId: $aggregateRootId,
             );
 
             $eventClass = $storedEvent->event::class;
@@ -281,8 +285,8 @@ final class EventReplayer
                 $listener = App::make($listenerClass);
                 $this->logger->debug('pillar.replay.dispatch', [
                     'event_type' => $storedEvent->eventType,
-                    'projector'  => $listenerClass,
-                    'sequence'   => $storedEvent->sequence ?? null,
+                    'projector' => $listenerClass,
+                    'sequence' => $storedEvent->sequence ?? null,
                 ]);
                 // @codeCoverageIgnoreStart
                 try {
@@ -290,9 +294,9 @@ final class EventReplayer
                 } catch (Throwable $e) {
                     $this->logger->error('pillar.replay.handler_failed', [
                         'event_type' => $storedEvent->eventType,
-                        'projector'  => $listenerClass,
-                        'sequence'   => $storedEvent->sequence ?? null,
-                        'exception'  => $e,
+                        'projector' => $listenerClass,
+                        'sequence' => $storedEvent->sequence ?? null,
+                        'exception' => $e,
                     ]);
                     $this->replayFailedCounter->inc();
                     throw $e;

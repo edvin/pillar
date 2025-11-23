@@ -82,7 +82,17 @@ final readonly class EventStoreRepository implements AggregateRepository
                     'aggregate_type' => $aggregate::class,
                 ]);
                 if (!EventContext::isReplaying() && $event instanceof ShouldPublishInline) {
-                    $this->dispatcher->dispatch($event);
+
+                    EventContext::initialize(
+                        correlationId: EventContext::correlationId() ?? null,
+                        aggregateRootId: $aggregate->id(),
+                    );
+
+                    try {
+                        $this->dispatcher->dispatch($event);
+                    } finally {
+                        EventContext::clear();
+                    }
                 }
                 $delta++;
                 if ($expected !== null) {
@@ -195,6 +205,7 @@ final readonly class EventStoreRepository implements AggregateRepository
                 occurredAt: $storedEvent->occurredAt,
                 correlationId: $storedEvent->correlationId,
                 reconstituting: true,
+                aggregateRootId: $id,
             );
             $aggregate->apply($storedEvent->event);
             $lastSeq = $storedEvent->streamSequence;
