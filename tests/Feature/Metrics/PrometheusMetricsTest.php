@@ -253,7 +253,6 @@ function invokePrivateMethod(object $object, string $method, array $args = []): 
 {
     $ref = new ReflectionClass($object);
     $m = $ref->getMethod($method);
-    $m->setAccessible(true);
 
     return $m->invokeArgs($object, $args);
 }

@@ -76,18 +76,14 @@ it('prints error and returns FAILURE when the replayer throws', function () {
         public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
         {
             // Per-aggregate path: unused in this test, but must satisfy Generator type.
-            if (false) {
-                yield;
-            }
+            yield from [];
         }
 
         public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
         {
             // Global scan path: this is what EventReplayer will use for aggregate_id = 'null'.
+            yield from [];
             throw new RuntimeException('boom');
-            if (false) {
-                yield;
-            }
         }
     };
 

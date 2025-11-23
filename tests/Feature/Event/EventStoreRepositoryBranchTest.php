@@ -38,16 +38,12 @@ it('throws when aggregateClass is not an EventSourcedAggregateRoot', function ()
 
         public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
         {
-            if (false) {
-                yield;
-            }
+            yield from [];
         }
 
         public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
         {
-            if (false) {
-                yield;
-            }
+            yield from [];
         }
     };
 

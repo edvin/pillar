@@ -108,7 +108,6 @@ it('distributes partitions across workers based on index', function () {
 
     $ref = new ReflectionClass(WorkerRunner::class);
     $method = $ref->getMethod('targetPartitionsFromWorkers');
-    $method->setAccessible(true);
 
     $partitioner = app(Partitioner::class);
 
@@ -130,7 +129,6 @@ it('returns no partitions when partition count is zero', function () {
 
     $ref = new ReflectionClass(WorkerRunner::class);
     $method = $ref->getMethod('targetPartitionsFromWorkers');
-    $method->setAccessible(true);
 
     /** @var string[] $parts */
     $parts = $method->invoke($runner, ['w1', 'w2']);
@@ -143,7 +141,6 @@ it('derives target partitions for a single active worker', function () {
 
     $ref = new ReflectionClass(WorkerRunner::class);
     $forMe = $ref->getMethod('targetPartitionsForMe');
-    $forMe->setAccessible(true);
 
     /** @var string[] $parts */
     $parts = $forMe->invoke($runner);
@@ -162,7 +159,6 @@ it('truncates long strings with an ellipsis', function () {
 
     $ref = new ReflectionClass(WorkerRunner::class);
     $method = $ref->getMethod('truncate');
-    $method->setAccessible(true);
 
     $lenFn = function_exists('mb_strlen') ? 'mb_strlen' : 'strlen';
     $substrFn = function_exists('mb_substr') ? 'mb_substr' : 'substr';
@@ -184,7 +180,6 @@ it('formats exceptions using shortError()', function () {
 
     $ref = new ReflectionClass(WorkerRunner::class);
     $method = $ref->getMethod('shortError');
-    $method->setAccessible(true);
 
     $lenFn = function_exists('mb_strlen') ? 'mb_strlen' : 'strlen';
     $substrFn = function_exists('mb_substr') ? 'mb_substr' : 'substr';
@@ -277,7 +272,6 @@ it('releases partitions when more workers join and shrink the target set', funct
     // Force a renew so we actually run the lease sync again on the next tick
     $ref = new \ReflectionClass(\Pillar\Outbox\Worker\WorkerRunner::class);
     $propLastRenew = $ref->getProperty('lastRenewNs');
-    $propLastRenew->setAccessible(true);
     $propLastRenew->setValue($runner, 0);
 
     // Second tick: worker-a should release some partitions and keep a subset
@@ -324,9 +318,9 @@ it('records failed messages and trims lastErrors when dispatching throws', funct
             // not used in this test
         }
 
-        public function markFailed(object $message, Throwable $e): void
+        public function markFailed(object $message, Throwable $error): void
         {
-            $this->failed[] = [$message, $e];
+            $this->failed[] = [$message, $error];
         }
 
         public function enqueue(int $globalSequence, ?string $partition = null): void
@@ -346,16 +340,12 @@ it('records failed messages and trims lastErrors when dispatching throws', funct
 
         public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
         {
-            if (false) {
-                yield;
-            }
+            yield from [];
         }
 
         public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
         {
-            if (false) {
-                yield;
-            }
+            yield from [];
         }
 
         public function getByGlobalSequence(int $sequence): ?StoredEvent
@@ -446,9 +436,9 @@ it('marks messages as failed when stored event is missing', function () {
             // not used in this test
         }
 
-        public function markFailed(object $message, Throwable $e): void
+        public function markFailed(object $message, Throwable $error): void
         {
-            $this->failed[] = [$message, $e];
+            $this->failed[] = [$message, $error];
         }
 
         public function enqueue(int $globalSequence, ?string $partition = null): void
@@ -466,16 +456,12 @@ it('marks messages as failed when stored event is missing', function () {
 
         public function streamFor(AggregateRootId $id, ?EventWindow $window = null): Generator
         {
-            if (false) {
-                yield;
-            }
+            yield from [];
         }
 
         public function stream(?EventWindow $window = null, ?string $eventType = null): Generator
         {
-            if (false) {
-                yield;
-            }
+            yield from [];
         }
 
         public function getByGlobalSequence(int $sequence): ?StoredEvent
@@ -603,7 +589,6 @@ it('releases partitions we no longer desire', function () {
     // Force a renew/sync on the next tick so the leasing logic runs
     $ref = new ReflectionClass(WorkerRunner::class);
     $propLastRenew = $ref->getProperty('lastRenewNs');
-    $propLastRenew->setAccessible(true);
     $propLastRenew->setValue($runner, 0);
 
     /** @var TickResult $result */

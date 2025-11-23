@@ -224,7 +224,6 @@ final class AggregateController extends Controller
         $data = ['_class' => $ref->getName()];
 
         foreach ($ref->getProperties() as $prop) {
-            $prop->setAccessible(true);
             $name = $prop->getName();
 
             try {
