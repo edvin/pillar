@@ -89,13 +89,12 @@ $session = app(\Pillar\Aggregate\AggregateSession::class);
 If you prefer facades and have the Pillar facade enabled in your app, you can do:
 
 ```php
-use Pillar; // or use Pillar\Support\Facades\Pillar;
+use Pillar\Facade\Pillar;
 
-Pillar::session()
-    ->find(DocumentId::from($id))
-    ->rename('New title');
-
-Pillar::session()->commit();
+$session = Pillar::session();
+$doc = $session->find(DocumentId::from($id));
+$doc->rename('New title');
+$session->commit();
 ```
 
 > Sessions are lightweight and scoped to a single command.  
