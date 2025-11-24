@@ -5,7 +5,7 @@ namespace Pillar\Event;
 use Carbon\CarbonImmutable;
 use Pillar\Aggregate\AggregateRootId;
 
-trait UsesEventContext
+trait InteractsWithEventContext
 {
     protected function aggregateRootId(): ?AggregateRootId
     {

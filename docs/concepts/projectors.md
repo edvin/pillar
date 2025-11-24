@@ -67,15 +67,15 @@ Just like other handlers, projectors run under an [`EventContext`](../concepts/e
 - `EventContext::aggregateRootId()` — the typed aggregate id (when resolvable from the stream), or `null`
 - `EventContext::isReplaying()` — `true` during replay-driven projections
 
-For convenience you can also use the `Pillar\Event\UsesEventContext` trait inside projectors:
+For convenience you can also use the `Pillar\Event\InteractsWithEventContext` trait inside projectors:
 
 ```php
 use Pillar\Event\Projector;
-use Pillar\Event\UsesEventContext;
+use Pillar\Event\InteractsWithEventContext;
 
 final class DocumentCreatedProjector implements Projector
 {
-    use UsesEventContext;
+    use InteractsWithEventContext;
 
     public function __invoke(DocumentCreated $event): void
     {
