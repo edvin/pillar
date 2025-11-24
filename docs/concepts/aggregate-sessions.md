@@ -42,7 +42,7 @@ Think of it as your “command-scoped mini Unit of Work,” purpose‑built for 
 
 You can obtain an `AggregateSession` in whichever way fits your app. Pillar does **not** force a certain project structure or way of working.
 
-1) **Constructor injection (recommended for handlers)**
+1) **Constructor injection**
 
 ```php
 use Pillar\Aggregate\AggregateSession;
@@ -62,7 +62,7 @@ final class RenameDocumentHandler
 }
 ```
 
-2) **Method injection** (Laravel will resolve it per-invocation)
+2) **Method injection**
 
 ```php
 use Pillar\Aggregate\AggregateSession;
@@ -79,14 +79,8 @@ final class RenameDocumentHandler
 }
 ```
 
-3) **Resolve on the fly** (for scripts / ad‑hoc usage)
-
-```php
-$session = app(\Pillar\Aggregate\AggregateSession::class);
-```
-
-4) **Pillar Facade (optional)**  
-If you prefer facades and have the Pillar facade enabled in your app, you can do:
+3**Pillar Facade**  
+If you prefer facades, you can do:
 
 ```php
 use Pillar\Facade\Pillar;
@@ -111,7 +105,6 @@ $session->commit();
 $invoice = $session->find(InvoiceId::from($cmd->id));
 $invoice->addLine($cmd->sku, $cmd->qty);
 $invoice->finalize();
-
 $session->commit();
 ```
 
