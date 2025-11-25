@@ -21,6 +21,7 @@ final class ContextProbeProjector implements Projector
             'type' => get_class($event),
             'corr' => EventContext::correlationId(),
             'ts' => (string)EventContext::occurredAt(),
+            'aggregateRootId' => (string)EventContext::aggregateRootId(),
         ];
     }
 }

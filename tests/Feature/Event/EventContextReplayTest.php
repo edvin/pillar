@@ -42,10 +42,13 @@ it('sets correlation id and timestamp in EventContext during replay', function (
 
     // Extract what the projector saw
     $seenCorr = array_map(fn($row) => $row['corr'], ContextProbeProjector::$seen);
-    $seenTs   = array_map(fn($row) => $row['ts'],   ContextProbeProjector::$seen);
+    $seenTs = array_map(fn($row) => $row['ts'], ContextProbeProjector::$seen);
+    $seenIds = array_map(fn($row) => $row['aggregateRootId'], ContextProbeProjector::$seen);
 
     // We explicitly set correlation ids per commit → order should be preserved on replay
     expect($seenCorr)->toEqual(['C-1', 'C-2']);
+
+    expect($seenIds)->toEqual([$id, $id]);
 
     // Timestamps should be present and look like "YYYY-mm-dd HH:ii:ss"
     expect($seenTs)->toHaveCount(2);
