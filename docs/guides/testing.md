@@ -285,7 +285,7 @@ EventContext::isReconstituting();
 EventContext::isReplaying();
 ```
 
-You can also read `EventContext::aggregateRootId()` in handler or projector tests (or via the `InteractsWithEventContext` trait) to assert that the correct aggregate id was propagated for a given event.
+You can also read `EventContext::aggregateRootId()` in handler or projector tests (or via the `InteractsWithEvents` trait) to assert that the correct aggregate id was propagated for a given event.
 
 ---
 

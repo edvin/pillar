@@ -90,7 +90,7 @@ with the original metadata from storage:
   when the stream can be resolved to a registered aggregate id class, or `null` otherwise.
 - `EventContext::isReconstituting()` / `EventContext::isReplaying()` — let you detect replay vs. live handling.
 
-For convenience in handlers and projectors, you can use the `Pillar\Event\InteractsWithEventContext` trait, which exposes:
+For convenience in handlers and projectors, you can use the `Pillar\Event\InteractsWithEvents` trait, which exposes:
 
 - `aggregateRootId()` — typed aggregate id from the current `EventContext`.
 - `aggregateRootIdAs(string $idClass)` — safely cast the id to a specific `AggregateRootId` subclass.
@@ -103,7 +103,7 @@ still:
 - attach diagnostics or logs to the same correlation ID that was present when the event was first recorded, and
 - easily correlate work to the aggregate instance that produced the event, when that information is available.
 
-Upcasting transforms the **shape** of the payload; `EventContext` (and `InteractsWithEventContext`) keep the **when**, **who**,
+Upcasting transforms the **shape** of the payload; `EventContext` (and `InteractsWithEvents`) keep the **when**, **who**,
 and **why** intact.
 
 ---

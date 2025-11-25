@@ -150,18 +150,18 @@ Because **occurredAt** survives replay, projectors can use actual historical tim
 Because **aggregateRootId** is resolved from the stream name, handlers and projectors can correlate work to the exact
 aggregate instance that produced the event—without having to duplicate ids in the event payload.
 
-For convenience in handlers and projectors, you can also use the `Pillar\Event\InteractsWithEventContext` trait, which exposes:
+For convenience in handlers and projectors, you can also use the `Pillar\Event\InteractsWithEvents` trait, which exposes:
 
 - `aggregateRootId()` — returns the current `AggregateRootId|null`.
 - `aggregateRootIdAs(string $idClass)` — safely cast the id to a specific `AggregateRootId` subclass.
 - `correlationId()` and `occurredAt()` — thin wrappers around the corresponding `EventContext` accessors.
 
 ```php
-use Pillar\Event\InteractsWithEventContext;
+use Pillar\Event\InteractsWithEvents;
 
 final class SendWelcomeEmail
 {
-    use InteractsWithEventContext;
+    use InteractsWithEvents;
 
     public function __invoke(CustomerRegistered $event): void
     {
