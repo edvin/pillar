@@ -16,6 +16,7 @@ use Pillar\Event\ShouldPublishInline;
 use Pillar\Logging\PillarLogger;
 use Pillar\Metrics\Counter;
 use Pillar\Metrics\Metrics;
+use Pillar\Snapshot\CreateSnapshotJob;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Pillar\Snapshot\Snapshottable;
@@ -26,7 +27,6 @@ final readonly class EventStoreRepository implements AggregateRepository
     private Counter $eventStoreAppendsCounter;
     private Counter $eventStoreReadsCounter;
     private Counter $snapshotLoadCounter;
-    private Counter $snapshotSaveCounter;
 
     public function __construct(
         private PillarLogger   $logger,
@@ -36,6 +36,12 @@ final readonly class EventStoreRepository implements AggregateRepository
         private Dispatcher     $dispatcher,
         #[Config('pillar.event_store.options.optimistic_locking', false)]
         private bool           $optimisticLocking,
+        #[Config('pillar.snapshot.mode', 'inline')]
+        private string         $snapshotMode,
+        #[Config('pillar.snapshot.connection', 'database')]
+        private string         $snapshotConnection,
+        #[Config('pillar.snapshot.queue', 'default')]
+        private string         $snapshotQueue,
         Metrics                $metrics,
     )
     {
@@ -54,10 +60,6 @@ final readonly class EventStoreRepository implements AggregateRepository
             ['aggregate_type', 'hit']
         );
 
-        $this->snapshotSaveCounter = $metrics->counter(
-            'eventstore_snapshot_save_total',
-            ['aggregate_type']
-        );
     }
 
     /** @throws Throwable */
@@ -107,15 +109,7 @@ final readonly class EventStoreRepository implements AggregateRepository
                     : max(0, $lastSeq - $delta);
 
                 if ($this->snapshotPolicy->shouldSnapshot($aggregate, $lastSeq, $prevSeq, $delta)) {
-                    $this->snapshots->save($aggregate, $lastSeq);
-                    $this->logger->debug('pillar.eventstore.snapshot_saved', [
-                        'aggregate_type' => $aggregate::class,
-                        'aggregate_id' => (string)$aggregate->id(),
-                        'seq' => $lastSeq,
-                    ]);
-                    $this->snapshotSaveCounter->inc(1, [
-                        'aggregate_type' => $aggregate::class,
-                    ]);
+                    $this->scheduleSnapshot($aggregate, $aggregate->id(), $lastSeq);
                 } else {
                     $this->logger->debug('pillar.eventstore.snapshot_skipped', [
                         'aggregate_type' => $aggregate::class,
@@ -238,19 +232,49 @@ final readonly class EventStoreRepository implements AggregateRepository
             $newSeq = $lastSeq;   // version after applying events in window
             $delta = max(0, $newSeq - $prevSeq);
 
-            if ($this->snapshotPolicy->shouldSnapshot($aggregate, $newSeq, $prevSeq, $delta)) {
-                $this->snapshots->save($aggregate, $newSeq);
-                $this->logger->debug('pillar.eventstore.snapshot_saved', [
-                    'aggregate_type' => $aggregateClass,
-                    'aggregate_id' => (string)$id,
-                    'seq' => $newSeq,
-                ]);
-                $this->snapshotSaveCounter->inc(1, [
-                    'aggregate_type' => $aggregateClass,
-                ]);
+
+            if (
+                $aggregate instanceof Snapshottable &&
+                $this->snapshotPolicy->shouldSnapshot($aggregate, $newSeq, $prevSeq, $delta)
+            ) {
+                $this->scheduleSnapshot($aggregate, $id, $newSeq);
             }
         }
 
         return new LoadedAggregate($aggregate, $persistedVersion);
+    }
+
+    private function scheduleSnapshot(
+        Snapshottable   $aggregate,
+        AggregateRootId $id,
+        int             $seq,
+    ): void
+    {
+        $payload = $aggregate->toSnapshot();
+
+        if ($this->snapshotMode === 'queued') {
+            DB::afterCommit(function () use ($id, $seq, $payload) {
+                CreateSnapshotJob::dispatch(
+                    $id::class,
+                    (string)$id,
+                    $seq,
+                    $payload,
+                )
+                    ->onConnection($this->snapshotConnection)
+                    ->onQueue($this->snapshotQueue);
+            });
+
+            $this->logger->debug('pillar.eventstore.snapshot_queued', [
+                'aggregate_type' => $id->aggregateClass(),
+                'aggregate_id' => (string)$id,
+                'seq' => $seq,
+            ]);
+
+            return;
+        }
+
+        DB::afterCommit(function () use ($id, $seq, $payload) {
+            $this->snapshots->save($id, $seq, $payload);
+        });
     }
 }

@@ -2,16 +2,30 @@
 
 namespace Pillar\Snapshot;
 
-use Pillar\Aggregate\AggregateRoot;
-use Pillar\Aggregate\AggregateRootId;
+use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Config;
+use Pillar\Aggregate\AggregateRootId;
 use Pillar\Logging\PillarLogger;
+use Pillar\Metrics\Counter;
+use Pillar\Metrics\Metrics;
 
 readonly class CacheSnapshotStore implements SnapshotStore
 {
-    public function __construct(private PillarLogger $logger) {}
+    private Counter $snapshotSaveCounter;
+
+    public function __construct(
+        private PillarLogger $logger,
+        #[Config('pillar.snapshot.ttl')]
+        private ?int         $ttl,
+        Metrics              $metrics,
+    )
+    {
+        $this->snapshotSaveCounter = $metrics->counter(
+            'eventstore_snapshot_save_total',
+            ['aggregate_type']
+        );
+    }
 
     public function load(AggregateRootId $id): ?Snapshot
     {
@@ -41,30 +55,38 @@ readonly class CacheSnapshotStore implements SnapshotStore
         return new Snapshot($aggregate, $version);
     }
 
-    public function save(AggregateRoot $aggregate, int $sequence): void
+    public function save(AggregateRootId $id, int $sequence, array $payload): void
     {
-        if (!$this->isSnapshottable($aggregate::class)) {
+        $aggregateClass = $id->aggregateClass();
+
+        if (!$this->isSnapshottable($aggregateClass)) {
             return;
         }
 
-        $payload = [
-            'data' => $aggregate->toSnapshot(),
+        $now = Carbon::now('UTC');
+
+        $cachedPayload = [
+            'data' => $payload,
             'snapshot_version' => $sequence,
-            'snapshot_created_at' => Carbon::now('UTC')->format('Y-m-d H:i:s'),
+            'snapshot_created_at' => $now->format('Y-m-d H:i:s'),
         ];
 
-        $ttl = Config::get('pillar.snapshot.ttl');
-
         Cache::put(
-            $this->cacheKey($aggregate::class, $aggregate->id()),
-            $payload,
-            $ttl === null ? null : Carbon::now('UTC')->modify("+$ttl seconds")
+            $this->cacheKey($aggregateClass, $id),
+            $cachedPayload,
+            $this->ttl === null
+                ? null
+                : $now->copy()->addSeconds($this->ttl)
         );
 
         $this->logger->debug('pillar.eventstore.snapshot_saved', [
-            'aggregate_type' => $aggregate::class,
-            'aggregate_id' => (string)$aggregate->id(),
+            'aggregate_type' => $id->aggregateClass(),
+            'aggregate_id' => (string)$id,
             'seq' => $sequence,
+        ]);
+
+        $this->snapshotSaveCounter->inc(1, [
+            'aggregate_type' => $id->aggregateClass(),
         ]);
     }
 

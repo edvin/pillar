@@ -37,7 +37,7 @@ it('no-ops save() when aggregate is not Snapshottable', function (string $storeC
 
     /** @var SnapshotStore $store */
     $store = app(SnapshotStore::class);
-    $store->save($aggregate, 123);
+    $store->save($aggregate->id(), 123, []);
 
     // Early-return path means no snapshot write happens
     if ($storeClass === CacheSnapshotStore::class) {

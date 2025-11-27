@@ -88,6 +88,10 @@ Configure snapshotting in `config/pillar.php`:
         'options' => [],
     ],
 
+    'mode' => 'inline', // 'inline' or 'queued'
+    'queue' => env('PILLAR_SNAPSHOT_QUEUE', 'default'),
+    'connection' => env('PILLAR_SNAPSHOT_QUEUE_CONNECTION', env('QUEUE_CONNECTION', 'database')),
+
     // Per-aggregate overrides (keyed by aggregate root class)
     'overrides' => [
         // \App\Domain\Foo\FooAggregate::class => [
@@ -134,6 +138,8 @@ For more on how this fits into the bigger picture, see [CQRS](../concepts/cqrs.m
 
 When using `OnDemandSnapshotPolicy`, Pillar won't auto-snapshot.
 
+**Note:** SnapshotStore::save() takes an aggregate ID, sequence number, and a payload (the aggregate's snapshot memento), rather than the aggregate instance itself.
+
 **Tip:** You can take a snapshot at any **arbitrary point**, regardless of which `SnapshotPolicy` is configured —
 calling `SnapshotStore::save(...)` bypasses the policy (the store will still no‑op for aggregates that don’t implement
 `Snapshottable`). If you need the current persisted version, load the aggregate via its repository:
@@ -144,7 +150,11 @@ use Pillar\Snapshot\SnapshotStore;
 
 $loaded = app(RepositoryResolver::class)->forId($id)->find($id);
 if ($loaded) {
-    app(SnapshotStore::class)->save($loaded->aggregate, $loaded->version);
+    app(SnapshotStore::class)->save(
+        $id,
+        $loaded->version,
+        $loaded->aggregate->toSnapshot(),
+    );
 }
 ```
 

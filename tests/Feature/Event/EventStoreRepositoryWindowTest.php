@@ -42,7 +42,7 @@ final class __FakeSnapshotStore implements SnapshotStore
         return new Snapshot(new __FakeAggregate($id), 0);
     }
 
-    public function save(AggregateRoot $aggregate, int $sequence): void
+    public function save(AggregateRootID $id, int $sequence, array $payload): void
     {
         // no-op for test
     }

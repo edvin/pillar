@@ -23,10 +23,11 @@ interface SnapshotStore
     /**
      * Persist a snapshot for the given aggregate at the given sequence.
      *
-     * @param T $aggregate
+     * @param AggregateRootId $id
      * @param int $sequence
+     * @param array<string, mixed> $payload Snapshot memento (from toSnapshot()).
      */
-    public function save(AggregateRoot $aggregate, int $sequence): void;
+    public function save(AggregateRootId $id, int $sequence, array $payload): void;
 
     /**
      * Remove any stored snapshot for the given aggregate. The class is derived

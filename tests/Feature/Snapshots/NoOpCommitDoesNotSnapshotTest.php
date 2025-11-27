@@ -20,9 +20,10 @@ it('does not save a snapshot when committing with no new events', function () {
         {
             return $this->store[$id->value()] ?? null;
         }
-        public function save(AggregateRoot $aggregate, int $sequence): void
+        public function save(AggregateRootId $id, int $sequence, array $payload): void
         {
-            $this->store[$aggregate->id()->value()] = new Snapshot($aggregate, $sequence);
+            $aggregate = $id->aggregateClass()::fromSnapshot($payload);
+            $this->store[$id->value()] = new Snapshot($aggregate, $sequence);
             $this->saved[] = $sequence;
         }
         public function delete(AggregateRootId $id): void {}

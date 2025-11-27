@@ -5,18 +5,26 @@ namespace Pillar\Snapshot;
 use Illuminate\Container\Attributes\Config;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Logging\PillarLogger;
+use Pillar\Metrics\Counter;
+use Pillar\Metrics\Metrics;
 
 readonly class DatabaseSnapshotStore implements SnapshotStore
 {
+    private Counter $snapshotSaveCounter;
+
     public function __construct(
         private PillarLogger $logger,
         #[Config('pillar.snapshot.store.options.table', 'snapshots')]
         private string       $table,
+        Metrics              $metrics,
     )
     {
+        $this->snapshotSaveCounter = $metrics->counter(
+            'eventstore_snapshot_save_total',
+            ['aggregate_type']
+        );
     }
 
     public function load(AggregateRootId $id): ?Snapshot
@@ -55,37 +63,38 @@ readonly class DatabaseSnapshotStore implements SnapshotStore
         return new Snapshot($aggregate, $payload['snapshot_version']);
     }
 
-    public function save(AggregateRoot $aggregate, int $sequence): void
+    public function save(AggregateRootId $id, int $sequence, array $payload): void
     {
-        if (!$this->isSnapshottable($aggregate::class)) {
+        $aggregateClass = $id->aggregateClass();
+
+        if (!$this->isSnapshottable($aggregateClass)) {
             return;
         }
 
         $now = Carbon::now('UTC');
 
-        $payload = [
-            'data' => $aggregate->toSnapshot(),
-            'snapshot_version' => $sequence,
-            'snapshot_created_at' => $now->format('Y-m-d H:i:s'),
-        ];
-
         DB::table($this->table)->updateOrInsert(
             [
-                'aggregate_type' => $aggregate::class,
-                'aggregate_id' => (string)$aggregate->id(),
+                'aggregate_type' => $aggregateClass,
+                'aggregate_id' => (string)$id,
             ],
             [
-                'data' => json_encode($payload['data']),
-                'snapshot_version' => $payload['snapshot_version'],
-                'snapshot_created_at' => $payload['snapshot_created_at'],
+                'data' => json_encode($payload),
+                'snapshot_version' => $sequence,
+                'snapshot_created_at' => $now->format('Y-m-d H:i:s'),
             ]
         );
 
-        $this->logger->debug('pillar.eventstore.snapshot_db_saved', [
-            'aggregate_type' => $aggregate::class,
-            'aggregate_id' => (string)$aggregate->id(),
+        $this->logger->debug('pillar.eventstore.snapshot_saved', [
+            'aggregate_type' => $id->aggregateClass(),
+            'aggregate_id' => (string)$id,
             'seq' => $sequence,
         ]);
+
+        $this->snapshotSaveCounter->inc(1, [
+            'aggregate_type' => $id->aggregateClass(),
+        ]);
+
     }
 
     public function delete(AggregateRootId $id): void

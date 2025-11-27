@@ -24,9 +24,10 @@ it('saves a snapshot with the last aggregate version after commit', function () 
             return $this->store[$id->value()] ?? null;
         }
 
-        public function save(AggregateRoot $aggregate, int $sequence): void
+        public function save(AggregateRootId $id, int $sequence, array $payload): void
         {
-            $this->store[$aggregate->id()->value()] = new Snapshot($aggregate, $sequence);
+            $aggregate = $id->aggregateClass()::fromSnapshot($payload);
+            $this->store[$id->value()] = new Snapshot($aggregate, $sequence);
             $this->saved[] = $sequence;
         }
 

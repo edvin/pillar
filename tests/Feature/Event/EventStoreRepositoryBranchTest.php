@@ -54,7 +54,11 @@ it('throws when aggregateClass is not an EventSourcedAggregateRoot', function ()
         eventStore: $events,
         dispatcher: app(Dispatcher::class),
         optimisticLocking: false,
-        metrics: app(Metrics::class)
+        snapshotMode: 'inline',
+        snapshotConnection: 'default',
+        snapshotQueue: 'default',
+        metrics: app(Metrics::class),
+
     );
 
     // ID that resolves to a non-event-sourced aggregate (stdClass)

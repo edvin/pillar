@@ -124,6 +124,49 @@ return [
                 'table' => 'snapshots',
             ]
         ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | 🚚 Snapshot dispatch mode
+        |--------------------------------------------------------------------------
+        |
+        | Controls how Pillar persists snapshots once the surrounding DB
+        | transaction has committed:
+        |
+        |   'inline' → Persist snapshots in the same PHP process after commit.
+        |   'queued' → Dispatch a lightweight job; a queue worker persists
+        |              the snapshot out-of-band.
+        |
+        | In both cases, snapshotting is **never** part of the main write
+        | transaction – failures here do not roll back your events.
+        |
+        */
+        'mode' => 'inline', // 'inline' or 'queued'
+
+        /*
+        |--------------------------------------------------------------------------
+        | 📥 Queue routing (queued mode)
+        |--------------------------------------------------------------------------
+        |
+        | These settings are only used when 'mode' is set to 'queued'.
+        |
+        |   PILLAR_SNAPSHOT_QUEUE_CONNECTION
+        |       → Which Laravel queue connection to use.
+        |         Defaults to your global QUEUE_CONNECTION.
+        |
+        |   PILLAR_SNAPSHOT_QUEUE
+        |       → Queue name where snapshot jobs are pushed.
+        |
+        | Use this to isolate snapshot traffic onto a dedicated queue/connection
+        | if you want to keep it away from latency-sensitive work.
+        |
+        */
+        'queue' => env('PILLAR_SNAPSHOT_QUEUE', 'default'),
+        'connection' => env(
+            'PILLAR_SNAPSHOT_QUEUE_CONNECTION',
+            env('QUEUE_CONNECTION', 'database'),
+        ),
+
         'ttl' => null, // Time-to-live in seconds (null = indefinitely)
 
         // Global default policy
