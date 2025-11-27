@@ -106,6 +106,13 @@ Configure snapshotting in `config/pillar.php`:
 ],
 ```
 
+`mode` controls **how** snapshots are persisted after the event-store transaction commits:
+
+- `inline` persists snapshots in the same PHP process using `DB::afterCommit()`.
+- `queued` dispatches a `CreateSnapshotJob` to Laravel's queue so snapshots are saved out-of-band.
+
+When you enable `queued` mode, make sure you have a queue worker running (for example: `php artisan queue:work`) so snapshot jobs are actually processed.
+
 Pillar resolves a `SnapshotPolicy` by first using the global `snapshot.policy` as the default and then applying any
 per-aggregate overrides defined in `snapshot.overrides`. This lets you mix different snapshot behaviors for different
 aggregates while keeping a simple global default.
