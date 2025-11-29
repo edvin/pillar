@@ -52,7 +52,7 @@ class UpcasterRegistry
      * @param class-string $eventClass
      * @param int $fromVersion The original event version
      * @param array $payload The original event data
-     * @return array The transformed (upcasted) data
+     * @return UpcastResult The transformed (upcasted) data
      */
     public function upcast(string $eventClass, int $fromVersion, array $payload): UpcastResult
     {

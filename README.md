@@ -1,4 +1,4 @@
-# 🧠 Pillar
+![Pillar – PHP Event Sourcing](logo.svg)
 
 [![CI](https://github.com/edvin/pillar/actions/workflows/ci.yml/badge.svg)](https://github.com/edvin/pillar/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/edvin/pillar/branch/main/graph/badge.svg)](https://app.codecov.io/gh/edvin/pillar)
