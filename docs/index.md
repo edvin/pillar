@@ -5,7 +5,7 @@ titleTemplate: "Elegant DDD & Event Sourcing for Laravel"
 hero:
   name: "Pillar"
   text: "Elegant DDD & Event Sourcing for Laravel"
-  tagline: "Build rich domain models and event-sourced systems in Laravel — without the complexity."
+  tagline: "Build rich domain models and event-sourced systems in Laravel — without friction."
   image:
     src: /hero-code.svg
     alt: "AggregateSession: find, rename, commit"

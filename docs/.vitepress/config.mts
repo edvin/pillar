@@ -7,6 +7,8 @@ export default withMermaid(defineConfig({
     base: '/',
     lastUpdated: true,
     themeConfig: {
+        logo: './logo-mark.svg',
+        siteTitle: 'Pillar',
         nav: [
             {text: 'Getting started', link: '/getting-started/'},
             {text: 'Tutorial', link: '/tutorials/build-a-document-service'},

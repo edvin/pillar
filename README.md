@@ -7,7 +7,7 @@
 
 ## Elegant DDD & Event Sourcing for Laravel
 
-Build rich domain models and event‑sourced systems — without the complexity.
+Build rich domain models and event‑sourced systems — without friction.
 
 [![Read the Docs](https://img.shields.io/badge/Read%20the%20Docs-https%3A%2F%2Fdocs.pillarphp.dev-2563eb?style=for-the-badge)](https://docs.pillarphp.dev)
 
