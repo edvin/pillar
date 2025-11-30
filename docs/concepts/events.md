@@ -153,7 +153,6 @@ aggregate instance that produced the event—without having to duplicate ids in 
 For convenience in handlers and projectors, you can also use the `Pillar\Event\InteractsWithEvents` trait, which exposes:
 
 - `aggregateRootId()` — returns the current `AggregateRootId|null`.
-- `aggregateRootIdAs(string $idClass)` — safely cast the id to a specific `AggregateRootId` subclass.
 - `correlationId()` and `occurredAt()` — thin wrappers around the corresponding `EventContext` accessors.
 
 ```php
@@ -166,7 +165,7 @@ final class SendWelcomeEmail
     public function __invoke(CustomerRegistered $event): void
     {
         /** @var CustomerId|null $id */
-        $id = $this->aggregateRootIdAs(CustomerId::class);
+        $id = $this->aggregateRootId();
 
         // ...
     }

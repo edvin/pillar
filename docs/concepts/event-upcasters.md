@@ -93,7 +93,7 @@ with the original metadata from storage:
 For convenience in handlers and projectors, you can use the `Pillar\Event\InteractsWithEvents` trait, which exposes:
 
 - `aggregateRootId()` — typed aggregate id from the current `EventContext`.
-- `aggregateRootIdAs(string $idClass)` — safely cast the id to a specific `AggregateRootId` subclass.
+- `aggregateRootId()` — returns the specific `AggregateRootId` subclass.
 - `correlationId()` and `occurredAt()` — thin wrappers around the corresponding `EventContext` accessors.
 
 This means that even for **old events that have been upcasted** to a newer schema, your aggregates and projectors can
