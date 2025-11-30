@@ -28,6 +28,10 @@ final class Document implements EventSourcedAggregateRoot, Snapshottable
         $this->record(new DocumentRenamed($this->id, $newTitle));
     }
 
+    public function print(): void {
+        $this->record(new DocumentPrinted());
+    }
+
     protected function applyDocumentCreated(DocumentCreated $event): void
     {
         $this->id = $event->id;

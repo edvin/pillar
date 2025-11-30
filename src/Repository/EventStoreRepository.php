@@ -12,7 +12,6 @@ use Pillar\Aggregate\EventSourcedAggregateRoot;
 use Pillar\Event\EventContext;
 use Pillar\Event\EventStore;
 use Pillar\Event\EventWindow;
-use Pillar\Event\ShouldPublishInline;
 use Pillar\Logging\PillarLogger;
 use Pillar\Metrics\Counter;
 use Pillar\Metrics\Metrics;
@@ -84,19 +83,6 @@ final readonly class EventStoreRepository implements AggregateRepository
                     'aggregate_type' => $aggregate::class,
                 ]);
 
-                if (!EventContext::isReplaying() && $event instanceof ShouldPublishInline) {
-
-                    EventContext::initialize(
-                        correlationId: EventContext::correlationId() ?? null,
-                        aggregateRootId: $aggregate->id(),
-                    );
-
-                    try {
-                        $this->dispatcher->dispatch($event);
-                    } finally {
-                        EventContext::clear();
-                    }
-                }
                 $delta++;
                 if ($expected !== null) {
                     $expected = $lastSeq;

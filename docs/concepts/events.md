@@ -9,8 +9,6 @@
   and only used to mutate its state.
 - **`ShouldPublish`** marks an event for **asynchronous publication** via the **Transactional Outbox** (reliable,
   at‑least‑once delivery).
-- **`ShouldPublishInline`** marks an event to be **published inline** inside the **same DB transaction** (great for
-  synchronous projectors). If a handler throws, the transaction rolls back.
 - During **replay**, publication is suppressed; projectors are driven **directly** by the replayer.
 
 ---
@@ -63,32 +61,11 @@ final class DocumentCreated implements ShouldPublish
 
 See: **Outbox** page for delivery guarantees, partitioning, retries, etc.
 
-### 3) Inline (in‑transaction) publication: `ShouldPublishInline`
-
-For projections that must be updated **before commit** (and therefore participate in the same transaction), implement
-`ShouldPublishInline`:
-
-```php
-use Pillar\Event\ShouldPublishInline;
-
-final class TitleProjected implements ShouldPublishInline
-{
-    public function __construct(public string $id, public string $title) {}
-}
-```
-
-- The event is persisted, then dispatched to inline handlers **inside the transaction**.
-- If a handler throws, the entire transaction rolls back.
-- Keep handlers fast and deterministic (no remote I/O).
-
-> Inline vs async are usually mutually exclusive. If you implement both, ensure handlers are idempotent and that you
-> actually need both behaviors.
-
 ---
 
 ## Publication policy
 
-Under the hood, a `PublicationPolicy` decides whether an event should be sent to the **async publish pipeline** (the transactional outbox). It does **not** affect which events are persisted, which events are dispatched **inline** via `ShouldPublishInline`, or which events are delivered to projectors during **replay**. The default policy treats **`ShouldPublish`** (and any configured attribute) as a publish signal and suppresses publication during **replay**:
+tUnder the hood, a `PublicationPolicy` decides whether an event should be sent to the **async publish pipeline** (the transactional outbox). It does **not** affect which events are persisted or which events are delivered to projectors during **replay**. The default policy treats **`ShouldPublish`** (and any configured attribute) as a publishing signal and suppresses publication during **replay**:
 
 ```php
 if (EventContext::isReplaying()) {
