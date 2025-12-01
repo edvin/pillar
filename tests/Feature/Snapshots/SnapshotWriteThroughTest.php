@@ -3,7 +3,9 @@
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Aggregate\AggregateRootId;
 use Pillar\Facade\Pillar;
+use Pillar\Snapshot\CadenceSnapshotPolicy;
 use Pillar\Snapshot\Snapshot;
+use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
@@ -35,6 +37,9 @@ it('saves a snapshot with the last aggregate version after commit', function () 
         {
         }
     };
+
+    // Configure always snapshot policy
+    app()->instance(SnapshotPolicy::class, CadenceSnapshotPolicy::always());
 
     // Swap our fake into the container
     app()->instance(SnapshotStore::class, $fake);

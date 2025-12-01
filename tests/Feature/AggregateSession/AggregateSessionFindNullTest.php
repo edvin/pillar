@@ -1,7 +1,14 @@
 <?php
 
 use Pillar\Aggregate\AggregateRootId;
+use Pillar\Aggregate\AggregateSession;
 use Pillar\Facade\Pillar;
+use Pillar\Repository\EventStoreRepository;
+use Pillar\Repository\RepositoryResolver;
+use Pillar\Snapshot\CacheSnapshotStore;
+use Pillar\Snapshot\CadenceSnapshotPolicy;
+use Pillar\Snapshot\DelegatingSnapshotPolicy;
+use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
@@ -18,6 +25,26 @@ it('returns null when the aggregate does not exist', function () {
 
 it('rebuilds from events when snapshot is missing, then re-saves a snapshot', function () {
     $id = DocumentId::new();
+
+    config()->set('pillar.snapshot', [
+        'policy' => [
+            'class' => CadenceSnapshotPolicy::class,
+            'options' => [
+                'threshold' => 1,
+                'offset' => 0,
+            ]
+        ],
+        'overrides' => [],
+        'store' => ['class' => CacheSnapshotStore::class],
+        'ttl' => null,
+    ]);
+
+    app()->forgetInstance(SnapshotStore::class);
+    app()->forgetInstance(SnapshotPolicy::class);
+    app()->forgetInstance(DelegatingSnapshotPolicy::class);
+    app()->forgetInstance(EventStoreRepository::class);
+    app()->forgetInstance(RepositoryResolver::class);
+    app()->forgetInstance(AggregateSession::class);
 
     // Produce a small stream: created (1) + rename(2) + rename(3)
     $s = Pillar::session();

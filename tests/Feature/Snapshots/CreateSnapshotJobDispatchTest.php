@@ -2,7 +2,7 @@
 
 use Illuminate\Support\Facades\Queue;
 use Pillar\Repository\EventStoreRepository;
-use Pillar\Snapshot\AlwaysSnapshotPolicy;
+use Pillar\Snapshot\CadenceSnapshotPolicy;
 use Pillar\Snapshot\CreateSnapshotJob;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
@@ -11,7 +11,8 @@ it('dispatches CreateSnapshotJob when snapshot mode is queued', function () {
     Queue::fake();
 
     config()->set('pillar.snapshot.mode', 'queued');
-    config()->set('pillar.snapshot.policy.class', AlwaysSnapshotPolicy::class);
+    config()->set('pillar.snapshot.policy.class', CadenceSnapshotPolicy::class);
+    config()->set('pillar.snapshot.policy.options', ['threshold' => 1, 'offset' => 0]);
 
     /** @var EventStoreRepository $repository */
     $repository = app(EventStoreRepository::class);

@@ -183,8 +183,11 @@ Notes:
 
     // Global default policy
     'policy' => [
-        'class' => \Pillar\Snapshot\AlwaysSnapshotPolicy::class,
-        'options' => [],
+        'class' => \Pillar\Snapshot\CadenceSnapshotPolicy::class,
+        'options' => [
+            'threshold' => 25,
+            'offset' => 0,
+        ],
     ],
 
     // Per-aggregate overrides

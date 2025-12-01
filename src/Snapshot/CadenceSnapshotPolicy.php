@@ -2,6 +2,7 @@
 
 namespace Pillar\Snapshot;
 
+use Illuminate\Container\Attributes\Config;
 use Pillar\Aggregate\AggregateRoot;
 
 /**
@@ -33,15 +34,15 @@ final class CadenceSnapshotPolicy implements SnapshotPolicy
 {
     /**
      * @param int $threshold Snapshot every N events (N &gt; 0). Set ≤ 0 to disable.
-     * @param int $offset    Phase shift for the cadence. Use to align/stagger snapshots.
+     * @param int $offset Phase shift for the cadence. Use to align/stagger snapshots.
      *
      * Notes:
      * • Choose 0 ≤ $offset &lt; $threshold to avoid surprises (values wrap via modulo).
      * • This policy makes a decision only when new events were appended in the current commit.
      */
     public function __construct(
-        private int $threshold = 100,  // snapshot every N events
-        private int $offset = 0        // snapshot when (newSeq - offset) % N === 0
+        private readonly int $threshold = 25,  // snapshot every N events
+        private readonly int $offset = 0        // snapshot when (newSeq - offset) % N === 0
     )
     {
     }
@@ -54,9 +55,9 @@ final class CadenceSnapshotPolicy implements SnapshotPolicy
      * • `$threshold &gt; 0`.
      *
      * @param AggregateRoot $aggregate The aggregate being saved (not inspected here).
-     * @param int           $newSeq    Persisted version after this commit.
-     * @param int           $prevSeq   Persisted version before this commit.
-     * @param int           $delta     Number of events added in this commit (`$newSeq - $prevSeq`).
+     * @param int $newSeq Persisted version after this commit.
+     * @param int $prevSeq Persisted version before this commit.
+     * @param int $delta Number of events added in this commit (`$newSeq - $prevSeq`).
      * @return bool         True if a snapshot should be taken at this version.
      */
     public function shouldSnapshot(AggregateRoot $aggregate, int $newSeq, int $prevSeq, int $delta): bool
@@ -66,4 +67,10 @@ final class CadenceSnapshotPolicy implements SnapshotPolicy
 
         return (($newSeq - $this->offset) % $this->threshold) === 0;
     }
+
+    public static function always(): self
+    {
+        return new self(threshold: 1);
+    }
+
 }

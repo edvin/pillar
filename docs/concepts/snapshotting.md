@@ -84,8 +84,11 @@ Configure snapshotting in `config/pillar.php`:
 
     // Global default policy
     'policy' => [
-        'class' => \Pillar\Snapshot\AlwaysSnapshotPolicy::class,
-        'options' => [],
+        'class' => \Pillar\Snapshot\CadenceSnapshotPolicy::class,
+        'options' => [
+            'threshold' => 25,
+            'offset' => 0,
+        ],
     ],
 
     'mode' => 'inline', // 'inline' or 'queued'
@@ -119,11 +122,10 @@ aggregates while keeping a simple global default.
 
 ### Built-in policies
 
-| Policy        | Class                    | Behavior                                                                 | Options                                                   |
-|---------------|--------------------------|--------------------------------------------------------------------------|-----------------------------------------------------------|
-| **Always**    | `AlwaysSnapshotPolicy`   | Snapshot automatically whenever the commit persisted one or more events. | _None_                                                    |
-| **Cadence**   | `CadenceSnapshotPolicy`  | Snapshot on a cadence: when `(newSeq - offset) % threshold === 0`.       | `threshold` (int, default 100), `offset` (int, default 0) |
-| **On-Demand** | `OnDemandSnapshotPolicy` | Never auto-snapshot; call the snapshot store yourself when you decide.   | _None_                                                    |
+| Policy        | Class                    | Behavior                                                                 | Options                                                |
+|---------------|--------------------------|--------------------------------------------------------------------------|--------------------------------------------------------|
+| **Cadence**   | `CadenceSnapshotPolicy`  | Snapshot on a cadence: when `(newSeq - offset) % threshold === 0`.       | `threshold` (int, default 25 `offset` (int, default 0) |
+| **On-Demand** | `OnDemandSnapshotPolicy` | Never auto-snapshot; call the snapshot store yourself when you decide.   | _None_                                                 |
 
 **Parameters passed to policies**
 
@@ -135,7 +137,7 @@ aggregates while keeping a simple global default.
 
 Snapshotting is what makes it practical to use aggregates for **small, focused read flows** as well as writes.
 
-- With a policy like `AlwaysSnapshotPolicy`, rehydration usually becomes “load latest snapshot + a short tail of events”.
+- With a policy like `CadenceSnapshotPolicy`, rehydration usually becomes “load latest snapshot + a short tail of events”.
 - This keeps command handlers fast even when a stream has many historical events.
 - For admin screens or one-off tools, it can be perfectly fine to read via aggregates instead of dedicated projections.
 

@@ -20,17 +20,25 @@ final class DelegatingSnapshotPolicy implements SnapshotPolicy
     )
     {
         // Default policy
-        $def = $cfg['policy'] ?? ['class' => AlwaysSnapshotPolicy::class, 'options' => []];
+        $def = $cfg['policy'] ?? ['class' => CadenceSnapshotPolicy::class, 'options' => [
+            'threshold' => 0,
+            'offset' => 0
+        ]];
+
+        $params = $def['options'] ?? [];
+
         $this->default = $container->make(
             $def['class'],
-            ['options' => $def['options'] ?? []]
+            $params
         );
 
         // Per-aggregate overrides
         foreach (($cfg['overrides'] ?? []) as $aggregateClass => $def) {
+            $params = $def['options'] ?? [];
+
             $this->overrides[$aggregateClass] = $container->make(
                 $def['class'],
-                ['options' => $def['options'] ?? []]
+                $params
             );
         }
     }

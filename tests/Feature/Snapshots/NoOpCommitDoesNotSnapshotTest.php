@@ -2,7 +2,9 @@
 
 use Pillar\Aggregate\AggregateRoot;
 use Pillar\Facade\Pillar;
+use Pillar\Snapshot\CadenceSnapshotPolicy;
 use Pillar\Snapshot\Snapshot;
+use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
@@ -28,6 +30,9 @@ it('does not save a snapshot when committing with no new events', function () {
         }
         public function delete(AggregateRootId $id): void {}
     };
+
+    // Configure always snapshot policy
+    app()->instance(SnapshotPolicy::class, CadenceSnapshotPolicy::always());
 
     app()->instance(SnapshotStore::class, $fake);
 

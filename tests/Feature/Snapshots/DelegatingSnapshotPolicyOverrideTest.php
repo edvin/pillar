@@ -4,11 +4,11 @@ use Pillar\Aggregate\AggregateSession;
 use Pillar\Facade\Pillar;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Repository\RepositoryResolver;
+use Pillar\Snapshot\CadenceSnapshotPolicy;
 use Pillar\Snapshot\SnapshotStore;
 use Pillar\Snapshot\SnapshotPolicy;
 use Pillar\Snapshot\DelegatingSnapshotPolicy;
 use Pillar\Snapshot\OnDemandSnapshotPolicy;
-use Pillar\Snapshot\AlwaysSnapshotPolicy;
 use Pillar\Snapshot\CacheSnapshotStore;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
@@ -47,15 +47,20 @@ it('uses the per-aggregate override for Document instead of the default policy',
         config()->set('pillar.snapshot', [
             'policy' => ['class' => OnDemandSnapshotPolicy::class, 'options' => []],
             'overrides' => [
-                Document::class => ['class' => AlwaysSnapshotPolicy::class, 'options' => []],
+                Document::class => [
+                    'class' => CadenceSnapshotPolicy::class,
+                    'options' => [
+                        'threshold' => 1,
+                    ]
+                ],
             ],
             'store' => ['class' => CacheSnapshotStore::class],
             'ttl' => null,
         ]);
 
         // Make sure everyone re-resolves with the new policy
-        app()->forgetInstance(DelegatingSnapshotPolicy::class);
         app()->forgetInstance(SnapshotPolicy::class);
+        app()->forgetInstance(DelegatingSnapshotPolicy::class);
         app()->forgetInstance(EventStoreRepository::class);
         app()->forgetInstance(RepositoryResolver::class);
         app()->forgetInstance(AggregateSession::class);

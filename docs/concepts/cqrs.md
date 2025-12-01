@@ -144,7 +144,7 @@ For small features or admin tooling, you can read by **rehydrating** an aggregat
 - Latency isn’t critical.
 - You won’t run it for lists across many aggregates.
 
-With a snapshot policy such as the default `AlwaysSnapshotPolicy`, most rehydrations are effectively “load latest snapshot + a short tail of events”, which keeps read‑via‑aggregate patterns fast for small, focused scenarios.
+With a snapshot policy such as the default `CadenceSnapshotPolicy`, most rehydrations are effectively “load latest snapshot + a short tail of events”, which keeps read‑via‑aggregate patterns fast for small, focused scenarios.
 
 As you scale, the projection approach wins on:
 
