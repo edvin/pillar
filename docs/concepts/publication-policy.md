@@ -5,7 +5,6 @@ Pillar uses a **Publication Policy** to decide which events should be sent to th
 This policy does **not** affect:
 
 - which events are persisted (all events are persisted),
-- which events are dispatched **inline in the transaction** (that is controlled purely by `ShouldPublishInline`),
 - which events are delivered during **replay** (projectors are driven directly by the replayer).
 
 It only answers one question:
@@ -32,31 +31,17 @@ This means:
 - Local events (no marker interface) are still **persisted** and used to rehydrate aggregates, but are **not visible** to any listeners in the live flow.
 - During replay (`EventContext::isReplaying()`), **no events are published** at all; projectors are invoked directly by the replayer.
 
-Inline publication via `ShouldPublishInline` is handled separately inside the `EventStoreRepository` and does **not** consult the `PublicationPolicy`.
-
 ---
 
-## Inline vs async publication
+## Async publication
 
-Pillar has two distinct publication paths:
+Pillar has a single publication path:
 
-### 1. Inline publication (`ShouldPublishInline`)
-
-Handled entirely inside the repository:
-
-- Events that implement `ShouldPublishInline` are dispatched **inside the same database transaction** that persists the aggregate and its events.
-- If any inline handler throws, the transaction is rolled back.
-- Inline dispatch is suppressed during replay via `EventContext::isReplaying()`.
-
-The `PublicationPolicy` is **not used** for inline events.
-
-### 2. Async publication via outbox (`ShouldPublish` + PublicationPolicy)
+### Async publication via outbox (`ShouldPublish` + PublicationPolicy)
 
 - When an event is recorded, Pillar calls `PublicationPolicy::shouldPublish($event)`.
 - If the policy returns `true`, a **pointer** to the event (its `global_sequence`) is enqueued in the `outbox` table.
 - A background worker rehydrates the event via the `EventStore`, initializes `EventContext` (occurredAt, correlationId, aggregateRootId, replay flags), and dispatches it through the bus.
-
-By default, only `ShouldPublish` events are considered publishable here.
 
 ---
 
@@ -169,7 +154,6 @@ This keeps side-effectful listeners explicit (they still require `ShouldPublish`
 ## Summary
 
 - **All events** are persisted; the publication policy only decides which ones go to the **outbox**.
-- **Inline publication** (`ShouldPublishInline`) bypasses the policy and is controlled only by the marker interface and replay flags.
 - **Projectors**:
     - Always see events on **replay** (driven directly by the replayer).
     - See events in the **live flow** only if those events are publishable under your `PublicationPolicy`.

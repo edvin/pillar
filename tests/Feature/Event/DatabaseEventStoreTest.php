@@ -17,6 +17,7 @@ use Pillar\Event\PublicationPolicy;
 use Pillar\Metrics\Metrics;
 use Pillar\Outbox\Outbox;
 use Pillar\Outbox\Partitioner;
+use Pillar\Outbox\Worker\WorkerRunner;
 use Pillar\Repository\EventStoreRepository;
 use Pillar\Serialization\ObjectSerializer;
 use Tests\Fixtures\Document\Document;
@@ -24,6 +25,10 @@ use Tests\Fixtures\Document\DocumentCreated;
 use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Document\DocumentRenamed;
 use Tests\Fixtures\Encryption\DummyEvent;
+use Tests\Fixtures\Event\TxProbeCreated;
+use Tests\Fixtures\Event\TxProbeRenamed;
+use Tests\Fixtures\TxProbe\TxProbe;
+use Tests\Fixtures\TxProbe\TxProbeId;
 
 it('append() advances stream_sequence when expectedSequence matches (portable path)', function () {
     /** @var EventStore $store */
@@ -317,10 +322,8 @@ it('wraps repository save in its own transaction when called outside a transacti
     DB::reconnect('tx_probe');
 
     try {
-        // Now we should be at transaction level 0 on this fresh connection
         expect(DB::transactionLevel())->toBe(0);
 
-        // Minimal schema for this connection
         Schema::create('events', function (Blueprint $t) {
             $t->bigIncrements('sequence');
             $t->string('stream_id');
@@ -346,19 +349,16 @@ it('wraps repository save in its own transaction when called outside a transacti
             $table->index(['aggregate_type', 'snapshot_version'], 'pillar_snapshots_type_version_idx');
         });
 
-
         /** @var EventStoreRepository $repo */
         $repo = app(EventStoreRepository::class);
 
-        $id = DocumentId::new();
-        $doc = Document::create($id, 't0');
-        $doc->rename('t1');
+        $agg = TxProbe::create();
+        $agg->rename('t1');
 
-        // Act: this should hit the internal DB::transaction($work) branch in the repository
-        $repo->save($doc);
+        $repo->save($agg);
 
-        // Assert: events were persisted atomically for this aggregate id
-        $streamId = app(AggregateRegistry::class)->toStreamName($id);
+        // ⬅️ use the aggregate's real id
+        $streamId = app(AggregateRegistry::class)->toStreamName($agg->id());
 
         $rows = DB::table('events')
             ->select('stream_sequence', 'event_type')
@@ -369,28 +369,25 @@ it('wraps repository save in its own transaction when called outside a transacti
             ->all();
 
         expect($rows)->toEqual([
-            [1, Tests\Fixtures\Document\DocumentCreated::class],
-            [2, Tests\Fixtures\Document\DocumentRenamed::class],
+            [1, TxProbeCreated::class],
+            [2, TxProbeRenamed::class],
         ]);
     } finally {
-        // Tear down the temp connection and restore the original default
         try {
             Schema::dropIfExists('events');
         } catch (Throwable $e) {
             // ignore
         }
 
-        // Restore original default connection
         config()->set('database.default', $original);
 
-        // Disconnect/purge temp and reconnect original
         DB::disconnect('tx_probe');
         DB::purge('tx_probe');
         DB::purge($original);
         DB::reconnect($original);
 
-        // Refresh app to clear any singletons bound to the temp connection
         test()->refreshApplication();
     }
 });
+
 

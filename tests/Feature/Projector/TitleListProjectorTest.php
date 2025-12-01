@@ -3,6 +3,7 @@
 use Pillar\Aggregate\AggregateRegistry;
 use Pillar\Event\EventReplayer;
 use Pillar\Facade\Pillar;
+use Pillar\Outbox\Worker\WorkerRunner;
 use Tests\Fixtures\Document\Document;
 use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Projectors\TitleListProjector;
@@ -28,6 +29,8 @@ it('runs the TitleListProjector on live commits', function () {
     $a2 = $s2->find($id);
     $a2->rename('v2');
     $s2->commit();
+
+    app(WorkerRunner::class)->tick();
 
     expect(TitleListProjector::$seen)->toBe(['v0', 'v1', 'v2']);
 });

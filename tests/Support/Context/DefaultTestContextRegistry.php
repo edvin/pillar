@@ -7,7 +7,10 @@ use Pillar\Context\EventMapBuilder;
 use Tests\Fixtures\Document\DocumentCreated;
 use Tests\Fixtures\Document\DocumentId;
 use Tests\Fixtures\Document\DocumentRenamed;
+use Tests\Fixtures\Event\TxProbeCreated;
+use Tests\Fixtures\Event\TxProbeRenamed;
 use Tests\Fixtures\Projectors\TitleListProjector;
+use Tests\Fixtures\TxProbe\TxProbeId;
 
 final class DefaultTestContextRegistry implements ContextRegistry
 {
@@ -39,6 +42,7 @@ final class DefaultTestContextRegistry implements ContextRegistry
     {
         return [
             DocumentId::class,
+            TxProbeId::class,
         ];
     }
 }

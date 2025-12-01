@@ -522,6 +522,4 @@ ordering.
 **Related concepts**
 
 - Mark events to publish via the **`Pillar\Event\ShouldPublish`** interface.
-- Mark events to publish **within the same transaction** via **`Pillar\Event\ShouldPublishInline`** (for synchronous
-  projections).
 - During **replay**, publishing is suppressed; projectors receive events directly from the store.
